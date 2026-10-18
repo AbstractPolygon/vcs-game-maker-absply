@@ -26,7 +26,7 @@ file there. The shared export code is in `export_sprite.py`.
 | Cannonball loop | `cannonball-loop-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `cannonball-loop` |
 | Fall start | `fall-start-8x8` | 8×8 | 3 | 100 ms (6) | No | `fall-start` |
 | Fall | `fall-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `fall` |
-| Hard landing | `hard-landing-8x8` | 8×8 | 16 | 100 ms (6) | No | `hard-landing` |
+| Hard landing | `hard-landing-8x8` | 8×8 | 10 | 100 ms (6) | No | `hard-landing` |
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
 | Door opening | `door-open-8x8` | 8×8 | 8 | 100 ms (6) | No | `door-open` |
 
@@ -50,7 +50,7 @@ file there. The shared export code is in `export_sprite.py`.
 | Standing jump frames 1 and 8 | Cannonball jump frames 1 and 8 | Crouch and landing |
 | Run cycle frame 8 | Fall start frame 1 | Toe-off |
 | Fall start frame 3 | Fall frame 1 | (plays straight into it) |
-| Hard landing frame 16 | Idle frame 1 | Standing |
+| Hard landing frame 10 | Idle frame 1 | Standing |
 | Idle frame 1 | Door opening frame 1 | Standing |
 | Door opening frame 8 | Idle frame 1 | Standing |
 
@@ -189,26 +189,21 @@ start first when the player walks off a platform.
 
 ![Hard landing](hard-landing-8x8/hard-landing-8x8.gif)
 
-Landing after a long fall: braces, hits the ground, squashes down and splats
-flat out face down, then pushes up on one arm, gets a knee under and stands. Switch to it from the fall loop when the player lands after
-falling a long way; it ends on the idle's frame 1.
+Landing after a long fall: braces, hits the ground and splats flat out face
+down, then pushes up on one arm, gets a knee under and stands. Switch to it
+from the fall loop when the player lands after falling a long way; it ends on
+the idle's frame 1.
 
 1. Bracing for the ground: legs straight, arms up
 2. Impact: knees buckle into a wide squat, arms fling out
-3. Squashing lower, legs splaying
-4. Splat: flattened out face down on the ground
-5. Bounces: feet and back flop up
-6. Lying flat
-7. Lifts the head
-8. Pushes up on one arm
-9. Pulls a knee under
-10. Up on one knee, hand on the ground
-11. Shakes the head
-12. Pushes up off the knee
-13. Hands on knees
-14. Straightening up
-15. Phew: standing, head and shoulders settle, as in the idle's breath out
-16. Standing, as in the idle
+3. Splat: flattened out face down on the ground
+4. Lying flat
+5. Pushes up on one arm
+6. Pulls a knee under
+7. Up on one knee, hand on the ground
+8. Pushes up off the knee
+9. Straightening up
+10. Standing, as in the idle
 
 ### Wall bounce — `wall-bounce-8x8`
 

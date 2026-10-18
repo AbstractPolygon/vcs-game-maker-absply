@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates the 8x8, 16-frame hard landing in this folder (see
+"""Generates the 8x8, 10-frame hard landing in this folder (see
 ../export_sprite.py for the formats). Same character as ../run-cycle-8x8."""
 import os
 import sys
@@ -8,10 +8,10 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from export_sprite import export  # noqa: E402
 
-# Facing right. Landing after a long fall: braces, hits the ground, squashes
-# down and splats flat out face down, then pushes up on one arm, gets a knee
-# under and stands. Play it from the fall loop when the player
-# lands after falling a long way; it ends on the idle's first frame. Plays once.
+# Facing right. Landing after a long fall: braces, hits the ground and splats
+# flat out face down, then pushes up on one arm, gets a knee under and stands.
+# Play it from the fall loop when the player lands after falling a long way;
+# it ends on the idle's first frame. Plays once.
 FRAMES = [
     # 1 bracing for the ground: legs straight, arms up
     """
@@ -35,18 +35,7 @@ FRAMES = [
     ...#.#..
     ..#...#.
     """,
-    # 3 squashing lower, legs splaying
-    """
-    ........
-    ........
-    ........
-    ....##..
-    .#..##.#
-    ..#####.
-    ..#...#.
-    .#.....#
-    """,
-    # 4 splat: flattened out face down on the ground
+    # 3 splat: flattened out face down on the ground
     """
     ........
     ........
@@ -57,18 +46,7 @@ FRAMES = [
     #.....##
     .#######
     """,
-    # 5 bounces: feet and back flop up
-    """
-    ........
-    ........
-    ........
-    ........
-    ........
-    #.......
-    .#...###
-    ..######
-    """,
-    # 6 lying flat
+    # 4 lying flat
     """
     ........
     ........
@@ -79,18 +57,7 @@ FRAMES = [
     ......##
     ########
     """,
-    # 7 lifts the head
-    """
-    ........
-    ........
-    ........
-    ........
-    ........
-    ......##
-    ......##
-    ######..
-    """,
-    # 8 pushes up on one arm
+    # 5 pushes up on one arm
     """
     ........
     ........
@@ -101,7 +68,7 @@ FRAMES = [
     ....##..
     ####.#..
     """,
-    # 9 pulls a knee under
+    # 6 pulls a knee under
     """
     ........
     ........
@@ -112,7 +79,7 @@ FRAMES = [
     ...#.#..
     .##..#..
     """,
-    # 10 up on one knee, hand on the ground
+    # 7 up on one knee, hand on the ground
     """
     ........
     ........
@@ -123,18 +90,7 @@ FRAMES = [
     ..#..##.
     .##.#.#.
     """,
-    # 11 shakes the head
-    """
-    ........
-    ........
-    ........
-    ....##..
-    ....##..
-    ...###..
-    ..#..##.
-    .##.#.#.
-    """,
-    # 12 pushes up off the knee
+    # 8 pushes up off the knee
     """
     ........
     ........
@@ -145,18 +101,7 @@ FRAMES = [
     ..#.##..
     .##..#..
     """,
-    # 13 hands on knees
-    """
-    ........
-    ........
-    .....##.
-    .....##.
-    ...###..
-    ...#.#..
-    ...#.#..
-    ...#.#..
-    """,
-    # 14 straightening up
+    # 9 straightening up
     """
     ........
     ....##..
@@ -167,18 +112,7 @@ FRAMES = [
     ...#.#..
     ...#.#..
     """,
-    # 15 phew: standing, head and shoulders settle, as in the idle's breath out
-    """
-    ........
-    ....##..
-    ....##..
-    ...###..
-    ...#.#..
-    ....#...
-    ...#.#..
-    ...#.#..
-    """,
-    # 16 standing, as in the idle
+    # 10 standing, as in the idle
     """
     ....##..
     ....##..

@@ -219,138 +219,6 @@
         "h": 8
       },
       "duration": 100
-    },
-    {
-      "filename": "hard-landing 10.aseprite",
-      "frame": {
-        "x": 80,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 100
-    },
-    {
-      "filename": "hard-landing 11.aseprite",
-      "frame": {
-        "x": 88,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 100
-    },
-    {
-      "filename": "hard-landing 12.aseprite",
-      "frame": {
-        "x": 96,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 100
-    },
-    {
-      "filename": "hard-landing 13.aseprite",
-      "frame": {
-        "x": 104,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 100
-    },
-    {
-      "filename": "hard-landing 14.aseprite",
-      "frame": {
-        "x": 112,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 100
-    },
-    {
-      "filename": "hard-landing 15.aseprite",
-      "frame": {
-        "x": 120,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 100
     }
   ],
   "meta": {
@@ -358,7 +226,7 @@
     "image": "hard-landing-8x8.png",
     "format": "RGB888",
     "size": {
-      "w": 128,
+      "w": 80,
       "h": 8
     },
     "scale": "1",
@@ -366,7 +234,7 @@
       {
         "name": "hard-landing",
         "from": 0,
-        "to": 15,
+        "to": 9,
         "direction": "forward"
       }
     ]
