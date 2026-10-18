@@ -1,0 +1,198 @@
+{
+  "frames": [
+    {
+      "filename": "run 0.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
+    },
+    {
+      "filename": "run 1.aseprite",
+      "frame": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
+    },
+    {
+      "filename": "run 2.aseprite",
+      "frame": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
+    },
+    {
+      "filename": "run 3.aseprite",
+      "frame": {
+        "x": 24,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
+    },
+    {
+      "filename": "run 4.aseprite",
+      "frame": {
+        "x": 32,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
+    },
+    {
+      "filename": "run 5.aseprite",
+      "frame": {
+        "x": 40,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
+    },
+    {
+      "filename": "run 6.aseprite",
+      "frame": {
+        "x": 48,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
+    },
+    {
+      "filename": "run 7.aseprite",
+      "frame": {
+        "x": 56,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
+    }
+  ],
+  "meta": {
+    "app": "https://www.aseprite.org/",
+    "image": "run-cycle-8x8.png",
+    "format": "RGB888",
+    "size": {
+      "w": 64,
+      "h": 8
+    },
+    "scale": "1",
+    "frameTags": [
+      {
+        "name": "run",
+        "from": 0,
+        "to": 7,
+        "direction": "forward"
+      }
+    ]
+  }
+}
