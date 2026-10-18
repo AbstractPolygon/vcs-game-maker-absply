@@ -8,10 +8,10 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from export_sprite import export  # noqa: E402
 
-# Facing right, opening a door just past the right edge and walking through.
-# Only the player is drawn: the game draws the door and swaps it to open
-# around frames 6-7, and moves the sprite forward over frames 7-8. Starts on
-# the idle's first frame and ends on the run cycle's frame 1.
+# Facing right, opening a door just past the right edge. The feet stay planted
+# in the idle's stance the whole time; only the upper body moves. Only the
+# player is drawn: the game draws the door and swaps it to open around frames
+# 6-7. Starts and ends on the idle's first frame.
 FRAMES = [
     # 1 standing, as in the idle
     """
@@ -57,49 +57,49 @@ FRAMES = [
     ...#.#..
     ...#.#..
     """,
-    # 5 turns the handle, bracing: back foot slides back
+    # 5 turns the handle
     """
-    ........
     ....##..
     ....##..
     ....#...
-    ....####
+    ....###.
+    ....#..#
+    ....#...
     ...#.#..
     ...#.#..
-    ..#..#..
     """,
-    # 6 pushes: leans hard into the door, back leg driving
+    # 6 leans in and pushes the door
     """
-    ........
     .....##.
     .....##.
     ....#...
     ....####
-    ...#....
-    ..#.#...
-    .#..##..
-    """,
-    # 7 door swings open: front foot steps through, arm still holding it
-    """
-    ....##..
-    ....##..
     ....#...
-    ....####
     ....#...
     ...#.#..
-    ..#..#..
-    .#....#.
+    ...#.#..
     """,
-    # 8 walking on, as in the run
+    # 7 door swings away, hand follows it up
+    """
+    .....##.
+    .....##.
+    ....#..#
+    ....###.
+    ....#...
+    ....#...
+    ...#.#..
+    ...#.#..
+    """,
+    # 8 lets go, standing again, as in the idle
     """
     ....##..
     ....##..
-    ....#.#.
+    ....#...
     ...###..
-    ..#.#...
     ...#.#..
-    .##..#..
-    ......#.
+    ....#...
+    ...#.#..
+    ...#.#..
     """,
 ]
 export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'door-open-8x8', 'door_open', 'door-open')

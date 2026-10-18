@@ -50,7 +50,7 @@ file there. The shared export code is in `export_sprite.py`.
 | Run cycle frame 8 | Fall start frame 1 | Toe-off |
 | Fall start frame 3 | Fall frame 1 | (plays straight into it) |
 | Idle frame 1 | Door opening frame 1 | Standing |
-| Door opening frame 8 | Run cycle frame 1 (carry on from frame 2) | Walking on |
+| Door opening frame 8 | Idle frame 1 | Standing |
 
 ## Animations
 
@@ -204,16 +204,16 @@ the sprite left, mostly over frames 3–5.
 
 ![Door opening](door-open-8x8/door-open-8x8.gif)
 
-Opening a door just past the right edge and walking through. Only the player
-is drawn: the game draws the door, swaps it to open around frames 6–7, and
-moves the sprite forward over frames 7–8. Starts on the idle's frame 1 and
-ends on the run cycle's frame 1.
+Opening a door just past the right edge. The feet stay planted in the idle's
+stance the whole time; only the upper body moves. Only the player is drawn:
+the game draws the door and swaps it to open around frames 6–7. Starts and
+ends on the idle's frame 1.
 
 1. Standing, as in the idle
 2. Turns side-on to the door, arms down
 3. Reaches out for the handle
 4. Grips the handle at the door's edge
-5. Turns the handle, bracing: back foot slides back
-6. Pushes: leans hard into the door, back leg driving
-7. Door swings open: front foot steps through, arm still holding it
-8. Walking on, as in the run
+5. Turns the handle
+6. Leans in and pushes the door
+7. Door swings away, hand follows it up
+8. Lets go, standing again, as in the idle
