@@ -27,6 +27,7 @@ file there. The shared export code is in `export_sprite.py`.
 | Fall start | `fall-start-8x8` | 8×8 | 3 | 100 ms (6) | No | `fall-start` |
 | Fall | `fall-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `fall` |
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
+| Door opening | `door-open-8x8` | 8×8 | 8 | 100 ms (6) | No | `door-open` |
 
 ## Lining the animations up
 
@@ -48,6 +49,8 @@ file there. The shared export code is in `export_sprite.py`.
 | Standing jump frames 1 and 8 | Cannonball jump frames 1 and 8 | Crouch and landing |
 | Run cycle frame 8 | Fall start frame 1 | Toe-off |
 | Fall start frame 3 | Fall frame 1 | (plays straight into it) |
+| Idle frame 1 | Door opening frame 1 | Standing |
+| Door opening frame 8 | Run cycle frame 1 (carry on from frame 2) | Walking on |
 
 ## Animations
 
@@ -196,3 +199,21 @@ the sprite left, mostly over frames 3–5.
 6. Staggering, arms out for balance
 7. Steadying: bent over, hands on knees
 8. Standing again, as in the idle
+
+### Door opening — `door-open-8x8`
+
+![Door opening](door-open-8x8/door-open-8x8.gif)
+
+Opening a door just past the right edge and walking through. Only the player
+is drawn: the game draws the door, swaps it to open around frames 5–6, and
+moves the sprite forward over frames 6–8. Starts on the idle's frame 1 and
+ends on the run cycle's frame 1.
+
+1. Standing, as in the idle
+2. Reaching for the handle
+3. Grabbing the handle, arm stretched out
+4. Turning the handle
+5. Leaning in to push the door
+6. Door swings open: stepping forward, arm still on it
+7. Stepping through, arm coming down
+8. Walking on, as in the run
