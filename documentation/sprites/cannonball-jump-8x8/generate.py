@@ -17,18 +17,18 @@ FRAMES = [
     """
     ........
     ........
-    ....##..
-    ....##..
+    .....##.
+    .....##.
+    .#..#...
     ..###...
-    ....#...
-    .....#..
-    ...###..
+    ....##..
+    ...#.#..
     """,
-    # 2 spring up: stretched out on the toes, arms thrust up (on the ground)
+    # 2 spring up: stretched out on the toes, arm reaching up (on the ground)
     """
-    ....##.#
-    ..#.###.
-    ...###..
+    ......#.
+    ....###.
+    ....##..
     ....#...
     ....#...
     ....#...
@@ -39,10 +39,10 @@ FRAMES = [
     """
     ....##..
     ....##..
-    ....#...
     ....#.#.
     ....###.
-    .....##.
+    ....##..
+    .....#..
     ........
     ........
     """,
@@ -90,16 +90,16 @@ FRAMES = [
     ....#...
     ....##..
     """,
-    # 8 landing: knees bend to absorb it, as in the standing jump (on the ground)
+    # 8 landing: knees bend to absorb it, arms out for balance, as in the standing jump (on the ground)
     """
     ........
     ........
     ....##..
     ....##..
-    ....#...
+    ..#.#.#.
     ...##...
-    ..#..#..
-    ...###..
+    ....##..
+    ...#.#..
     """,
 ]
 # Pixels to raise the sprite by on each frame, from where it stands (the GIF

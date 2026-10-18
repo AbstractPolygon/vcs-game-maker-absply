@@ -16,18 +16,18 @@ FRAMES = [
     """
     ........
     ........
-    ....##..
-    ....##..
+    .....##.
+    .....##.
+    .#..#...
     ..###...
-    ....#...
-    .....#..
-    ...###..
+    ....##..
+    ...#.#..
     """,
-    # 2 launch: stretched out on the toes, arms thrust up (on the ground)
+    # 2 launch: stretched out on the toes, arm reaching up (on the ground)
     """
-    ....##.#
-    ..#.###.
-    ...###..
+    ......#.
+    ....###.
+    ....##..
     ....#...
     ....#...
     ....#...
@@ -36,9 +36,9 @@ FRAMES = [
     """,
     # 3 rising (raise 3 px)
     """
-    ....##.#
-    ..#.###.
-    ...###..
+    ......#.
+    ....###.
+    ....##..
     ....#...
     ....#...
     ....#...
@@ -52,7 +52,7 @@ FRAMES = [
     ..#.#.#.
     ...###..
     ....#...
-    ....#...
+    ....##..
     .....#..
     ....#...
     """,
@@ -63,8 +63,8 @@ FRAMES = [
     ..#.#.#.
     ...###..
     ....#...
-    .....##.
-    .....#..
+    ....###.
+    ......#.
     ........
     """,
     # 6 falling, legs opening (raise 6 px)
@@ -75,8 +75,8 @@ FRAMES = [
     ...###..
     ....#...
     ....#...
-    .....#..
-    ....#...
+    ...#.#..
+    ...#.#..
     """,
     # 7 legs reaching for the ground (raise 2 px)
     """
@@ -89,16 +89,16 @@ FRAMES = [
     ....#...
     ....##..
     """,
-    # 8 landing: knees bend to absorb it (on the ground)
+    # 8 landing: knees bend to absorb it, arms out for balance (on the ground)
     """
     ........
     ........
     ....##..
     ....##..
-    ....#...
+    ..#.#.#.
     ...##...
-    ..#..#..
-    ...###..
+    ....##..
+    ...#.#..
     """,
 ]
 # Pixels to raise the sprite by on each frame, from where it stands (the GIF

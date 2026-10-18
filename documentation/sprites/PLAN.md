@@ -92,13 +92,13 @@ pose and lands back in it. Raise the sprite by the amount shown on each
 frame.
 
 1. Crouch, arms swung back (on the ground)
-2. Launch: stretched out on the toes, arms thrust up (on the ground)
+2. Launch: stretched out on the toes, arm reaching up (on the ground)
 3. Rising (raise 3 px)
 4. Knees start to tuck, arms out (raise 6 px)
 5. Top of the jump, knees tucked (raise 8 px)
 6. Falling, legs opening (raise 6 px)
 7. Legs reaching for the ground (raise 2 px)
-8. Landing: knees bend to absorb it (on the ground)
+8. Landing: knees bend to absorb it, arms out for balance (on the ground)
 
 ### Running jump — `running-jump-8x8`
 
@@ -126,13 +126,13 @@ then uncurls to land. Rises up to 8 pixels. Shares its first and last frames
 with the standing jump. Raise the sprite by the amount shown on each frame.
 
 1. Crouch, arms swung back, as in the standing jump (on the ground)
-2. Spring up: stretched out on the toes, arms thrust up (on the ground)
+2. Spring up: stretched out on the toes, arm reaching up (on the ground)
 3. Knees pulled up, hands reaching for them (raise 4 px)
 4. Cannonball: curled up, hugging the knees (raise 7 px)
 5. Rolling forward in the ball (raise 8 px)
 6. Holding the ball tight (raise 6 px)
 7. Uncurling: legs reaching down, arms out (raise 3 px)
-8. Landing: knees bend to absorb it, as in the standing jump (on the ground)
+8. Landing: knees bend to absorb it, arms out for balance, as in the standing jump (on the ground)
 
 ### Fall — `fall-8x8`
 
