@@ -195,7 +195,7 @@ fall loop when the player lands after falling a long way; it ends on the idle's
 frame 1.
 
 1. Bracing for the ground: legs straight down, arms up
-2. Impact: knees buckle, arms fling out
+2. Impact: knees buckle into a wide squat, arms fling out
 3. Slams down on one knee, hand on the ground
 4. Dazed: head drops
 5. Shakes the head

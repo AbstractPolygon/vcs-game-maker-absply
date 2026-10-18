@@ -16,24 +16,24 @@ FRAMES = [
     # 1 bracing for the ground: legs straight down, arms up
     """
     ........
-    ..#.##..
+    .#..##..
     ..#.##.#
-    ...##.#.
-    ....##..
+    ...####.
+    ....#...
     ....#...
     ...#.#..
     ...#.#..
     """,
-    # 2 impact: knees buckle, arms fling out
+    # 2 impact: knees buckle into a wide squat, arms fling out
     """
     ........
-    .#...##.
-    ..#.##..
-    ...###.#
-    ....#.#.
+    ........
+    ....##..
+    .#..##.#
+    ..#####.
+    ....#...
     ...#.#..
     ..#...#.
-    .##...##
     """,
     # 3 slams down on one knee, hand on the ground
     """
