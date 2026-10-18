@@ -33,9 +33,7 @@ file there. The shared export code is in `export_sprite.py`.
   animations needs no offset.
 - **Movement comes from the game.** The animations change only the pose.
   Running forward, the height of a jump, falling and the wall knock-back all
-  need the sprite to be moved in game code. For the jumps, each frame below
-  says how far to raise the sprite (also in `LIFT` in their `generate.py`),
-  and their GIFs show it raised that way.
+  need the sprite to be moved in game code.
 - **Shared frames.** Where one animation hands over to another, they share the
   exact same frame, so the switch doesn't jump:
 
@@ -87,52 +85,50 @@ the knee after push-off.
 
 ![Standing jump](standing-jump-8x8/standing-jump-8x8.gif)
 
-A jump straight up from standing, rising up to 8 pixels. Starts from the idle
-pose and lands back in it. Raise the sprite by the amount shown on each
-frame.
+A jump straight up from standing. Starts from the idle pose and lands back in
+it.
 
-1. Crouch, arms swung back (on the ground)
-2. Launch: stretched out on the toes, arm reaching up (on the ground)
-3. Rising (raise 3 px)
-4. Knees start to tuck, arms out (raise 6 px)
-5. Top of the jump, knees tucked (raise 8 px)
-6. Falling, legs opening (raise 6 px)
-7. Legs reaching for the ground (raise 2 px)
-8. Landing: knees bend to absorb it, arms out for balance (on the ground)
+1. Crouch, arms swung back
+2. Launch: stretched out on the toes, arm reaching up
+3. Rising
+4. Knees start to tuck, arms out
+5. Top of the jump, knees tucked
+6. Falling, legs opening
+7. Legs reaching for the ground
+8. Landing: knees bend to absorb it, arms out for balance
 
 ### Running jump — `running-jump-8x8`
 
 ![Running jump](running-jump-8x8/running-jump-8x8.gif)
 
-A leap taken mid-run, rising up to 6 pixels. It takes off from the run cycle's
-frame 8 and lands on its frame 1, so switch back to the run at frame 2. Raise
-the sprite by the amount shown on each frame.
+A leap taken mid-run. It takes off from the run cycle's frame 8 and lands on
+its frame 1, so switch back to the run at frame 2.
 
-1. Toe-off, as in the run (on the ground)
-2. Drive: back leg straight, front knee high (raise 2 px)
-3. Rising: back knee folds (raise 4 px)
-4. Top: arms up, legs gathering (raise 6 px)
-5. Top: both legs swing forward (raise 6 px)
-6. Legs out in front, arms coming down (raise 4 px)
-7. Front leg reaches for the ground (raise 2 px)
-8. Landing, as in the run (on the ground)
+1. Toe-off, as in the run
+2. Drive: back leg straight, front knee high
+3. Rising: back knee folds
+4. Top: arms up, legs gathering
+5. Top: both legs swing forward
+6. Legs out in front, arms coming down
+7. Front leg reaches for the ground
+8. Landing, as in the run
 
 ### Cannonball jump — `cannonball-jump-8x8`
 
 ![Cannonball jump](cannonball-jump-8x8/cannonball-jump-8x8.gif)
 
 A jump from standing that curls into a ball at the top, hugging the knees,
-then uncurls to land. Rises up to 8 pixels. Shares its first and last frames
-with the standing jump. Raise the sprite by the amount shown on each frame.
+then uncurls to land. Shares its first and last frames with the standing
+jump.
 
-1. Crouch, arms swung back, as in the standing jump (on the ground)
-2. Spring up: stretched out on the toes, arm reaching up (on the ground)
-3. Knees pulled up, hands reaching for them (raise 4 px)
-4. Cannonball: curled up, hugging the knees (raise 7 px)
-5. Rolling forward in the ball (raise 8 px)
-6. Holding the ball tight (raise 6 px)
-7. Uncurling: legs reaching down, arms out (raise 3 px)
-8. Landing: knees bend to absorb it, arms out for balance, as in the standing jump (on the ground)
+1. Crouch, arms swung back, as in the standing jump
+2. Spring up: stretched out on the toes, arm reaching up
+3. Knees pulled up, hands reaching for them
+4. Cannonball: curled up, hugging the knees
+5. Rolling forward in the ball
+6. Holding the ball tight
+7. Uncurling: legs reaching down, arms out
+8. Landing: knees bend to absorb it, arms out for balance, as in the standing jump
 
 ### Fall — `fall-8x8`
 

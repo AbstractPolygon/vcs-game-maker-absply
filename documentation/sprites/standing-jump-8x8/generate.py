@@ -9,10 +9,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from export_sprite import export  # noqa: E402
 
 # Facing right. A jump straight up from standing, starting from the idle pose
-# and landing back in it. Only the pose is drawn: the game raises the sprite by
-# the amount noted on each frame (LIFT below), up to 8 pixels at the top.
+# and landing back in it. Only the pose is drawn; the jump's height comes from
+# moving the sprite in the game.
 FRAMES = [
-    # 1 crouch, arms swung back (on the ground)
+    # 1 crouch, arms swung back
     """
     ........
     ........
@@ -23,7 +23,7 @@ FRAMES = [
     ....##..
     ...#.#..
     """,
-    # 2 launch: stretched out on the toes, arm reaching up (on the ground)
+    # 2 launch: stretched out on the toes, arm reaching up
     """
     ......#.
     ....###.
@@ -34,7 +34,7 @@ FRAMES = [
     ....#...
     ....#...
     """,
-    # 3 rising (raise 3 px)
+    # 3 rising
     """
     ......#.
     ....###.
@@ -45,7 +45,7 @@ FRAMES = [
     ....#...
     ...#....
     """,
-    # 4 knees start to tuck, arms out (raise 6 px)
+    # 4 knees start to tuck, arms out
     """
     ....##..
     ....##..
@@ -56,7 +56,7 @@ FRAMES = [
     .....#..
     ....#...
     """,
-    # 5 top of the jump, knees tucked (raise 8 px)
+    # 5 top of the jump, knees tucked
     """
     ....##..
     ....##..
@@ -67,7 +67,7 @@ FRAMES = [
     ......#.
     ........
     """,
-    # 6 falling, legs opening (raise 6 px)
+    # 6 falling, legs opening
     """
     ....##..
     ....##..
@@ -78,7 +78,7 @@ FRAMES = [
     ...#.#..
     ...#.#..
     """,
-    # 7 legs reaching for the ground (raise 2 px)
+    # 7 legs reaching for the ground
     """
     ....##..
     ....##..
@@ -89,7 +89,7 @@ FRAMES = [
     ....#...
     ....##..
     """,
-    # 8 landing: knees bend to absorb it, arms out for balance (on the ground)
+    # 8 landing: knees bend to absorb it, arms out for balance
     """
     ........
     ........
@@ -101,7 +101,4 @@ FRAMES = [
     ...#.#..
     """,
 ]
-# Pixels to raise the sprite by on each frame, from where it stands (the GIF
-# preview shows it raised by these).
-LIFT = [0, 0, 3, 6, 8, 6, 2, 0]
-export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'standing-jump-8x8', 'standing_jump', 'standing-jump', lift=LIFT)
+export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'standing-jump-8x8', 'standing_jump', 'standing-jump')
