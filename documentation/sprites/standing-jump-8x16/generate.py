@@ -166,4 +166,4 @@ FRAMES = [
     ...###..
     """,
 ]
-export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'standing-jump-8x16', 'standing_jump', 'jump')
+export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'standing-jump-8x16', 'standing_jump', 'standing-jump')

@@ -1,7 +1,7 @@
 {
   "frames": [
     {
-      "filename": "jump 0.aseprite",
+      "filename": "standing-jump 0.aseprite",
       "frame": {
         "x": 0,
         "y": 0,
@@ -23,7 +23,7 @@
       "duration": 100
     },
     {
-      "filename": "jump 1.aseprite",
+      "filename": "standing-jump 1.aseprite",
       "frame": {
         "x": 8,
         "y": 0,
@@ -45,7 +45,7 @@
       "duration": 100
     },
     {
-      "filename": "jump 2.aseprite",
+      "filename": "standing-jump 2.aseprite",
       "frame": {
         "x": 16,
         "y": 0,
@@ -67,7 +67,7 @@
       "duration": 100
     },
     {
-      "filename": "jump 3.aseprite",
+      "filename": "standing-jump 3.aseprite",
       "frame": {
         "x": 24,
         "y": 0,
@@ -89,7 +89,7 @@
       "duration": 100
     },
     {
-      "filename": "jump 4.aseprite",
+      "filename": "standing-jump 4.aseprite",
       "frame": {
         "x": 32,
         "y": 0,
@@ -111,7 +111,7 @@
       "duration": 100
     },
     {
-      "filename": "jump 5.aseprite",
+      "filename": "standing-jump 5.aseprite",
       "frame": {
         "x": 40,
         "y": 0,
@@ -133,7 +133,7 @@
       "duration": 100
     },
     {
-      "filename": "jump 6.aseprite",
+      "filename": "standing-jump 6.aseprite",
       "frame": {
         "x": 48,
         "y": 0,
@@ -155,7 +155,7 @@
       "duration": 100
     },
     {
-      "filename": "jump 7.aseprite",
+      "filename": "standing-jump 7.aseprite",
       "frame": {
         "x": 56,
         "y": 0,
@@ -188,7 +188,7 @@
     "scale": "1",
     "frameTags": [
       {
-        "name": "jump",
+        "name": "standing-jump",
         "from": 0,
         "to": 7,
         "direction": "forward"
