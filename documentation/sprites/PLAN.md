@@ -213,7 +213,7 @@ ends on the run cycle's frame 1.
 2. Turns side-on to the door, arms down
 3. Reaches out for the handle
 4. Grips the handle at the door's edge
-5. Turns the handle, bracing: knees bend
+5. Turns the handle, bracing: back foot slides back
 6. Pushes: leans hard into the door, back leg driving
-7. Door swings open: steps through, arm still holding it
+7. Door swings open: front foot steps through, arm still holding it
 8. Walking on, as in the run

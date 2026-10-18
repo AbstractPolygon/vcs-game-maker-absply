@@ -32,7 +32,7 @@ FRAMES = [
     ....##..
     ....#...
     ....#...
-    ....##..
+    ...#.#..
     ...#.#..
     """,
     # 3 reaches out for the handle
@@ -43,7 +43,7 @@ FRAMES = [
     ....###.
     ....#...
     ....#...
-    ....##..
+    ...#.#..
     ...#.#..
     """,
     # 4 grips the handle at the door's edge
@@ -54,19 +54,19 @@ FRAMES = [
     ....####
     ....#...
     ....#...
-    ....##..
+    ...#.#..
     ...#.#..
     """,
-    # 5 turns the handle, bracing: knees bend
+    # 5 turns the handle, bracing: back foot slides back
     """
     ........
     ....##..
     ....##..
     ....#...
     ....####
-    ....#...
     ...#.#..
-    ..##.##.
+    ...#.#..
+    ..#..#..
     """,
     # 6 pushes: leans hard into the door, back leg driving
     """
@@ -79,7 +79,7 @@ FRAMES = [
     ..#.#...
     .#..##..
     """,
-    # 7 door swings open: steps through, arm still holding it
+    # 7 door swings open: front foot steps through, arm still holding it
     """
     ....##..
     ....##..
