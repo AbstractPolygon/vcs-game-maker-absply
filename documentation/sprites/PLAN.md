@@ -26,6 +26,7 @@ file there. The shared export code is in `export_sprite.py`.
 | Cannonball loop | `cannonball-loop-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `cannonball-loop` |
 | Fall start | `fall-start-8x8` | 8×8 | 3 | 100 ms (6) | No | `fall-start` |
 | Fall | `fall-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `fall` |
+| Hard landing | `hard-landing-8x8` | 8×8 | 10 | 100 ms (6) | No | `hard-landing` |
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
 | Door opening | `door-open-8x8` | 8×8 | 8 | 100 ms (6) | No | `door-open` |
 
@@ -49,6 +50,7 @@ file there. The shared export code is in `export_sprite.py`.
 | Standing jump frames 1 and 8 | Cannonball jump frames 1 and 8 | Crouch and landing |
 | Run cycle frame 8 | Fall start frame 1 | Toe-off |
 | Fall start frame 3 | Fall frame 1 | (plays straight into it) |
+| Hard landing frame 10 | Idle frame 1 | Standing |
 | Idle frame 1 | Door opening frame 1 | Standing |
 | Door opening frame 8 | Idle frame 1 | Standing |
 
@@ -182,6 +184,26 @@ start first when the player walks off a platform.
 6. Arms swinging back, front knee up
 7. Arms out level, legs crossing
 8. Back arm up, front arm low, back leg under
+
+### Hard landing — `hard-landing-8x8`
+
+![Hard landing](hard-landing-8x8/hard-landing-8x8.gif)
+
+Landing after a long fall: braces, hits the ground, slams down on one knee
+with a hand on the ground, shakes it off and stands up. Switch to it from the
+fall loop when the player lands after falling a long way; it ends on the idle's
+frame 1.
+
+1. Bracing for the ground: legs straight down, arms up
+2. Impact: knees buckle, arms fling out
+3. Slams down on one knee, hand on the ground
+4. Dazed: head drops
+5. Shakes the head
+6. Pushes up off the knee
+7. Hands on knees
+8. Straightening up
+9. Shakes it off: arms out
+10. Standing, as in the idle
 
 ### Wall bounce — `wall-bounce-8x8`
 
