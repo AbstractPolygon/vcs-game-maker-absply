@@ -205,15 +205,15 @@ the sprite left, mostly over frames 3–5.
 ![Door opening](door-open-8x8/door-open-8x8.gif)
 
 Opening a door just past the right edge and walking through. Only the player
-is drawn: the game draws the door, swaps it to open around frames 5–6, and
-moves the sprite forward over frames 6–8. Starts on the idle's frame 1 and
+is drawn: the game draws the door, swaps it to open around frames 6–7, and
+moves the sprite forward over frames 7–8. Starts on the idle's frame 1 and
 ends on the run cycle's frame 1.
 
 1. Standing, as in the idle
-2. Reaching for the handle
-3. Grabbing the handle, arm stretched out
-4. Turning the handle
-5. Leaning in to push the door
-6. Door swings open: stepping forward, arm still on it
-7. Stepping through, arm coming down
+2. Turns side-on to the door, arms down
+3. Reaches out for the handle
+4. Grips the handle at the door's edge
+5. Turns the handle, bracing: knees bend
+6. Pushes: leans hard into the door, back leg driving
+7. Door swings open: steps through, arm still holding it
 8. Walking on, as in the run
