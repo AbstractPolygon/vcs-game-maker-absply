@@ -1,103 +1,105 @@
 #!/usr/bin/env python3
 """Generates the 8x8, 8-frame run cycle in this folder in every format
 PlayerEditor.vue can import: an Aseprite sheet (strip PNG + .json),
-one PNG per frame, and one batari Basic .spr file per frame."""
+one PNG per frame, and one batari Basic .spr file per frame, plus an
+animated GIF preview."""
 import json
 import os
 
 from PIL import Image
 
-# Facing right. The near arm is drawn full length and the far arm as just a
-# hand beside the torso, so the two halves of the stride (mirror images in a
-# 1-bit silhouette) still read as 8 distinct poses.
+# Facing right. A 1-bit silhouette can't tell the left limbs from the right,
+# so the two halves of a stride look identical: these 8 frames cover a single
+# step (one foot landing to the other foot landing) and loop as a full run.
+# The arms swing opposite each other, from fully back to fully forward.
 FRAMES = [
-    # 1 contact: near leg forward, near arm back
+    # 1 landing: front foot reaches the ground, arms at full swing
     """
     ....##..
     ....##..
-    .#.##...
-    ..####..
+    ....#.#.
+    ...###..
+    ..#.#...
+    ...#.#..
+    .##..#..
+    ......#.
+    """,
+    # 2 front knee bends to take the weight, back heel lifts
+    """
+    ....##..
+    ....##..
+    ....#.#.
+    ...###..
     ...##...
+    .#.##...
     ..#..#..
-    .#....#.
-    #......#
+    .....#..
     """,
-    # 2 down: weight on near leg, far heel kicks up behind
-    """
-    ........
-    ....##..
-    ....##..
-    ..###...
-    ...###..
-    .#.##...
-    ..#.#...
-    ....##..
-    """,
-    # 3 passing: far leg swings through, arm comes forward
+    # 3 back heel kicks up behind, bent at the knee
     """
     ....##..
     ....##..
-    ...##...
-    ..###...
-    ...###..
-    ...##...
-    ..#.#...
-    ....##..
+    ....#...
+    ...####.
+    ....#...
+    ..#.##..
+    ...#.#..
+    .....#..
     """,
-    # 4 up: push off near leg, far knee high, arm forward
+    # 4 standing leg under the body, back foot tucked up
     """
     ....##..
+    ....##..
+    ....#...
     ....##..
     ...##.#.
-    ..####..
+    ....#...
     ...##...
-    ..#.##..
-    .#...#..
-    #.......
+    ....##..
     """,
-    # 5 contact: far leg forward, near arm forward
+    # 5 passing: swinging knee comes through, arms at the sides
     """
     ....##..
+    ....##..
+    ....#...
+    ....##..
+    ....#...
+    ....##..
+    ....##..
+    ...##...
+    """,
+    # 6 standing leg behind the body, swinging knee forward
+    """
+    ....##..
+    ....##..
+    ....#...
     ....##..
     ...##.#.
-    ..####..
-    ...##...
-    ..#..#..
-    .#....#.
-    #......#
+    ....###.
+    ...#..#.
+    ...#....
     """,
-    # 6 down: weight on far leg, near heel kicks up behind
+    # 7 push off: back leg extends, front knee high
     """
-    ........
     ....##..
     ....##..
+    ....#...
+    ...####.
+    ....#...
+    ...#.##.
+    ...#...#
+    ..#.....
+    """,
+    # 8 toe-off: front leg reaches out for the next landing
+    """
+    ....##..
+    ....##..
+    ....#.#.
     ...###..
-    ..###.#.
-    .#.##...
-    ..#.#...
-    ....##..
-    """,
-    # 7 passing: near leg swings through, arm goes back
-    """
-    ....##..
-    ....##..
     ...##...
-    ...##...
-    ..####..
-    ...##...
-    ..#.#...
-    ....##..
-    """,
-    # 8 up: push off far leg, near knee high, arm back
-    """
-    ....##..
-    ....##..
-    .#.##...
-    ..####..
-    ...##...
-    ..#.##..
-    .#...#..
-    #.......
+    ...#.#..
+    ..#...##
+    .#......
     """,
 ]
 FRAMES = [[[1 if c == '#' else 0 for c in row.strip()] for row in f.strip().splitlines()] for f in FRAMES]
@@ -132,6 +134,8 @@ for i, frame in enumerate(FRAMES):
         f.write('  player0:\n' + '\n'.join(rows) + '\nend\n')
 strip.save(os.path.join(OUT, 'run-cycle-8x8.png'))
 preview.save(os.path.join(OUT, 'preview.png'))
+gif = [frame_image(frame, 16) for frame in FRAMES]
+gif[0].save(os.path.join(OUT, 'run-cycle-8x8.gif'), save_all=True, append_images=gif[1:], duration=FRAME_MS, loop=0)
 
 sheet = {
     'frames': [
