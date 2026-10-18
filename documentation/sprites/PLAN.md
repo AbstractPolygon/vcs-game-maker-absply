@@ -22,6 +22,7 @@ file there. The shared export code is in `export_sprite.py`.
 | Run cycle | `run-cycle-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `run` |
 | Standing jump | `standing-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `standing-jump` |
 | Running jump | `running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
+| Cannonball jump | `cannonball-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `cannonball-jump` |
 | Fall | `fall-8x8` | 8×8 | 4 | 100 ms (6) | Yes | `fall` |
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
 
@@ -44,6 +45,7 @@ file there. The shared export code is in `export_sprite.py`.
 | Running jump frame 8 | Run cycle frame 1 (carry on from frame 2) | Landing |
 | Run cycle frame 1 | Wall bounce frame 1 | Running in |
 | Wall bounce frame 8 | Idle frame 1 | Standing |
+| Standing jump frames 1 and 8 | Cannonball jump frames 1 and 8 | Crouch and landing |
 
 ## Animations
 
@@ -114,6 +116,23 @@ the sprite by the amount shown on each frame.
 6. Legs out in front, arms coming down (raise 4 px)
 7. Front leg reaches for the ground (raise 2 px)
 8. Landing, as in the run (on the ground)
+
+### Cannonball jump — `cannonball-jump-8x8`
+
+![Cannonball jump](cannonball-jump-8x8/cannonball-jump-8x8.gif)
+
+A jump from standing that curls into a ball at the top, hugging the knees,
+then uncurls to land. Rises up to 8 pixels. Shares its first and last frames
+with the standing jump. Raise the sprite by the amount shown on each frame.
+
+1. Crouch, arms swung back, as in the standing jump (on the ground)
+2. Spring up: stretched out on the toes, arms thrust up (on the ground)
+3. Knees pulled up, hands reaching for them (raise 4 px)
+4. Cannonball: curled up, hugging the knees (raise 7 px)
+5. Rolling forward in the ball (raise 8 px)
+6. Holding the ball tight (raise 6 px)
+7. Uncurling: legs reaching down, arms out (raise 3 px)
+8. Landing: knees bend to absorb it, as in the standing jump (on the ground)
 
 ### Fall — `fall-8x8`
 
