@@ -8,8 +8,11 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from export_sprite import export  # noqa: E402
 
-# Facing right, standing in place with the feet planted: a breath in and out,
-# a lean forward, then a glance back over the shoulder. 250 ms (15 NTSC
+# Facing right, standing in place and breathing: the chest swells and the
+# shoulders rise a pixel, then the head and shoulders settle a pixel below
+# where they started. Poses repeat to hold each part of the breath, rather
+# than using longer per-frame durations, so the .spr and .png imports (one
+# duration for every frame) play at the same pace as the GIF. 250 ms (15 NTSC
 # frames) per frame.
 FRAMES = [
     # 1 standing, arms at the sides
@@ -23,18 +26,51 @@ FRAMES = [
     ...#.#..
     ...#.#..
     """,
-    # 2 breathing in: chest up, hands drift out
+    # 2 breathing in: shoulders rise a pixel
     """
     ....##..
     ....##..
     ...###..
-    ..#.#.#.
-    ....#...
+    ...###..
+    ...#.#..
     ....#...
     ...#.#..
     ...#.#..
     """,
-    # 3 breathing out: head and shoulders drop a pixel
+    # 3 holding the breath
+    """
+    ....##..
+    ....##..
+    ...###..
+    ...###..
+    ...#.#..
+    ....#...
+    ...#.#..
+    ...#.#..
+    """,
+    # 4 holding the breath
+    """
+    ....##..
+    ....##..
+    ...###..
+    ...###..
+    ...#.#..
+    ....#...
+    ...#.#..
+    ...#.#..
+    """,
+    # 5 breathing out
+    """
+    ....##..
+    ....##..
+    ....#...
+    ...###..
+    ...#.#..
+    ....#...
+    ...#.#..
+    ...#.#..
+    """,
+    # 6 head and shoulders drop a pixel
     """
     ........
     ....##..
@@ -45,57 +81,24 @@ FRAMES = [
     ...#.#..
     ...#.#..
     """,
-    # 4 weight shifts forward over the front foot
+    # 7 resting
     """
     ........
-    .....##.
-    .....##.
-    ....###.
-    ....#.#.
-    .....#..
-    ....##..
-    ...#.#..
-    """,
-    # 5 back upright
-    """
     ....##..
     ....##..
-    ....#...
     ...###..
     ...#.#..
     ....#...
     ...#.#..
     ...#.#..
     """,
-    # 6 head turns to glance back
-    """
-    ...##...
-    ...##...
-    ....#...
-    ...###..
-    ...#.#..
-    ....#...
-    ...#.#..
-    ...#.#..
-    """,
-    # 7 still looking back, breathing out
+    # 8 resting, then breathing in again
     """
     ........
-    ...##...
-    ...##...
+    ....##..
+    ....##..
     ...###..
     ...#.#..
-    ....#...
-    ...#.#..
-    ...#.#..
-    """,
-    # 8 facing forward again, hands swinging slightly forward
-    """
-    ....##..
-    ....##..
-    ....#...
-    ....##..
-    ....#.#.
     ....#...
     ...#.#..
     ...#.#..
