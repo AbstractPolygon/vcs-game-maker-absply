@@ -24,7 +24,6 @@ file there. The shared export code is in `export_sprite.py`.
 | Running jump | `running-jump-8x16` | 8×16 | 8 | 100 ms (6) | No | `running-jump` |
 | Fall | `fall-8x8` | 8×8 | 4 | 100 ms (6) | Yes | `fall` |
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
-| Jump (pose only) | `jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `jump` |
 
 ## Lining the animations up
 
@@ -143,20 +142,3 @@ the sprite left, mostly over frames 3–5.
 6. Staggering, arms out for balance
 7. Steadying: bent over, hands on knees
 8. Standing again, as in the idle
-
-### Jump, pose only — `jump-8x8`
-
-![Jump, pose only](jump-8x8/jump-8x8.gif)
-
-The first jump: the same moves at 8×8, with the height left entirely to the
-game. Kept for games that move the sprite themselves; the 8×16 jumps above
-replace it otherwise. Frames 3–6 are the airborne ones.
-
-1. Crouch: knees bent, arms swung back
-2. Push: legs straightening, arms swinging forward
-3. Launch: stretched out, toes leaving the ground, arms driving up
-4. Rise: knees coming up
-5. Apex: knees tucked high, arms out
-6. Fall: legs reaching down, arms up for balance
-7. Land: feet touch down, knees giving, arms forward
-8. Recover: absorbing the landing
