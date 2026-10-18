@@ -7,15 +7,16 @@ import os
 
 from PIL import Image
 
-# Facing right. Only the near arm is drawn, so the two halves of the stride
-# (which are mirror images in a 1-bit silhouette) still read as 8 poses.
+# Facing right. The near arm is drawn full length and the far arm as just a
+# hand beside the torso, so the two halves of the stride (mirror images in a
+# 1-bit silhouette) still read as 8 distinct poses.
 FRAMES = [
     # 1 contact: near leg forward, near arm back
     """
     ....##..
     ....##..
     .#.##...
-    ..###...
+    ..####..
     ...##...
     ..#..#..
     .#....#.
@@ -27,7 +28,7 @@ FRAMES = [
     ....##..
     ....##..
     ..###...
-    ...##...
+    ...###..
     .#.##...
     ..#.#...
     ....##..
@@ -37,7 +38,7 @@ FRAMES = [
     ....##..
     ....##..
     ...##...
-    ...##...
+    ..###...
     ...###..
     ...##...
     ..#.#...
@@ -48,7 +49,7 @@ FRAMES = [
     ....##..
     ....##..
     ...##.#.
-    ...###..
+    ..####..
     ...##...
     ..#.##..
     .#...#..
@@ -59,7 +60,7 @@ FRAMES = [
     ....##..
     ....##..
     ...##.#.
-    ...###..
+    ..####..
     ...##...
     ..#..#..
     .#....#.
@@ -71,7 +72,7 @@ FRAMES = [
     ....##..
     ....##..
     ...###..
-    ...##.#.
+    ..###.#.
     .#.##...
     ..#.#...
     ....##..
@@ -82,7 +83,7 @@ FRAMES = [
     ....##..
     ...##...
     ...##...
-    ..###...
+    ..####..
     ...##...
     ..#.#...
     ....##..
@@ -92,7 +93,7 @@ FRAMES = [
     ....##..
     ....##..
     .#.##...
-    ..###...
+    ..####..
     ...##...
     ..#.##..
     .#...#..
