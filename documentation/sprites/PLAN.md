@@ -190,8 +190,7 @@ start first when the player walks off a platform.
 ![Hard landing](hard-landing-8x8/hard-landing-8x8.gif)
 
 Landing after a long fall: braces, hits the ground, squashes down and splats
-flat out face down, then pushes up on one arm, gets a knee under, shakes it
-off and stands. Switch to it from the fall loop when the player lands after
+flat out face down, then pushes up on one arm, gets a knee under and stands. Switch to it from the fall loop when the player lands after
 falling a long way; it ends on the idle's frame 1.
 
 1. Bracing for the ground: legs straight, arms up
@@ -208,7 +207,7 @@ falling a long way; it ends on the idle's frame 1.
 12. Pushes up off the knee
 13. Hands on knees
 14. Straightening up
-15. Shakes it off: arms out
+15. Phew: standing, head and shoulders settle, as in the idle's breath out
 16. Standing, as in the idle
 
 ### Wall bounce — `wall-bounce-8x8`

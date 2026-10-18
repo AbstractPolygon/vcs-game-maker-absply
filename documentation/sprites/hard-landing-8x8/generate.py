@@ -10,7 +10,7 @@ from export_sprite import export  # noqa: E402
 
 # Facing right. Landing after a long fall: braces, hits the ground, squashes
 # down and splats flat out face down, then pushes up on one arm, gets a knee
-# under, shakes it off and stands. Play it from the fall loop when the player
+# under and stands. Play it from the fall loop when the player
 # lands after falling a long way; it ends on the idle's first frame. Plays once.
 FRAMES = [
     # 1 bracing for the ground: legs straight, arms up
@@ -167,13 +167,13 @@ FRAMES = [
     ...#.#..
     ...#.#..
     """,
-    # 15 shakes it off: arms out
+    # 15 phew: standing, head and shoulders settle, as in the idle's breath out
     """
+    ........
     ....##..
     ....##..
-    ..#.#.#.
     ...###..
-    ....#...
+    ...#.#..
     ....#...
     ...#.#..
     ...#.#..
