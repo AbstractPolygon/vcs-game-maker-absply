@@ -20,21 +20,21 @@ file there. The shared export code is in `export_sprite.py`.
 | --- | --- | --- | --- | --- | --- | --- |
 | Idle | `idle-8x8` | 8×8 | 8 | 250 ms (15 NTSC frames) | Yes | `idle` |
 | Run cycle | `run-cycle-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `run` |
-| Standing jump | `standing-jump-8x16` | 8×16 | 8 | 100 ms (6) | No | `standing-jump` |
-| Running jump | `running-jump-8x16` | 8×16 | 8 | 100 ms (6) | No | `running-jump` |
+| Standing jump | `standing-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `standing-jump` |
+| Running jump | `running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
 | Fall | `fall-8x8` | 8×8 | 4 | 100 ms (6) | Yes | `fall` |
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
 
 ## Lining the animations up
 
-- **Feet on the bottom row.** In every animation the feet sit on the bottom
-  row whenever they're on the ground, including the 16-row jumps. If the game
-  positions the sprite by its bottom edge, switching animations needs no
-  offset.
-- **Movement comes from the game.** The 8×8 animations change only the pose.
-  Running forward, falling and the wall knock-back all need the sprite to be
-  moved in game code. The two 8×16 jumps are the exception: their height is
-  drawn into the frames.
+- **Feet on the bottom row.** Every frame is drawn as if the character were
+  standing on the ground, with the feet on the bottom row, so switching
+  animations needs no offset.
+- **Movement comes from the game.** The animations change only the pose.
+  Running forward, the height of a jump, falling and the wall knock-back all
+  need the sprite to be moved in game code. For the jumps, each frame below
+  says how far to raise the sprite (also in `LIFT` in their `generate.py`),
+  and their GIFs show it raised that way.
 - **Shared frames.** Where one animation hands over to another, they share the
   exact same frame, so the switch doesn't jump:
 
@@ -81,37 +81,38 @@ the knee after push-off.
 7. Push off: back leg extends, front knee high
 8. Toe-off: front leg reaches out for the next landing
 
-### Standing jump — `standing-jump-8x16`
+### Standing jump — `standing-jump-8x8`
 
-![Standing jump](standing-jump-8x16/standing-jump-8x16.gif)
+![Standing jump](standing-jump-8x8/standing-jump-8x8.gif)
 
-A jump straight up from standing. The character rises up to 8 pixels inside
-the 16-row frame. Starts from the idle pose and lands back in it.
+A jump straight up from standing, rising up to 8 pixels. Starts from the idle
+pose and lands back in it. Raise the sprite by the amount shown on each
+frame.
 
 1. Crouch, arms swung back (on the ground)
 2. Launch: stretched out on the toes, arms thrust up (on the ground)
-3. Rising (3 px up)
-4. Knees start to tuck, arms out (6 px)
-5. Top of the jump, knees tucked (8 px)
-6. Falling, legs opening (6 px)
-7. Legs reaching for the ground (2 px)
+3. Rising (raise 3 px)
+4. Knees start to tuck, arms out (raise 6 px)
+5. Top of the jump, knees tucked (raise 8 px)
+6. Falling, legs opening (raise 6 px)
+7. Legs reaching for the ground (raise 2 px)
 8. Landing: knees bend to absorb it (on the ground)
 
-### Running jump — `running-jump-8x16`
+### Running jump — `running-jump-8x8`
 
-![Running jump](running-jump-8x16/running-jump-8x16.gif)
+![Running jump](running-jump-8x8/running-jump-8x8.gif)
 
-A leap taken mid-run. The character rises up to 6 pixels inside the 16-row
-frame. It takes off from the run cycle's frame 8 and lands on its frame 1, so
-switch back to the run at frame 2.
+A leap taken mid-run, rising up to 6 pixels. It takes off from the run cycle's
+frame 8 and lands on its frame 1, so switch back to the run at frame 2. Raise
+the sprite by the amount shown on each frame.
 
 1. Toe-off, as in the run (on the ground)
-2. Drive: back leg straight, front knee high (2 px up)
-3. Rising: back knee folds (4 px)
-4. Top: arms up, legs gathering (6 px)
-5. Top: both legs swing forward (6 px)
-6. Legs out in front, arms coming down (4 px)
-7. Front leg reaches for the ground (2 px)
+2. Drive: back leg straight, front knee high (raise 2 px)
+3. Rising: back knee folds (raise 4 px)
+4. Top: arms up, legs gathering (raise 6 px)
+5. Top: both legs swing forward (raise 6 px)
+6. Legs out in front, arms coming down (raise 4 px)
+7. Front leg reaches for the ground (raise 2 px)
 8. Landing, as in the run (on the ground)
 
 ### Fall — `fall-8x8`

@@ -26,9 +26,10 @@ def frame_image(frame, scale=1):
     return img.resize((WIDTH * scale, len(frame) * scale), Image.NEAREST) if scale > 1 else img
 
 
-def export(frames, out, sheet_name, frame_prefix, tag, frame_ms=FRAME_MS):
+def export(frames, out, sheet_name, frame_prefix, tag, frame_ms=FRAME_MS, lift=None):
     """frames: list of strings of 8-character rows of '#' and '.', all the
-    same height; files land in out."""
+    same height; files land in out. lift (pixels per frame) only affects the
+    GIF, which then shows the sprite raised the way the game would raise it."""
     frames = parse_frames(frames)
     height = len(frames[0])
     strip = Image.new('RGB', (WIDTH * len(frames), height), OFF)
@@ -46,6 +47,12 @@ def export(frames, out, sheet_name, frame_prefix, tag, frame_ms=FRAME_MS):
     strip.save(os.path.join(out, f'{sheet_name}.png'))
     preview.save(os.path.join(out, 'preview.png'))
     gif = [frame_image(frame, 16) for frame in frames]
+    if lift:
+        top = max(lift)
+        for i, l in enumerate(lift):
+            canvas = Image.new('RGB', (WIDTH * 16, (height + top) * 16), OFF)
+            canvas.paste(gif[i], (0, (top - l) * 16))
+            gif[i] = canvas
     gif[0].save(os.path.join(out, f'{sheet_name}.gif'), save_all=True, append_images=gif[1:], duration=frame_ms, loop=0)
 
     sheet = {
