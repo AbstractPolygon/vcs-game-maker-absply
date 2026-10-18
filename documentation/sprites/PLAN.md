@@ -23,7 +23,9 @@ file there. The shared export code is in `export_sprite.py`.
 | Standing jump | `standing-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `standing-jump` |
 | Running jump | `running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
 | Cannonball jump | `cannonball-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `cannonball-jump` |
-| Fall | `fall-8x8` | 8×8 | 4 | 100 ms (6) | Yes | `fall` |
+| Cannonball loop | `cannonball-loop-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `cannonball-loop` |
+| Fall start | `fall-start-8x8` | 8×8 | 3 | 100 ms (6) | No | `fall-start` |
+| Fall | `fall-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `fall` |
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
 
 ## Lining the animations up
@@ -44,6 +46,8 @@ file there. The shared export code is in `export_sprite.py`.
 | Run cycle frame 1 | Wall bounce frame 1 | Running in |
 | Wall bounce frame 8 | Idle frame 1 | Standing |
 | Standing jump frames 1 and 8 | Cannonball jump frames 1 and 8 | Crouch and landing |
+| Run cycle frame 8 | Fall start frame 1 | Toe-off |
+| Fall start frame 3 | Fall frame 1 | (plays straight into it) |
 
 ## Animations
 
@@ -130,17 +134,51 @@ jump.
 7. Uncurling: legs reaching down, arms out
 8. Landing: knees bend to absorb it, arms out for balance, as in the standing jump
 
+### Cannonball loop — `cannonball-loop-8x8`
+
+![Cannonball loop](cannonball-loop-8x8/cannonball-loop-8x8.gif)
+
+The cannonball jump's curled-up ball rolling forward through a full turn, 45°
+a frame, centred so it spins in place. Loop it while the player is in the air,
+for example in place of the cannonball jump's frames 4–6.
+
+1. Ball upright, head on top
+2. Rolled 45 degrees forward
+3. Head facing forward
+4. Rolled 135 degrees
+5. Upside down
+6. Rolled 225 degrees
+7. Head facing back
+8. Rolled 315 degrees, back to upright next
+
+### Fall start — `fall-start-8x8`
+
+![Fall start](fall-start-8x8/fall-start-8x8.gif)
+
+The lead-in to a fall when the player walks or runs off the edge of a
+platform. Starts on the run cycle's frame 8 and plays straight into the fall
+loop's frame 1.
+
+1. Stepping off: front foot reaches out over nothing, as in the run
+2. Surprise: jerks upright, arms fly up, legs straight
+3. Dropping: legs dangle, arms start to flail
+
 ### Fall — `fall-8x8`
 
 ![Fall](fall-8x8/fall-8x8.gif)
 
-A loop for dropping, for example off a ledge: the arms flail up and out and
-the legs kick. The game moves the sprite down.
+A loop for dropping: the arms flail up and down opposite each other, pausing
+at each end, while the legs pedal. The game moves the sprite down. Use the fall
+start first when the player walks off a platform.
 
-1. Back arm up, legs apart
-2. Front arm up, legs kicking
-3. Back arm up, legs crossing
-4. Front arm up, legs apart
+1. Back arm up, front arm low, legs apart
+2. Arms swinging, front knee up
+3. Arms out level, legs crossing
+4. Back arm low, front arm up, back leg under
+5. Holding: back arm low, front arm up, legs apart
+6. Arms swinging back, front knee up
+7. Arms out level, legs crossing
+8. Back arm up, front arm low, back leg under
 
 ### Wall bounce — `wall-bounce-8x8`
 
