@@ -61,18 +61,19 @@ file there. The shared export code is in `export_sprite.py`.
 ![Idle](idle-8x8/idle-8x8.gif)
 
 Facing right, leaning forward with the front foot planted ahead of the back
-one and both arms down at the sides, bouncing gently up and down. The knees
-bend first and the head and shoulders follow a frame later, then the legs push
-up and the head and shoulders follow again.
+one and both arms down at the sides, bouncing gently up and down. Going down,
+the knees bend first and the head and shoulders follow; coming up, the head
+and shoulders rise first and the legs straighten after, so every frame moves
+just one part by one pixel.
 
 1. Standing, arms down at the sides
-2. Standing
-3. Knees start to bend
-4. Head and shoulders follow down
+2. Knees start to bend
+3. Head and shoulders follow down
+4. Holding low
 5. Holding low
-6. Holding low
-7. Legs push up
-8. Head and shoulders follow up, then round again
+6. Head and shoulders rise, knees still bent
+7. Legs straighten
+8. Standing, then round again
 
 ### Run cycle — `run-cycle-8x8`
 

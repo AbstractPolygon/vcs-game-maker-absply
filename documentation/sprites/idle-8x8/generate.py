@@ -9,10 +9,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from export_sprite import export  # noqa: E402
 
 # Facing right, leaning forward with the front foot planted ahead of the back
-# one and both arms down at the sides, bouncing gently up and down. The knees
-# bend first and the head and shoulders follow a frame later, then the legs
-# push up and the head and shoulders follow again, so the bounce reads
-# smoothly. 100 ms (6 NTSC frames) per frame.
+# one and both arms down at the sides, bouncing gently up and down. Going down,
+# the knees bend first and the head and shoulders follow a frame later; coming
+# up, the head and shoulders rise first and the legs straighten after, so every
+# frame moves just one part by one pixel. 100 ms (6 NTSC frames) per frame.
 FRAMES = [
     # 1 standing, arms down at the sides
     """
@@ -25,18 +25,7 @@ FRAMES = [
     ..#..#..
     ..#...#.
     """,
-    # 2 standing
-    """
-    ....##..
-    ....##..
-    ....#...
-    ...###..
-    ..#.#.#.
-    ...#.#..
-    ..#..#..
-    ..#...#.
-    """,
-    # 3 knees start to bend
+    # 2 knees start to bend
     """
     ....##..
     ....##..
@@ -47,7 +36,18 @@ FRAMES = [
     ...#.#..
     ..#...#.
     """,
-    # 4 head and shoulders follow down
+    # 3 head and shoulders follow down
+    """
+    ........
+    ....##..
+    ....##..
+    ....#...
+    ...###..
+    ..#.#.#.
+    ...#.#..
+    ..#...#.
+    """,
+    # 4 holding low
     """
     ........
     ....##..
@@ -69,29 +69,29 @@ FRAMES = [
     ...#.#..
     ..#...#.
     """,
-    # 6 holding low
+    # 6 head and shoulders rise, knees still bent
     """
-    ........
+    ....##..
+    ....##..
+    ....#...
+    ...###..
+    ..#.#.#.
+    ....#...
+    ...#.#..
+    ..#...#.
+    """,
+    # 7 legs straighten
+    """
     ....##..
     ....##..
     ....#...
     ...###..
     ..#.#.#.
     ...#.#..
-    ..#...#.
-    """,
-    # 7 legs push up
-    """
-    ........
-    ....##..
-    ....##..
-    ....#...
-    ...###..
-    ..##.##.
     ..#..#..
     ..#...#.
     """,
-    # 8 head and shoulders follow up, then round again
+    # 8 standing, then round again
     """
     ....##..
     ....##..
