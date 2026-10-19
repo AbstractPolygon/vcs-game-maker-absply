@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from export_sprite import export  # noqa: E402
 
 # Facing right, opening a door just past the right edge. The feet stay planted
-# in the idle's ready stance the whole time; only the upper body moves. Only
+# in the idle's stance the whole time; only the upper body moves. Only
 # the player is drawn: the game draws the door and swaps it to open around
 # frames 6-7. Starts and ends on the idle's first frame.
 FRAMES = [
@@ -17,9 +17,9 @@ FRAMES = [
     """
     ....##..
     ....##..
-    ....#.#.
+    ....#...
     ...###..
-    ...##...
+    ..#.#.#.
     ...#.#..
     ..#..#..
     ..#...#.
@@ -94,9 +94,9 @@ FRAMES = [
     """
     ....##..
     ....##..
-    ....#.#.
+    ....#...
     ...###..
-    ...##...
+    ..#.#.#.
     ...#.#..
     ..#..#..
     ..#...#.

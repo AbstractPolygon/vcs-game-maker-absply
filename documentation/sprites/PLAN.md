@@ -18,7 +18,7 @@ file there. The shared export code is in `export_sprite.py`.
 
 | Animation | Folder | Size | Frames | Per frame | Loops | Aseprite name |
 | --- | --- | --- | --- | --- | --- | --- |
-| Idle | `idle-8x8` | 8×8 | 12 | 100 ms (6) | Yes | `idle` |
+| Idle | `idle-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `idle` |
 | Run cycle | `run-cycle-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `run` |
 | Standing jump | `standing-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `standing-jump` |
 | Running jump | `running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
@@ -60,24 +60,19 @@ file there. The shared export code is in `export_sprite.py`.
 
 ![Idle](idle-8x8/idle-8x8.gif)
 
-A ready stance facing right: leaning forward, front fist up, front foot planted
-ahead of the back one, bouncing gently up and down. Each frame moves just one
-part by one pixel, so the bounce ripples through the body smoothly: knees,
-then fist, then head on the way down; legs, then fist, then head on the way
-up, with the back hand swinging a beat behind.
+Facing right, leaning forward with the front foot planted ahead of the back
+one and both arms down at the sides, bouncing gently up and down. The knees
+bend first and the head and shoulders follow a frame later, then the legs push
+up and the head and shoulders follow again.
 
-1. Up, front fist high
-2. Knees start to bend
-3. Front fist drops
+1. Standing, arms down at the sides
+2. Standing
+3. Knees start to bend
 4. Head and shoulders follow down
-5. Back hand swings back
+5. Holding low
 6. Holding low
 7. Legs push up
-8. Front fist rises
-9. Head and shoulders follow up
-10. Back hand settles
-11. Holding up
-12. Holding up, then round again
+8. Head and shoulders follow up, then round again
 
 ### Run cycle — `run-cycle-8x8`
 
@@ -234,7 +229,7 @@ the sprite left, mostly over frames 3–5.
 ![Door opening](door-open-8x8/door-open-8x8.gif)
 
 Opening a door just past the right edge. The feet stay planted in the idle's
-ready stance the whole time; only the upper body moves. Only the player is
+stance the whole time; only the upper body moves. Only the player is
 drawn: the game draws the door and swaps it to open around frames 6–7. Starts
 and ends on the idle's frame 1.
 
