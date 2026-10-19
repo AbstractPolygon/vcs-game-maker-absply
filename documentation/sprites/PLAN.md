@@ -18,7 +18,7 @@ file there. The shared export code is in `export_sprite.py`.
 
 | Animation | Folder | Size | Frames | Per frame | Loops | Aseprite name |
 | --- | --- | --- | --- | --- | --- | --- |
-| Idle | `idle-8x8` | 8×8 | 8 | 250 ms (15 NTSC frames) | Yes | `idle` |
+| Idle | `idle-8x8` | 8×8 | 8 | 150 ms (9 NTSC frames) | Yes | `idle` |
 | Run cycle | `run-cycle-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `run` |
 | Standing jump | `standing-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `standing-jump` |
 | Running jump | `running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
@@ -60,17 +60,18 @@ file there. The shared export code is in `export_sprite.py`.
 
 ![Idle](idle-8x8/idle-8x8.gif)
 
-Standing in place and breathing, with the feet planted. Poses repeat to hold
-each part of the breath, so every import method plays at the same pace.
+A ready stance facing right: leaning forward, front fist up, front foot planted
+ahead of the back one. Bounces on the balls of the feet, throws a quick jab,
+and bounces again.
 
-1. Standing, arms at the sides
-2. Breathing in: chest swells, shoulders rise a pixel
-3. Holding the breath
-4. Holding the breath
-5. Breathing out
-6. Head and shoulders drop a pixel
-7. Resting
-8. Resting, then breathing in again
+1. Ready stance: leaning forward, front fist up, front foot ahead
+2. Bounce: knees dip, fists drop
+3. Up again
+4. Bounce
+5. Pulls the front fist back
+6. Jab: leans in, arm straight out
+7. Back to guard
+8. Bounce, then round again
 
 ### Run cycle — `run-cycle-8x8`
 
@@ -227,9 +228,9 @@ the sprite left, mostly over frames 3–5.
 ![Door opening](door-open-8x8/door-open-8x8.gif)
 
 Opening a door just past the right edge. The feet stay planted in the idle's
-stance the whole time; only the upper body moves. Only the player is drawn:
-the game draws the door and swaps it to open around frames 6–7. Starts and
-ends on the idle's frame 1.
+ready stance the whole time; only the upper body moves. Only the player is
+drawn: the game draws the door and swaps it to open around frames 6–7. Starts
+and ends on the idle's frame 1.
 
 1. Standing, as in the idle
 2. Turns side-on to the door, arms down

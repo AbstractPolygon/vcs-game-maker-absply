@@ -94,12 +94,12 @@ FRAMES = [
     """
     ....##..
     ....##..
-    ....#...
+    ....#.#.
     ...###..
+    ...##...
     ...#.#..
-    ....#...
-    ...#.#..
-    ...#.#..
+    ..#..#..
+    ..#...#.
     """,
 ]
 export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'wall-bounce-8x8', 'wall_bounce', 'wall-bounce')

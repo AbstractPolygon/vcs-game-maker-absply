@@ -116,12 +116,12 @@ FRAMES = [
     """
     ....##..
     ....##..
-    ....#...
+    ....#.#.
     ...###..
+    ...##...
     ...#.#..
-    ....#...
-    ...#.#..
-    ...#.#..
+    ..#..#..
+    ..#...#.
     """,
 ]
 export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'hard-landing-8x8', 'hard_landing', 'hard-landing')

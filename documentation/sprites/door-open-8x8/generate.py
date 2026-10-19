@@ -9,20 +9,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from export_sprite import export  # noqa: E402
 
 # Facing right, opening a door just past the right edge. The feet stay planted
-# in the idle's stance the whole time; only the upper body moves. Only the
-# player is drawn: the game draws the door and swaps it to open around frames
-# 6-7. Starts and ends on the idle's first frame.
+# in the idle's ready stance the whole time; only the upper body moves. Only
+# the player is drawn: the game draws the door and swaps it to open around
+# frames 6-7. Starts and ends on the idle's first frame.
 FRAMES = [
     # 1 standing, as in the idle
     """
     ....##..
     ....##..
-    ....#...
+    ....#.#.
     ...###..
+    ...##...
     ...#.#..
-    ....#...
-    ...#.#..
-    ...#.#..
+    ..#..#..
+    ..#...#.
     """,
     # 2 turns side-on to the door, arms down
     """
@@ -31,9 +31,9 @@ FRAMES = [
     ....#...
     ....##..
     ....#...
-    ....#...
     ...#.#..
-    ...#.#..
+    ..#..#..
+    ..#...#.
     """,
     # 3 reaches out for the handle
     """
@@ -42,9 +42,9 @@ FRAMES = [
     ....#...
     ....###.
     ....#...
-    ....#...
     ...#.#..
-    ...#.#..
+    ..#..#..
+    ..#...#.
     """,
     # 4 grips the handle at the door's edge
     """
@@ -53,9 +53,9 @@ FRAMES = [
     ....#...
     ....####
     ....#...
-    ....#...
     ...#.#..
-    ...#.#..
+    ..#..#..
+    ..#...#.
     """,
     # 5 turns the handle
     """
@@ -64,9 +64,9 @@ FRAMES = [
     ....#...
     ....###.
     ....#..#
-    ....#...
     ...#.#..
-    ...#.#..
+    ..#..#..
+    ..#...#.
     """,
     # 6 leans in and pushes the door
     """
@@ -75,9 +75,9 @@ FRAMES = [
     ....#...
     ....####
     ....#...
-    ....#...
     ...#.#..
-    ...#.#..
+    ..#..#..
+    ..#...#.
     """,
     # 7 door swings away, hand follows it up
     """
@@ -86,20 +86,20 @@ FRAMES = [
     ....#..#
     ....###.
     ....#...
-    ....#...
     ...#.#..
-    ...#.#..
+    ..#..#..
+    ..#...#.
     """,
     # 8 lets go, standing again, as in the idle
     """
     ....##..
     ....##..
-    ....#...
+    ....#.#.
     ...###..
+    ...##...
     ...#.#..
-    ....#...
-    ...#.#..
-    ...#.#..
+    ..#..#..
+    ..#...#.
     """,
 ]
 export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'door-open-8x8', 'door_open', 'door-open')
