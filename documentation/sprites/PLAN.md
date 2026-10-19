@@ -18,7 +18,7 @@ file there. The shared export code is in `export_sprite.py`.
 
 | Animation | Folder | Size | Frames | Per frame | Loops | Aseprite name |
 | --- | --- | --- | --- | --- | --- | --- |
-| Idle | `idle-8x8` | 8×8 | 8 | 150 ms (9 NTSC frames) | Yes | `idle` |
+| Idle | `idle-8x8` | 8×8 | 12 | 100 ms (6) | Yes | `idle` |
 | Run cycle | `run-cycle-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `run` |
 | Standing jump | `standing-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `standing-jump` |
 | Running jump | `running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
@@ -61,17 +61,23 @@ file there. The shared export code is in `export_sprite.py`.
 ![Idle](idle-8x8/idle-8x8.gif)
 
 A ready stance facing right: leaning forward, front fist up, front foot planted
-ahead of the back one. Bounces on the balls of the feet, throws a quick jab,
-and bounces again.
+ahead of the back one, bouncing gently up and down. Each frame moves just one
+part by one pixel, so the bounce ripples through the body smoothly: knees,
+then fist, then head on the way down; legs, then fist, then head on the way
+up, with the back hand swinging a beat behind.
 
-1. Ready stance: leaning forward, front fist up, front foot ahead
-2. Bounce: knees dip, fists drop
-3. Up again
-4. Bounce
-5. Pulls the front fist back
-6. Jab: leans in, arm straight out
-7. Back to guard
-8. Bounce, then round again
+1. Up, front fist high
+2. Knees start to bend
+3. Front fist drops
+4. Head and shoulders follow down
+5. Back hand swings back
+6. Holding low
+7. Legs push up
+8. Front fist rises
+9. Head and shoulders follow up
+10. Back hand settles
+11. Holding up
+12. Holding up, then round again
 
 ### Run cycle — `run-cycle-8x8`
 
