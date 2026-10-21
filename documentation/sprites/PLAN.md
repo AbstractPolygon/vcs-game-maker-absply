@@ -71,20 +71,18 @@ rebuild all three.
 ![Idle](idle-8x8/idle-8x8.gif)
 
 Facing right, with the front foot planted ahead of the back one and both arms
-down at the sides, bouncing gently up and down. Every frame is a different
-pose and moves just one part by one pixel: the front knee flexes, the hips
-drop, the head and shoulders follow, the body leans forward, then the head
-rises, the legs push up and straighten, and the body comes back upright as it
-loops.
+down at the sides, bouncing gently up and down with the head kept upright.
+Each step moves just one part by one pixel: the front knee flexes, the hips
+drop, the head and shoulders follow, then back up the same way.
 
 1. Standing, arms down at the sides
 2. Front knee flexes
 3. Knees bend, hips drop
 4. Head and shoulders follow down
-5. Leans forward from the shoulders
+5. Holding low
 6. Head and shoulders rise
 7. Legs push up
-8. Legs straight; the head comes back upright as it loops
+8. Standing, then round again
 
 ### Run cycle — `run-cycle-8x8`
 

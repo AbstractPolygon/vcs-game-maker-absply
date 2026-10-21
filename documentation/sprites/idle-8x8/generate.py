@@ -9,11 +9,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from export_sprite import export  # noqa: E402
 
 # Facing right, with the front foot planted ahead of the back one and both
-# arms down at the sides, bouncing gently up and down. Every frame is a
-# different pose and moves just one part by one pixel: the front knee flexes,
-# the hips drop, the head and shoulders follow, the body leans forward, then
-# the head rises, the legs push up and straighten, and the body comes back
-# upright as it loops. 100 ms (6 NTSC frames) per frame.
+# arms down at the sides, bouncing gently up and down with the head kept
+# upright. Each step moves just one part by one pixel: the front knee flexes,
+# the hips drop, the head and shoulders follow, then back up the same way.
+# 100 ms (6 NTSC frames) per frame.
 FRAMES = [
     # 1 standing, arms down at the sides
     """
@@ -59,12 +58,12 @@ FRAMES = [
     ...#.#..
     ..#...#.
     """,
-    # 5 leans forward from the shoulders
+    # 5 holding low
     """
     ........
-    .....##.
-    .....##.
-    .....#..
+    ....##..
+    ....##..
+    ....#...
     ...###..
     ..#.#.#.
     ...#.#..
@@ -72,9 +71,9 @@ FRAMES = [
     """,
     # 6 head and shoulders rise
     """
-    .....##.
-    .....##.
-    .....#..
+    ....##..
+    ....##..
+    ....#...
     ...###..
     ..#.#.#.
     ....#...
@@ -83,20 +82,20 @@ FRAMES = [
     """,
     # 7 legs push up
     """
-    .....##.
-    .....##.
-    .....#..
+    ....##..
+    ....##..
+    ....#...
     ...###..
     ..#.#.#.
     ...#.#..
     ..#...#.
     ..#...#.
     """,
-    # 8 legs straight; the head comes back upright as it loops
+    # 8 standing, then round again
     """
-    .....##.
-    .....##.
-    .....#..
+    ....##..
+    ....##..
+    ....#...
     ...###..
     ..#.#.#.
     ...#.#..
