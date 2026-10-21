@@ -72,16 +72,17 @@ rebuild all three.
 
 Facing right, with the front foot planted ahead of the back one and both arms
 down at the sides, bouncing gently up and down with the head kept upright.
-Each step moves just one part by one pixel: the front knee flexes, the hips
-drop, the head and shoulders follow, then back up the same way.
+Each step moves just one part by one pixel: the knees bend and the hips drop,
+the head and shoulders follow, then back up the same way. The legs only switch
+between straight and bent, so neither knee twitches.
 
 1. Standing, arms down at the sides
-2. Front knee flexes
+2. Standing
 3. Knees bend, hips drop
 4. Head and shoulders follow down
 5. Holding low
 6. Head and shoulders rise
-7. Legs push up
+7. Legs straighten
 8. Standing, then round again
 
 ### Run cycle — `run-cycle-8x8`
