@@ -12,19 +12,20 @@ from export_sprite import export  # noqa: E402
 # so the two halves of a stride look identical: these 8 frames cover a single
 # step (one foot landing to the other foot landing) and loop as a full run.
 # The arms swing opposite each other, from fully back to fully forward.
-# Both shoulders stay put at chest height; the hands swing in a wide arc -
-# the front hand from high in front down to the hip, the back hand from high
-# behind down to the hip - meeting at the passing frame (5) and swinging out
-# again.
+# The arms are short - a shoulder and a hand - and the swing shows at the
+# shoulders: at full swing each arm sits off its shoulder, and as it passes the
+# body its shoulder turns in behind the body line, so around the passing frame
+# (5) the arms tuck in out of sight before swinging out again. The shoulders
+# only ever move forward or back, never up or down.
 # 50 ms (3 NTSC frames) per frame.
 FRAMES = [
     # 1 landing: front foot reaches the ground, arms at full swing
     """
     ....##..
-    ....##.#
-    .#..#.#.
-    ..####..
-    ....#...
+    ....##..
+    ....#.#.
+    ...###..
+    ..#.#...
     ...#.#..
     .##..#..
     ......#.
@@ -33,9 +34,9 @@ FRAMES = [
     """
     ....##..
     ....##..
-    ....#.##
-    .#####..
     ....#...
+    ...####.
+    ...##...
     .#.##...
     ..#..#..
     .....#..
@@ -45,8 +46,8 @@ FRAMES = [
     ....##..
     ....##..
     ....#...
-    ...#####
-    .##.#...
+    ...###..
+    ....#.#.
     ..#.##..
     ...#.#..
     .....#..
@@ -56,8 +57,8 @@ FRAMES = [
     ....##..
     ....##..
     ....#...
-    ...###..
-    ...##.#.
+    ....##..
+    ....#...
     ....#...
     ...##...
     ....##..
@@ -67,7 +68,7 @@ FRAMES = [
     ....##..
     ....##..
     ....#...
-    ...###..
+    ....#...
     ....#...
     ....##..
     ....##..
@@ -78,8 +79,8 @@ FRAMES = [
     ....##..
     ....##..
     ....#...
-    ...###..
-    ...##.#.
+    ....##..
+    ....#...
     ....###.
     ...#..#.
     ...#....
@@ -89,8 +90,8 @@ FRAMES = [
     ....##..
     ....##..
     ....#...
-    ...#####
-    .##.#...
+    ...###..
+    ....#.#.
     ...#.##.
     ...#...#
     ..#.....
@@ -99,9 +100,9 @@ FRAMES = [
     """
     ....##..
     ....##..
-    ....#.##
-    .#####..
     ....#...
+    ...####.
+    ...##...
     ...#.#..
     ..#...##
     .#......
