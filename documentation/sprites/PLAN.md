@@ -70,20 +70,21 @@ rebuild all three.
 
 ![Idle](idle-8x8/idle-8x8.gif)
 
-Facing right, leaning forward with the front foot planted ahead of the back
-one and both arms down at the sides, bouncing gently up and down. Going down,
-the knees bend first and the head and shoulders follow; coming up, the head
-and shoulders rise first and the legs straighten after, so every frame moves
-just one part by one pixel.
+Facing right, with the front foot planted ahead of the back one and both arms
+down at the sides, bouncing gently up and down. Every frame is a different
+pose and moves just one part by one pixel: the front knee flexes, the hips
+drop, the head and shoulders follow, the body leans forward, then the head
+rises, the legs push up and straighten, and the body comes back upright as it
+loops.
 
 1. Standing, arms down at the sides
-2. Knees start to bend
-3. Head and shoulders follow down
-4. Holding low
-5. Holding low
-6. Head and shoulders rise, knees still bent
-7. Legs straighten
-8. Standing, then round again
+2. Front knee flexes
+3. Knees bend, hips drop
+4. Head and shoulders follow down
+5. Leans forward from the shoulders
+6. Head and shoulders rise
+7. Legs push up
+8. Legs straight; the head comes back upright as it loops
 
 ### Run cycle — `run-cycle-8x8`
 
@@ -92,7 +93,8 @@ just one part by one pixel.
 The 8 frames cover a single step, from one foot landing to the other. In a
 1-colour silhouette both halves of a stride look the same, so this loops as a
 full run. The arms swing opposite each other, and the trailing leg folds at
-the knee after push-off.
+the knee after push-off. Both shoulders stay put at chest height; only the
+hands swing.
 
 1. Landing: front foot reaches the ground, arms at full swing
 2. Front knee bends to take the weight, back heel lifts

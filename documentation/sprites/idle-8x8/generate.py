@@ -8,11 +8,12 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from export_sprite import export  # noqa: E402
 
-# Facing right, leaning forward with the front foot planted ahead of the back
-# one and both arms down at the sides, bouncing gently up and down. Going down,
-# the knees bend first and the head and shoulders follow a frame later; coming
-# up, the head and shoulders rise first and the legs straighten after, so every
-# frame moves just one part by one pixel. 100 ms (6 NTSC frames) per frame.
+# Facing right, with the front foot planted ahead of the back one and both
+# arms down at the sides, bouncing gently up and down. Every frame is a
+# different pose and moves just one part by one pixel: the front knee flexes,
+# the hips drop, the head and shoulders follow, the body leans forward, then
+# the head rises, the legs push up and straighten, and the body comes back
+# upright as it loops. 100 ms (6 NTSC frames) per frame.
 FRAMES = [
     # 1 standing, arms down at the sides
     """
@@ -25,7 +26,18 @@ FRAMES = [
     ..#..#..
     ..#...#.
     """,
-    # 2 knees start to bend
+    # 2 front knee flexes
+    """
+    ....##..
+    ....##..
+    ....#...
+    ...###..
+    ..#.#.#.
+    ...#.#..
+    ..#...#.
+    ..#...#.
+    """,
+    # 3 knees bend, hips drop
     """
     ....##..
     ....##..
@@ -36,7 +48,7 @@ FRAMES = [
     ...#.#..
     ..#...#.
     """,
-    # 3 head and shoulders follow down
+    # 4 head and shoulders follow down
     """
     ........
     ....##..
@@ -47,55 +59,44 @@ FRAMES = [
     ...#.#..
     ..#...#.
     """,
-    # 4 holding low
+    # 5 leans forward from the shoulders
     """
     ........
-    ....##..
-    ....##..
-    ....#...
+    .....##.
+    .....##.
+    .....#..
     ...###..
     ..#.#.#.
     ...#.#..
     ..#...#.
     """,
-    # 5 holding low
+    # 6 head and shoulders rise
     """
-    ........
-    ....##..
-    ....##..
-    ....#...
-    ...###..
-    ..#.#.#.
-    ...#.#..
-    ..#...#.
-    """,
-    # 6 head and shoulders rise, knees still bent
-    """
-    ....##..
-    ....##..
-    ....#...
+    .....##.
+    .....##.
+    .....#..
     ...###..
     ..#.#.#.
     ....#...
     ...#.#..
     ..#...#.
     """,
-    # 7 legs straighten
+    # 7 legs push up
     """
-    ....##..
-    ....##..
-    ....#...
+    .....##.
+    .....##.
+    .....#..
     ...###..
     ..#.#.#.
     ...#.#..
-    ..#..#..
+    ..#...#.
     ..#...#.
     """,
-    # 8 standing, then round again
+    # 8 legs straight; the head comes back upright as it loops
     """
-    ....##..
-    ....##..
-    ....#...
+    .....##.
+    .....##.
+    .....#..
     ...###..
     ..#.#.#.
     ...#.#..
