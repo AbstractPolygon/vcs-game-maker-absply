@@ -12,7 +12,9 @@ from export_sprite import export  # noqa: E402
 # so the two halves of a stride look identical: these 8 frames cover a single
 # step (one foot landing to the other foot landing) and loop as a full run.
 # The arms swing opposite each other, from fully back to fully forward.
-# Both shoulders stay put at chest height; only the hands swing.
+# Both shoulders stay put at chest height; only the hands swing. The back hand
+# swings back, hangs down, tucks behind the body around the passing frames
+# (4-6) and hangs down again, mirroring the front hand's sweep.
 FRAMES = [
     # 1 landing: front foot reaches the ground, arms at full swing
     """
@@ -42,7 +44,7 @@ FRAMES = [
     ....##..
     ....#...
     ...####.
-    ....#...
+    ...##...
     ..#.##..
     ...#.#..
     .....#..
@@ -86,7 +88,7 @@ FRAMES = [
     ....##..
     ....#...
     ...####.
-    ....#...
+    ...##...
     ...#.##.
     ...#...#
     ..#.....
