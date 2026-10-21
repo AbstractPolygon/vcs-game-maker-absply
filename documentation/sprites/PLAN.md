@@ -183,7 +183,7 @@ platform. Starts on the run cycle's frame 8 and ends on the fall loop's frame 1.
 3. The foot drops into nothing
 4. Jolt: arms jerk up, legs come together
 5. Arms fully up, legs hang straight
-6. Body settles into the fall posture, both arms up
+6. Arms settle into the falling flap, legs hang straight
 7. Legs start to dangle apart
 8. Legs apart, both arms up: the fall loop's first frame
 
@@ -191,10 +191,11 @@ platform. Starts on the run cycle's frame 8 and ends on the fall loop's frame 1.
 
 ![Fall](fall-8x8/fall-8x8.gif)
 
-A smooth loop for dropping, with the body mirrored. Both arms move together,
-sweeping from straight up, out, down low and back up, and both legs move
-together, kicking the feet up, down, tucking them in and back out. The arms
-flap twice as fast as the legs kick: they step every frame, the feet every
+A smooth loop for dropping, with the body mirrored: both arms move together
+and both legs move together, and the arms are the same two-pixel length as the
+legs. The arms flap from up to high above the shoulders, back to up, out level
+and down to the hips; the feet kick up, come down, tuck in and go back out. The
+arms flap twice as fast as the legs kick: they step every frame, the feet every
 third frame. 12 frames at 50 ms make a 0.6 s loop. The game moves the sprite
 down. Its first frame is the fall start's last, so after the fall start carry
 on from frame 2.
