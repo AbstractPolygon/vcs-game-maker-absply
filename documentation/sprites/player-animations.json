@@ -20,7 +20,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 150
+      "duration": 100
     },
     {
       "filename": "player-animations 1.aseprite",
@@ -42,7 +42,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 150
+      "duration": 100
     },
     {
       "filename": "player-animations 2.aseprite",
@@ -64,7 +64,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 150
+      "duration": 100
     },
     {
       "filename": "player-animations 3.aseprite",
@@ -86,7 +86,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 150
+      "duration": 100
     },
     {
       "filename": "player-animations 4.aseprite",
@@ -108,7 +108,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 100
     },
     {
       "filename": "player-animations 5.aseprite",
@@ -130,7 +130,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 100
     },
     {
       "filename": "player-animations 6.aseprite",
@@ -284,7 +284,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 13.aseprite",
@@ -306,7 +306,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 14.aseprite",
@@ -1781,6 +1781,50 @@
         "h": 8
       },
       "duration": 100
+    },
+    {
+      "filename": "player-animations 81.aseprite",
+      "frame": {
+        "x": 648,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
+    },
+    {
+      "filename": "player-animations 82.aseprite",
+      "frame": {
+        "x": 656,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
     }
   ],
   "meta": {
@@ -1788,7 +1832,7 @@
     "image": "player-animations.png",
     "format": "RGB888",
     "size": {
-      "w": 648,
+      "w": 664,
       "h": 8
     },
     "scale": "1",
@@ -1796,77 +1840,77 @@
       {
         "name": "idle",
         "from": 0,
-        "to": 3,
+        "to": 5,
         "direction": "forward",
         "color": "#4caf50ff"
       },
       {
         "name": "run",
-        "from": 4,
-        "to": 11,
+        "from": 6,
+        "to": 13,
         "direction": "forward",
         "color": "#2196f3ff"
       },
       {
         "name": "standing-jump",
-        "from": 12,
-        "to": 19,
+        "from": 14,
+        "to": 21,
         "direction": "forward",
         "color": "#ff9800ff"
       },
       {
         "name": "running-jump",
-        "from": 20,
-        "to": 27,
+        "from": 22,
+        "to": 29,
         "direction": "forward",
         "color": "#9c27b0ff"
       },
       {
         "name": "cannonball-jump",
-        "from": 28,
-        "to": 35,
+        "from": 30,
+        "to": 37,
         "direction": "forward",
         "color": "#f44336ff"
       },
       {
         "name": "cannonball-loop",
-        "from": 36,
-        "to": 43,
+        "from": 38,
+        "to": 45,
         "direction": "forward",
         "color": "#00bcd4ff"
       },
       {
         "name": "fall-start",
-        "from": 44,
-        "to": 46,
+        "from": 46,
+        "to": 48,
         "direction": "forward",
         "color": "#795548ff"
       },
       {
         "name": "fall",
-        "from": 47,
-        "to": 54,
+        "from": 49,
+        "to": 56,
         "direction": "forward",
         "color": "#3f51b5ff"
       },
       {
         "name": "hard-landing",
-        "from": 55,
-        "to": 64,
+        "from": 57,
+        "to": 66,
         "direction": "forward",
         "color": "#e91e63ff"
       },
       {
         "name": "wall-bounce",
-        "from": 65,
-        "to": 72,
+        "from": 67,
+        "to": 74,
         "direction": "forward",
         "color": "#8bc34aff"
       },
       {
         "name": "door-open",
-        "from": 73,
-        "to": 80,
+        "from": 75,
+        "to": 82,
         "direction": "forward",
         "color": "#ffc107ff"
       }
