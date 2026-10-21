@@ -93,8 +93,9 @@ loops.
 The 8 frames cover a single step, from one foot landing to the other. In a
 1-colour silhouette both halves of a stride look the same, so this loops as a
 full run. The arms swing opposite each other, and the trailing leg folds at
-the knee after push-off. Both shoulders stay put at chest height; only the
-hands swing, the back hand tucking behind the body around the passing frames.
+the knee after push-off. Both shoulders stay put at chest height while the
+hands swing in a wide arc, from high in front and high behind down to the
+hips, meeting at the passing frame.
 
 1. Landing: front foot reaches the ground, arms at full swing
 2. Front knee bends to take the weight, back heel lifts
