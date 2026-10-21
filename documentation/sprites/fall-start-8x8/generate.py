@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates the 8x8, 3-frame start of a fall in this folder (see ../export_sprite.py for
+"""Generates the 8x8, 8-frame start of a fall in this folder (see ../export_sprite.py for
 the formats). Same character as ../run-cycle-8x8."""
 import os
 import sys
@@ -12,7 +12,7 @@ from export_sprite import export  # noqa: E402
 # edge of a platform: starts on the run cycle's toe-off pose (its frame 8) and
 # hands over to ../fall-8x8 at its frame 1. Plays once.
 FRAMES = [
-    # 1 stepping off: front foot reaches out over nothing, as in the run
+    # 1 stepping off: toe-off, as in the run
     """
     ....##..
     ....##..
@@ -23,7 +23,29 @@ FRAMES = [
     ..#...##
     .#......
     """,
-    # 2 surprise: jerks upright, arms fly up, legs straight
+    # 2 front foot reaches out over the edge
+    """
+    ....##..
+    ....##..
+    ....#...
+    ...####.
+    ...##...
+    ...#.#..
+    ..#...#.
+    .#....#.
+    """,
+    # 3 the foot drops into nothing
+    """
+    ....##..
+    ....##..
+    ....#...
+    ...####.
+    ..#.#...
+    ...#.#..
+    ..#..#..
+    .....#..
+    """,
+    # 4 jolt: arms jerk up, legs come together
     """
     ....##..
     ....##..
@@ -32,9 +54,31 @@ FRAMES = [
     ....#...
     ....#...
     ....#...
+    ...#.#..
+    """,
+    # 5 arms fully up, legs hang straight
+    """
+    ....##..
+    ..#.###.
+    ..#.#.#.
+    ...###..
+    ....#...
+    ....#...
+    ....#...
     ....#...
     """,
-    # 3 dropping: legs dangle, arms start to flail
+    # 6 body settles into the fall posture
+    """
+    ........
+    ..#.##..
+    ..#.##.#
+    ...##.#.
+    ....##..
+    ....#...
+    ....#...
+    ....#...
+    """,
+    # 7 legs start to dangle apart
     """
     ........
     ..#.##..
@@ -44,6 +88,17 @@ FRAMES = [
     ....#...
     ...#.#..
     ...#.#..
+    """,
+    # 8 arms start to flail, into the fall loop
+    """
+    ........
+    ..#.##..
+    ..#.##..
+    ...##...
+    ....###.
+    ....#...
+    ...#.#..
+    ..#...#.
     """,
 ]
 export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'fall-start-8x8', 'fall_start', 'fall-start')

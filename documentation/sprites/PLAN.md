@@ -17,7 +17,7 @@ file there. The shared export code is in `export_sprite.py`.
 ## All animations in one file
 
 `player-animations.aseprite` holds every animation below in one Aseprite file:
-83 frames on one layer, with a coloured tag per animation, named as in the
+88 frames on one layer, with a coloured tag per animation, named as in the
 "Aseprite name" column. `player-animations.png` + `player-animations.json` is
 the same thing as an Aseprite sprite sheet: pick both with **Import from
 Aseprite** to bring in every animation at once, one per tag. After changing
@@ -34,7 +34,7 @@ rebuild all three.
 | Running jump | `running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
 | Cannonball jump | `cannonball-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `cannonball-jump` |
 | Cannonball loop | `cannonball-loop-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `cannonball-loop` |
-| Fall start | `fall-start-8x8` | 8×8 | 3 | 100 ms (6) | No | `fall-start` |
+| Fall start | `fall-start-8x8` | 8×8 | 8 | 100 ms (6) | No | `fall-start` |
 | Fall | `fall-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `fall` |
 | Hard landing | `hard-landing-8x8` | 8×8 | 10 | 100 ms (6) | No | `hard-landing` |
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
@@ -59,7 +59,7 @@ rebuild all three.
 | Wall bounce frame 8 | Idle frame 1 | Standing |
 | Standing jump frames 1 and 8 | Cannonball jump frames 1 and 8 | Crouch and landing |
 | Run cycle frame 8 | Fall start frame 1 | Toe-off |
-| Fall start frame 3 | Fall frame 1 | (plays straight into it) |
+| Fall start frame 8 | Fall frame 1 | (plays straight into it) |
 | Hard landing frame 10 | Idle frame 1 | Standing |
 | Idle frame 1 | Door opening frame 1 | Standing |
 | Door opening frame 8 | Idle frame 1 | Standing |
@@ -179,9 +179,14 @@ The lead-in to a fall when the player walks or runs off the edge of a
 platform. Starts on the run cycle's frame 8 and plays straight into the fall
 loop's frame 1.
 
-1. Stepping off: front foot reaches out over nothing, as in the run
-2. Surprise: jerks upright, arms fly up, legs straight
-3. Dropping: legs dangle, arms start to flail
+1. Stepping off: toe-off, as in the run
+2. Front foot reaches out over the edge
+3. The foot drops into nothing
+4. Jolt: arms jerk up, legs come together
+5. Arms fully up, legs hang straight
+6. Body settles into the fall posture
+7. Legs start to dangle apart
+8. Arms start to flail, into the fall loop
 
 ### Fall — `fall-8x8`
 
