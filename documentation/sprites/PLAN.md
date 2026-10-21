@@ -17,7 +17,7 @@ file there. The shared export code is in `export_sprite.py`.
 ## All animations in one file
 
 `player-animations.aseprite` holds every animation below in one Aseprite file:
-88 frames on one layer, with a coloured tag per animation, named as in the
+104 frames on one layer, with a coloured tag per animation, named as in the
 "Aseprite name" column. `player-animations.png` + `player-animations.json` is
 the same thing as an Aseprite sprite sheet: pick both with **Import from
 Aseprite** to bring in every animation at once, one per tag. After changing
@@ -35,7 +35,7 @@ rebuild all three.
 | Cannonball jump | `cannonball-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `cannonball-jump` |
 | Cannonball loop | `cannonball-loop-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `cannonball-loop` |
 | Fall start | `fall-start-8x8` | 8×8 | 8 | 100 ms (6) | No | `fall-start` |
-| Fall | `fall-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `fall` |
+| Fall | `fall-8x8` | 8×8 | 24 | 50 ms (3) | Yes | `fall` |
 | Hard landing | `hard-landing-8x8` | 8×8 | 10 | 100 ms (6) | No | `hard-landing` |
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
 | Door opening | `door-open-8x8` | 8×8 | 8 | 100 ms (6) | No | `door-open` |
@@ -59,7 +59,7 @@ rebuild all three.
 | Wall bounce frame 8 | Idle frame 1 | Standing |
 | Standing jump frames 1 and 8 | Cannonball jump frames 1 and 8 | Crouch and landing |
 | Run cycle frame 8 | Fall start frame 1 | Toe-off |
-| Fall start frame 8 | Fall frame 1 | (plays straight into it) |
+| Fall start frame 8 | Fall frame 1 (carry on from frame 2) | Both arms up, legs apart |
 | Hard landing frame 10 | Idle frame 1 | Standing |
 | Idle frame 1 | Door opening frame 1 | Standing |
 | Door opening frame 8 | Idle frame 1 | Standing |
@@ -176,34 +176,27 @@ for example in place of the cannonball jump's frames 4–6.
 ![Fall start](fall-start-8x8/fall-start-8x8.gif)
 
 The lead-in to a fall when the player walks or runs off the edge of a
-platform. Starts on the run cycle's frame 8 and plays straight into the fall
-loop's frame 1.
+platform. Starts on the run cycle's frame 8 and ends on the fall loop's frame 1.
 
 1. Stepping off: toe-off, as in the run
 2. Front foot reaches out over the edge
 3. The foot drops into nothing
 4. Jolt: arms jerk up, legs come together
 5. Arms fully up, legs hang straight
-6. Body settles into the fall posture, arms still up
+6. Body settles into the fall posture, both arms up
 7. Legs start to dangle apart
-8. Legs apart, both arms up, into the fall loop
+8. Legs apart, both arms up: the fall loop's first frame
 
 ### Fall — `fall-8x8`
 
 ![Fall](fall-8x8/fall-8x8.gif)
 
-A loop for dropping: the arms flail up and down opposite each other, pausing
-at each end, while the legs pedal. The game moves the sprite down. Use the fall
-start first when the player walks off a platform.
-
-1. Back arm up, front arm low, legs apart
-2. Arms swinging, front knee up
-3. Arms out level, legs crossing
-4. Back arm low, front arm up, back leg under
-5. Holding: back arm low, front arm up, legs apart
-6. Arms swinging back, front knee up
-7. Arms out level, legs crossing
-8. Back arm up, front arm low, back leg under
+A very smooth loop for dropping. Both arms move together as mirror images,
+sweeping from straight up, out, down low and back up with no pauses, while the
+legs pedal gently, one foot moving one pixel at a time. The arms and the feet
+take turns, so each of the 24 frames changes just one thing. At 50 ms a frame
+the loop lasts 1.2 s. The game moves the sprite down. Its first frame is the
+fall start's last, so after the fall start carry on from frame 2.
 
 ### Hard landing — `hard-landing-8x8`
 
