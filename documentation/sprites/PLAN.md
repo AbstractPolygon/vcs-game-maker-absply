@@ -17,7 +17,7 @@ file there. The shared export code is in `export_sprite.py`.
 ## All animations in one file
 
 `player-animations.aseprite` holds every animation below in one Aseprite file:
-104 frames on one layer, with a coloured tag per animation, named as in the
+92 frames on one layer, with a coloured tag per animation, named as in the
 "Aseprite name" column. `player-animations.png` + `player-animations.json` is
 the same thing as an Aseprite sprite sheet: pick both with **Import from
 Aseprite** to bring in every animation at once, one per tag. After changing
@@ -35,7 +35,7 @@ rebuild all three.
 | Cannonball jump | `cannonball-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `cannonball-jump` |
 | Cannonball loop | `cannonball-loop-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `cannonball-loop` |
 | Fall start | `fall-start-8x8` | 8×8 | 8 | 100 ms (6) | No | `fall-start` |
-| Fall | `fall-8x8` | 8×8 | 24 | 50 ms (3) | Yes | `fall` |
+| Fall | `fall-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `fall` |
 | Hard landing | `hard-landing-8x8` | 8×8 | 10 | 100 ms (6) | No | `hard-landing` |
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
 | Door opening | `door-open-8x8` | 8×8 | 8 | 100 ms (6) | No | `door-open` |
@@ -191,12 +191,13 @@ platform. Starts on the run cycle's frame 8 and ends on the fall loop's frame 1.
 
 ![Fall](fall-8x8/fall-8x8.gif)
 
-A very smooth loop for dropping. Both arms move together as mirror images,
-sweeping from straight up, out, down low and back up with no pauses, while the
-legs pedal gently, one foot moving one pixel at a time. The arms and the feet
-take turns, so each of the 24 frames changes just one thing. At 50 ms a frame
-the loop lasts 1.2 s. The game moves the sprite down. Its first frame is the
-fall start's last, so after the fall start carry on from frame 2.
+A smooth loop for dropping, with the body mirrored. Both arms move together,
+sweeping from straight up, out, down low and back up, and both legs move
+together, kicking the feet up, down, tucking them in and back out. The arms
+flap twice as fast as the legs kick: they step every frame, the feet every
+third frame. 12 frames at 50 ms make a 0.6 s loop. The game moves the sprite
+down. Its first frame is the fall start's last, so after the fall start carry
+on from frame 2.
 
 ### Hard landing — `hard-landing-8x8`
 
