@@ -17,7 +17,7 @@ file there. The shared export code is in `export_sprite.py`.
 ## All animations in one file
 
 `player-animations.aseprite` holds every animation below in one Aseprite file:
-85 frames on one layer, with a coloured tag per animation, named as in the
+81 frames on one layer, with a coloured tag per animation, named as in the
 "Aseprite name" column. `player-animations.png` + `player-animations.json` is
 the same thing as an Aseprite sprite sheet: pick both with **Import from
 Aseprite** to bring in every animation at once, one per tag. After changing
@@ -28,7 +28,7 @@ rebuild all three.
 
 | Animation | Folder | Size | Frames | Per frame | Loops | Aseprite name |
 | --- | --- | --- | --- | --- | --- | --- |
-| Idle | `idle-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `idle` |
+| Idle | `idle-8x8` | 8×8 | 4 | 150 ms (9) | Yes | `idle` |
 | Run cycle | `run-cycle-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `run` |
 | Standing jump | `standing-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `standing-jump` |
 | Running jump | `running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
@@ -71,19 +71,14 @@ rebuild all three.
 ![Idle](idle-8x8/idle-8x8.gif)
 
 Facing right, with the front foot planted ahead of the back one and both arms
-down at the sides, bouncing gently up and down with the head kept upright.
-Each step moves just one part by one pixel: the knees bend and the hips drop,
-the head and shoulders follow, then back up the same way. The legs only switch
-between straight and bent, so neither knee twitches.
+down at the sides, bouncing gently up and down with the head kept upright:
+standing, knees bent, fully low, knees bent, and round again. Every frame
+moves just one part by one pixel and no pose is held.
 
 1. Standing, arms down at the sides
-2. Standing
-3. Knees bend, hips drop
-4. Head and shoulders follow down
-5. Holding low
-6. Head and shoulders rise
-7. Legs straighten
-8. Standing, then round again
+2. Knees bend, hips drop
+3. Head and shoulders follow down
+4. Head and shoulders rise, then the legs straighten as it loops
 
 ### Run cycle — `run-cycle-8x8`
 
