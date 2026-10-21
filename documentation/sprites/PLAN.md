@@ -14,6 +14,16 @@ the Player editor:
 Edit a folder's frames in its `generate.py` and re-run it to rebuild every
 file there. The shared export code is in `export_sprite.py`.
 
+## All animations in one file
+
+`player-animations.aseprite` holds every animation below in one Aseprite file:
+85 frames on one layer, with a coloured tag per animation, named as in the
+"Aseprite name" column. `player-animations.png` + `player-animations.json` is
+the same thing as an Aseprite sprite sheet: pick both with **Import from
+Aseprite** to bring in every animation at once, one per tag. After changing
+any animation, re-run its `generate.py` and then `build_aseprite.py` to
+rebuild all three.
+
 ## Overview
 
 | Animation | Folder | Size | Frames | Per frame | Loops | Aseprite name |
