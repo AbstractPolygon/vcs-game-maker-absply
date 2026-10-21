@@ -95,12 +95,10 @@ The 8 frames cover a single step, from one foot landing to the other. In a
 full run. The arms swing opposite each other, and the trailing leg folds at
 the knee after push-off. Both shoulders stay put at chest height; only the
 hands swing, the back hand tucking behind the body around the passing frames.
-The head, shoulders and arms bob down a pixel in frames 2–3 as the front knee
-takes the weight.
 
 1. Landing: front foot reaches the ground, arms at full swing
-2. Front knee bends to take the weight, back heel lifts; head and shoulders drop a pixel
-3. Back heel kicks up behind, bent at the knee; still low, back hand tucked
+2. Front knee bends to take the weight, back heel lifts
+3. Back heel kicks up behind, bent at the knee
 4. Standing leg under the body, back foot tucked up
 5. Passing: swinging knee comes through, arms at the sides
 6. Standing leg behind the body, swinging knee forward

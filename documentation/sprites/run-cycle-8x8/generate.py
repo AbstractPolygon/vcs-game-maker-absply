@@ -15,8 +15,6 @@ from export_sprite import export  # noqa: E402
 # Both shoulders stay put at chest height; only the hands swing. The back hand
 # swings back, hangs down, tucks behind the body around the passing frames
 # (4-6) and hangs down again, mirroring the front hand's sweep.
-# The head, shoulders and arms bob down a pixel in frames 2-3, as the front
-# knee takes the weight; the legs and frames 1 and 8 don't change.
 # 50 ms (3 NTSC frames) per frame.
 FRAMES = [
     # 1 landing: front foot reaches the ground, arms at full swing
@@ -30,24 +28,24 @@ FRAMES = [
     .##..#..
     ......#.
     """,
-    # 2 front knee bends to take the weight, back heel lifts; head and shoulders drop a pixel
+    # 2 front knee bends to take the weight, back heel lifts
     """
-    ........
     ....##..
     ....##..
     ....#.#.
     ...###..
+    ...##...
     .#.##...
     ..#..#..
     .....#..
     """,
-    # 3 back heel kicks up behind, bent at the knee; still low, back hand tucked
+    # 3 back heel kicks up behind, bent at the knee
     """
-    ........
     ....##..
     ....##..
     ....#...
     ...####.
+    ...##...
     ..#.##..
     ...#.#..
     .....#..
