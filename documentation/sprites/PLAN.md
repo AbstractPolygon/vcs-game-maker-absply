@@ -184,9 +184,9 @@ loop's frame 1.
 3. The foot drops into nothing
 4. Jolt: arms jerk up, legs come together
 5. Arms fully up, legs hang straight
-6. Body settles into the fall posture
+6. Body settles into the fall posture, arms still up
 7. Legs start to dangle apart
-8. Arms start to flail, into the fall loop
+8. Legs apart, both arms up, into the fall loop
 
 ### Fall — `fall-8x8`
 

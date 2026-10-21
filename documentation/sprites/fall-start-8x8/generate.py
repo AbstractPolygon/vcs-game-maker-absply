@@ -67,7 +67,7 @@ FRAMES = [
     ....#...
     ....#...
     """,
-    # 6 body settles into the fall posture
+    # 6 body settles into the fall posture, arms still up
     """
     ........
     ..#.##..
@@ -82,20 +82,20 @@ FRAMES = [
     """
     ........
     ..#.##..
-    ..#.##..
-    ...##.##
+    ..#.##.#
+    ...##.#.
     ....##..
     ....#...
     ...#.#..
     ...#.#..
     """,
-    # 8 arms start to flail, into the fall loop
+    # 8 legs apart, both arms up, into the fall loop
     """
     ........
     ..#.##..
-    ..#.##..
-    ...##...
-    ....###.
+    ..#.##.#
+    ...##.#.
+    ....##..
     ....#...
     ...#.#..
     ..#...#.
