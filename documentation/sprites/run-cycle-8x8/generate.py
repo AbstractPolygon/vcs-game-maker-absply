@@ -15,6 +15,7 @@ from export_sprite import export  # noqa: E402
 # Both shoulders stay put at chest height; only the hands swing. The back hand
 # swings back, hangs down, tucks behind the body around the passing frames
 # (4-6) and hangs down again, mirroring the front hand's sweep.
+# 50 ms (3 NTSC frames) per frame.
 FRAMES = [
     # 1 landing: front foot reaches the ground, arms at full swing
     """
@@ -105,4 +106,4 @@ FRAMES = [
     .#......
     """,
 ]
-export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'run-cycle-8x8', 'run', 'run')
+export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'run-cycle-8x8', 'run', 'run', frame_ms=50)
