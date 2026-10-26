@@ -60,7 +60,7 @@ rebuild all three.
 | Wall bounce frame 8 | Idle frame 1 | Standing |
 | Idle frame 1 | Standing jump frame 1 | Standing |
 | Standing jump frame 10 | Idle frame 2 (then go to idle frame 1) | Knees bent |
-| Standing jump frames 3, 4, 8 and 9 | Cannonball jump frames 1, 2, 7 and 8 | Crouch, spring, legs opening, landing |
+| Standing jump frames 3, 4 and 9 | Cannonball jump frames 1, 2 and 8 | Crouch, spring, landing |
 | Run cycle frame 8 | Fall start frame 1 | Toe-off |
 | Fall start frame 8 | Fall frame 1 (carry on from frame 2) | Both arms up, legs apart |
 | Hard landing frame 10 | Idle frame 1 | Standing |
@@ -116,17 +116,17 @@ A jump straight up from standing. Starts on the idle's first frame and dips
 through the idle's own knee-bend and low poses, springs up with both arms
 swinging up, tucks the knees at the top, opens the legs out and lands back
 through the idle's low and knee-bend poses, so it joins the idle at both ends.
-In the air the arms and legs are mirrored either side of the body, like the
-fall.
+In the air the arms are mirrored either side of the body, like the fall, while
+one leg stays straight and the other bends at the hip and knee.
 
 1. Standing, as in the idle
 2. Knees bend, as in the idle
 3. Crouches low, as in the idle
 4. Springs up: legs straighten, arms swing up
-5. Leaves the ground: stretched out, arms high, toes pointed
-6. Knees tuck up
-7. Top of the jump: tucked, arms out
-8. Legs open out for the landing
+5. Leaves the ground: arms high, left leg straight, right leg bent with the foot lifted
+6. Right knee comes up high, left leg straight
+7. Top of the jump: arms out, right knee high, left leg straight
+8. Right leg lowers for the landing
 9. Lands low, as in the idle
 10. Rising with the knees still bent, back into the idle
 
@@ -154,7 +154,7 @@ back hand sweeps up behind and back down.
 
 A jump from standing that curls into a ball at the top, hugging the knees,
 then uncurls to land. Starts on the standing jump's crouch and spring, and
-uncurls and lands like it.
+lands on its low landing pose.
 
 1. Crouches low, as in the idle and the standing jump
 2. Springs up: legs straighten, arms swing up

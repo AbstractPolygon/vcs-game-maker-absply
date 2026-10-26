@@ -12,9 +12,10 @@ from export_sprite import export  # noqa: E402
 # through the idle's own knee-bend and low poses, springs up with both arms
 # swinging up, tucks the knees at the top, opens the legs out and lands back
 # through the idle's low and knee-bend poses, so it joins the idle at both
-# ends. In the air the arms and legs are mirrored either side of the body, like
-# the fall. Only the pose is drawn; the jump's height comes from moving the
-# sprite in the game.
+# ends. In the air the arms are mirrored either side of the body, like the
+# fall, while one leg stays straight and the other bends at the hip and knee.
+# Only the pose is drawn; the jump's height comes from moving the sprite in
+# the game.
 FRAMES = [
     # 1 standing, as in the idle
     """
@@ -60,49 +61,49 @@ FRAMES = [
     ...#.#..
     ...#.#..
     """,
-    # 5 leaves the ground: stretched out, arms high, toes pointed
+    # 5 leaves the ground: arms high, left leg straight, right leg bent with the foot lifted
     """
     ....##..
     ..#.###.
     ...###..
     ....#...
     ....#...
-    ....#...
-    ....#...
-    ....#...
+    ....##..
+    ...#.#..
+    ...#....
     """,
-    # 6 knees tuck up
+    # 6 right knee comes up high, left leg straight
     """
     ....##..
     ....##..
     ..#.#.#.
     ...###..
     ....#...
-    ...###..
-    ...#.#..
-    ........
+    ....##..
+    ...#..#.
+    ...#....
     """,
-    # 7 top of the jump: tucked, arms out
+    # 7 top of the jump: arms out, right knee high, left leg straight
     """
     ....##..
     ....##..
     ....#...
     ..#####.
     ....#...
-    ...###..
-    ...#.#..
-    ........
+    ....##..
+    ...#..#.
+    ...#....
     """,
-    # 8 legs open out for the landing
+    # 8 right leg lowers for the landing
     """
     ....##..
     ....##..
     ....#...
     ..#####.
     ....#...
-    ....#...
+    ....##..
     ...#.#..
-    ..#...#.
+    ...#....
     """,
     # 9 lands low, as in the idle
     """
