@@ -17,7 +17,7 @@ file there. The shared export code is in `export_sprite.py`.
 ## All animations in one file
 
 `player-animations.aseprite` holds every animation below in one Aseprite file:
-106 frames on one layer, with a coloured tag per animation, named as in the
+120 frames on one layer, with a coloured tag per animation, named as in the
 "Aseprite name" column. `player-animations.png` + `player-animations.json` is
 the same thing as an Aseprite sprite sheet: pick both with **Import from
 Aseprite** to bring in every animation at once, one per tag. After changing
@@ -40,6 +40,7 @@ rebuild all three.
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
 | Door opening | `door-open-8x8` | 8×8 | 8 | 100 ms (6) | No | `door-open` |
 | Ladder climb | `climb-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `climb` |
+| Shrink | `shrink-8x8` | 8×8 | 14 | 100 ms (6) | No | `shrink` |
 
 ## Lining the animations up
 
@@ -59,6 +60,7 @@ rebuild all three.
 | Run cycle frame 1 | Wall bounce frame 1 | Running in |
 | Wall bounce frame 8 | Idle frame 1 | Standing |
 | Idle frame 1 | Standing jump frame 1 | Standing |
+| Idle frame 1 | Shrink frame 1 | Standing |
 | Standing jump frame 10 | Idle frame 2 (then go to idle frame 1) | Knees bent |
 | Standing jump frames 3, 4 and 9 | Cannonball jump frames 1, 2 and 8 | Crouch, spring, landing |
 | Run cycle frame 8 | Fall start frame 1 | Toe-off |
@@ -290,3 +292,28 @@ sprite up the ladder.
 10. Left hand up, right hand down
 11. Right knee up
 12. Left hand up, right hand down
+
+### Shrink — `shrink-8x8`
+
+![Shrink](shrink-8x8/shrink-8x8.gif)
+
+The player shrinking away, for a teleport, a vanish or a death. Starts on the
+idle's first frame, crouches into the idle's low pose, curls into the
+cannonball's ball, squeezes into a solid circle and shrinks down to a dot on
+the ground, which bursts into a little spark that flares and fades. The last
+frame is empty.
+
+1. Standing, as in the idle
+2. Crouches low, as in the idle
+3. Curls into a ball, as in the cannonball
+4. Squeezes into a circle
+5. Shrinks
+6. Shrinks
+7. Shrinks
+8. Shrinks
+9. Shrinks to a dot
+10. A little spark
+11. The spark flares
+12. The spark fades
+13. A last glint
+14. Gone
