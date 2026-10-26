@@ -2617,6 +2617,28 @@
         "h": 8
       },
       "duration": 67
+    },
+    {
+      "filename": "player-animations 119.aseprite",
+      "frame": {
+        "x": 952,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
     }
   ],
   "meta": {
@@ -2624,7 +2646,7 @@
     "image": "player-animations.png",
     "format": "RGB888",
     "size": {
-      "w": 952,
+      "w": 960,
       "h": 8
     },
     "scale": "1",
@@ -2716,7 +2738,7 @@
       {
         "name": "shrink",
         "from": 106,
-        "to": 118,
+        "to": 119,
         "direction": "forward",
         "color": "#cddc39ff"
       }
