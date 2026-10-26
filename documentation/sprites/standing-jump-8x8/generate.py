@@ -10,7 +10,7 @@ from export_sprite import export  # noqa: E402
 
 # A jump straight up from standing. Starts on the idle's first frame and dips
 # through the idle's own knee-bend and low poses, springs up with both arms
-# swinging up, tucks the knees at the top, opens the legs out and lands back
+# swinging up, raises one knee high at the top, lowers it again and lands back
 # through the idle's low and knee-bend poses, so it joins the idle at both
 # ends. In the air the arms are mirrored either side of the body, like the
 # fall, while one leg stays straight and the other bends at the hip and knee.
