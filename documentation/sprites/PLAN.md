@@ -24,6 +24,10 @@ Aseprite** to bring in every animation at once, one per tag. After changing
 any animation, re-run its `generate.py` and then `build_aseprite.py` to
 rebuild all three.
 
+Props are not in the player's file. Each has its own: `trampoline.aseprite`,
+with `trampoline.png` + `trampoline.json` as its sprite sheet, is built by the
+same `build_aseprite.py`. See [Props](#props).
+
 ## Overview
 
 | Animation | Folder | Size | Frames | Per frame | Loops | Aseprite name |
@@ -328,3 +332,36 @@ frame is empty.
 12. The spark flares
 13. The spark fades
 14. Gone
+
+## Props
+
+Objects in the level, not the player. Each one has its own folder and its own
+Aseprite file, so it imports as a separate sprite.
+
+| Prop | Folder | Size | Frames | Per frame | Loops | Aseprite file |
+| --- | --- | --- | --- | --- | --- | --- |
+| Trampoline | `trampoline-8x8` | 8×8 | 12 | 50 ms (3) | No | `trampoline.aseprite` (tag `trampoline`) |
+
+### Trampoline — `trampoline-8x8`
+
+![Trampoline](trampoline-8x8/trampoline-8x8.gif)
+
+A trampoline seen from the side: the bed across the top between two legs with
+feet. Only the bed moves. Frame 1 is the trampoline at rest, to show while
+nothing is on it; play the animation when the player lands. The bed slams to
+its deepest stretch in one frame and flings 2 pixels up past flat on the next,
+so the player is launched almost at once: launch them on frame 3. It then
+eases back down and settles with a smaller dip and a last flick.
+
+1. Flat at rest, as the player lands
+2. Slams to its deepest stretch
+3. Flings 2 pixels up past flat (launch the player)
+4. Coming back down
+5. Almost flat
+6. Flat
+7. A smaller second dip
+8. Bottom of the second dip
+9. Coming back up
+10. Flat
+11. A last small flick up
+12. Settled at rest

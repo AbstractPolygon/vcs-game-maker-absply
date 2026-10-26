@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Compiles every animation in this folder into one Aseprite file,
-player-animations.aseprite, with a tag per animation. Also writes the same
-frames as an Aseprite-style sprite sheet (player-animations.png + .json), which
-PlayerEditor.vue's "Import from Aseprite" turns into one animation per tag.
+"""Compiles the player's animations in this folder into one Aseprite file,
+player-animations.aseprite, with a tag per animation, and each prop's into its
+own file (trampoline.aseprite). Also writes the same frames as an Aseprite-style
+sprite sheet (<name>.png + .json), which PlayerEditor.vue's "Import from
+Aseprite" turns into one animation per tag.
 
 Reads each animation folder's generated strip and .json, so re-run each
 folder's generate.py first after changing its frames.
@@ -18,13 +19,13 @@ import zlib
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-NAME = 'player-animations'
 SIZE = 8
 ON = (255, 255, 255, 255)
 OFF = (0, 0, 0, 0)
 
-# Folder order is the tag order in the file.
-ANIMATIONS = [
+# Folder order is the tag order in each file. Props are kept out of the
+# player's file so they import as their own sprites.
+PLAYER = [
     'idle-8x8',
     'run-cycle-8x8',
     'standing-jump-8x8',
@@ -39,6 +40,10 @@ ANIMATIONS = [
     'climb-8x8',
     'shrink-8x8',
 ]
+FILES = {
+    'player-animations': PLAYER,
+    'trampoline': ['trampoline-8x8'],
+}
 
 # Distinct tag colours so the animations stand apart on Aseprite's timeline.
 TAG_COLORS = [
@@ -49,10 +54,10 @@ TAG_COLORS = [
 ]
 
 
-def load():
+def load(folders):
     """Returns [(tag, [(pixels, duration_ms), ...]), ...] from the folders."""
     animations = []
-    for folder in ANIMATIONS:
+    for folder in folders:
         with open(os.path.join(HERE, folder, f'{folder}.json')) as f:
             sheet = json.load(f)
         strip = Image.open(os.path.join(HERE, folder, sheet['meta']['image'])).convert('RGB')
@@ -133,18 +138,18 @@ def write_aseprite(animations, path):
     return tags, frames
 
 
-def write_sheet(tags, frames):
+def write_sheet(name, tags, frames):
     strip = Image.new('RGB', (SIZE * len(frames), SIZE), (0, 0, 0))
     for i, (pixels, _) in enumerate(frames):
         for y, row in enumerate(pixels):
             for x, on in enumerate(row):
                 if on:
                     strip.putpixel((i * SIZE + x, y), (255, 255, 255))
-    strip.save(os.path.join(HERE, f'{NAME}.png'))
+    strip.save(os.path.join(HERE, f'{name}.png'))
     sheet = {
         'frames': [
             {
-                'filename': f'{NAME} {i}.aseprite',
+                'filename': f'{name} {i}.aseprite',
                 'frame': {'x': i * SIZE, 'y': 0, 'w': SIZE, 'h': SIZE},
                 'rotated': False,
                 'trimmed': False,
@@ -156,24 +161,26 @@ def write_sheet(tags, frames):
         ],
         'meta': {
             'app': 'https://www.aseprite.org/',
-            'image': f'{NAME}.png',
+            'image': f'{name}.png',
             'format': 'RGB888',
             'size': {'w': SIZE * len(frames), 'h': SIZE},
             'scale': '1',
             'frameTags': [
-                {'name': name, 'from': start, 'to': end, 'direction': 'forward',
+                {'name': tag, 'from': start, 'to': end, 'direction': 'forward',
                  'color': '#{:02x}{:02x}{:02x}ff'.format(*rgb)}
-                for (name, start, end), rgb in zip(tags, TAG_COLORS)
+                for (tag, start, end), rgb in zip(tags, TAG_COLORS)
             ],
         },
     }
-    with open(os.path.join(HERE, f'{NAME}.json'), 'w') as f:
+    with open(os.path.join(HERE, f'{name}.json'), 'w') as f:
         json.dump(sheet, f, indent=2)
         f.write('\n')
 
 
 if __name__ == '__main__':
-    tags, frames = write_aseprite(load(), os.path.join(HERE, f'{NAME}.aseprite'))
-    write_sheet(tags, frames)
-    for name, start, end in tags:
-        print(f'{name}: frames {start + 1}-{end + 1}')
+    for name, folders in FILES.items():
+        tags, frames = write_aseprite(load(folders), os.path.join(HERE, f'{name}.aseprite'))
+        write_sheet(name, tags, frames)
+        print(f'{name}.aseprite:')
+        for tag, start, end in tags:
+            print(f'  {tag}: frames {start + 1}-{end + 1}')
