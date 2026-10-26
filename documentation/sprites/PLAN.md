@@ -17,7 +17,7 @@ file there. The shared export code is in `export_sprite.py`.
 ## All animations in one file
 
 `player-animations.aseprite` holds every animation below in one Aseprite file:
-126 frames on one layer, with a coloured tag per animation, named as in the
+119 frames on one layer, with a coloured tag per animation, named as in the
 "Aseprite name" column. `player-animations.png` + `player-animations.json` is
 the same thing as an Aseprite sprite sheet: pick both with **Import from
 Aseprite** to bring in every animation at once, one per tag. After changing
@@ -40,7 +40,7 @@ rebuild all three.
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
 | Door opening | `door-open-8x8` | 8×8 | 8 | 100 ms (6) | No | `door-open` |
 | Ladder climb | `climb-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `climb` |
-| Shrink | `shrink-8x8` | 8×8 | 20 | 67 ms (4) | No | `shrink` |
+| Shrink | `shrink-8x8` | 8×8 | 13 | 67 ms (4) | No | `shrink` |
 
 ## Lining the animations up
 
@@ -299,9 +299,8 @@ sprite up the ladder.
 
 The player shrinking away, for a teleport, a vanish or a death. Starts on the
 idle's first frame, crouches into the idle's low pose, curls into the
-cannonball's ball and squeezes into a solid circle. It then shrinks with
-squash and stretch - squashing wide, stretching tall and settling into a
-smaller circle at each size - down to a last thin stretch and a dot, which
+cannonball's ball and squeezes into a solid circle, which squashes wide and
+stretches tall once, then shrinks quickly, gives a last thin stretch and
 bursts into a little spark that flares and fades. From the ball on, everything
 is centred in the frame (shapes an odd number of pixels across sit half a
 pixel down and to the right). The last frame is empty.
@@ -312,17 +311,10 @@ pixel down and to the right). The last frame is empty.
 4. Squeezes into a circle
 5. Squashes wide
 6. Stretches tall
-7. Settles into a smaller circle
-8. Squashes wide
-9. Stretches tall
-10. Settles smaller
-11. Squashes
-12. Stretches
-13. Settles small
-14. A last thin stretch
-15. Shrinks to a dot
-16. A little spark
-17. The spark flares
-18. The spark fades
-19. A last glint
-20. Gone
+7. Shrinks
+8. Shrinks
+9. A last thin stretch
+10. A little spark
+11. The spark flares
+12. The spark fades
+13. Gone

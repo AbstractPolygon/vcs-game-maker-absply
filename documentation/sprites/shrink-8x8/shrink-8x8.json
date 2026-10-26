@@ -285,160 +285,6 @@
         "h": 8
       },
       "duration": 67
-    },
-    {
-      "filename": "shrink 13.aseprite",
-      "frame": {
-        "x": 104,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 67
-    },
-    {
-      "filename": "shrink 14.aseprite",
-      "frame": {
-        "x": 112,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 67
-    },
-    {
-      "filename": "shrink 15.aseprite",
-      "frame": {
-        "x": 120,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 67
-    },
-    {
-      "filename": "shrink 16.aseprite",
-      "frame": {
-        "x": 128,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 67
-    },
-    {
-      "filename": "shrink 17.aseprite",
-      "frame": {
-        "x": 136,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 67
-    },
-    {
-      "filename": "shrink 18.aseprite",
-      "frame": {
-        "x": 144,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 67
-    },
-    {
-      "filename": "shrink 19.aseprite",
-      "frame": {
-        "x": 152,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 67
     }
   ],
   "meta": {
@@ -446,7 +292,7 @@
     "image": "shrink-8x8.png",
     "format": "RGB888",
     "size": {
-      "w": 160,
+      "w": 104,
       "h": 8
     },
     "scale": "1",
@@ -454,7 +300,7 @@
       {
         "name": "shrink",
         "from": 0,
-        "to": 19,
+        "to": 12,
         "direction": "forward"
       }
     ]
