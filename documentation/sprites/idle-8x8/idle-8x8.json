@@ -20,7 +20,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 67
     },
     {
       "filename": "idle 1.aseprite",
@@ -42,7 +42,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 67
     },
     {
       "filename": "idle 2.aseprite",
@@ -64,7 +64,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 67
     },
     {
       "filename": "idle 3.aseprite",
@@ -86,7 +86,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 67
     },
     {
       "filename": "idle 4.aseprite",
@@ -108,7 +108,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 67
     },
     {
       "filename": "idle 5.aseprite",
@@ -130,7 +130,95 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 67
+    },
+    {
+      "filename": "idle 6.aseprite",
+      "frame": {
+        "x": 48,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "idle 7.aseprite",
+      "frame": {
+        "x": 56,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "idle 8.aseprite",
+      "frame": {
+        "x": 64,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "idle 9.aseprite",
+      "frame": {
+        "x": 72,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
     }
   ],
   "meta": {
@@ -138,7 +226,7 @@
     "image": "idle-8x8.png",
     "format": "RGB888",
     "size": {
-      "w": 48,
+      "w": 80,
       "h": 8
     },
     "scale": "1",
@@ -146,7 +234,7 @@
       {
         "name": "idle",
         "from": 0,
-        "to": 5,
+        "to": 9,
         "direction": "forward"
       }
     ]

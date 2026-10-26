@@ -8,14 +8,14 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from export_sprite import export  # noqa: E402
 
-# A jump straight up from standing. Starts on the idle's first frame and dips
-# through the idle's own knee-bend and low poses, springs up with both arms
+# A jump straight up from standing. Starts on the idle's first frame, bends
+# the knees and crouches into the idle's low pose, springs up with both arms
 # swinging up, raises one knee high at the top, lowers it again and lands back
-# through the idle's low and knee-bend poses, so it joins the idle at both
-# ends. In the air the arms are mirrored either side of the body, like the
-# fall, while one leg stays straight and the other bends at the hip and knee.
-# Only the pose is drawn; the jump's height comes from moving the sprite in
-# the game.
+# in the idle's low pose, then rises with the knees bent into the idle's
+# standing pose, so it joins the idle at both ends. In the air the arms are
+# mirrored either side of the body, like the fall, while one leg stays
+# straight and the other bends at the hip and knee. Only the pose is drawn;
+# the jump's height comes from moving the sprite in the game.
 FRAMES = [
     # 1 standing, as in the idle
     """
@@ -28,7 +28,7 @@ FRAMES = [
     ..#..#..
     ..#...#.
     """,
-    # 2 knees bend, as in the idle
+    # 2 knees bend
     """
     ....##..
     ....##..
@@ -116,7 +116,7 @@ FRAMES = [
     ...#.#..
     ..#...#.
     """,
-    # 10 rising with the knees still bent, back into the idle
+    # 10 rising with the knees still bent, back into the idle's standing pose
     """
     ....##..
     ....##..

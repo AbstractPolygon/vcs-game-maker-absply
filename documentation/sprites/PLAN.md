@@ -17,7 +17,7 @@ file there. The shared export code is in `export_sprite.py`.
 ## All animations in one file
 
 `player-animations.aseprite` holds every animation below in one Aseprite file:
-120 frames on one layer, with a coloured tag per animation, named as in the
+124 frames on one layer, with a coloured tag per animation, named as in the
 "Aseprite name" column. `player-animations.png` + `player-animations.json` is
 the same thing as an Aseprite sprite sheet: pick both with **Import from
 Aseprite** to bring in every animation at once, one per tag. After changing
@@ -28,7 +28,7 @@ rebuild all three.
 
 | Animation | Folder | Size | Frames | Per frame | Loops | Aseprite name |
 | --- | --- | --- | --- | --- | --- | --- |
-| Idle | `idle-8x8` | 8×8 | 6 | 100 ms (6) | Yes | `idle` |
+| Idle | `idle-8x8` | 8×8 | 10 | 67 ms (4) | Yes | `idle` |
 | Run cycle | `run-cycle-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `run` |
 | Standing jump | `standing-jump-8x8` | 8×8 | 10 | 100 ms (6) | No | `standing-jump` |
 | Running jump | `running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
@@ -61,7 +61,7 @@ rebuild all three.
 | Wall bounce frame 8 | Idle frame 1 | Standing |
 | Idle frame 1 | Standing jump frame 1 | Standing |
 | Idle frame 1 | Shrink frame 1 | Standing |
-| Standing jump frame 10 | Idle frame 2 (then go to idle frame 1) | Knees bent |
+| Standing jump frame 10 | Idle frame 1 | Rises into the standing pose |
 | Standing jump frames 3, 4 and 9 | Cannonball jump frames 1, 2 and 8 | Crouch, spring, landing |
 | Run cycle frame 8 | Fall start frame 1 | Toe-off |
 | Fall start frame 8 | Fall frame 1 (carry on from frame 2) | Both arms up, legs apart |
@@ -75,18 +75,25 @@ rebuild all three.
 
 ![Idle](idle-8x8/idle-8x8.gif)
 
-Facing right, with the front foot planted ahead of the back one and both arms
-down at the sides, bouncing gently up and down with overlapping action: going
-down the hips drop first, then the arms, then the head; coming up the arms
-lead, then the hips, with the head last. Each frame moves one part by one
-pixel and no pose repeats.
+Facing right, with the front foot planted ahead of the back one, bouncing
+gently up and down with overlapping action. Going down the arms swing out
+first, then the back knee softens, the hips drop, the shoulders follow and the
+head comes last; at the bottom the arms drop to the sides, then the shoulders
+lead back up, the hips rise with the knee still bent, the knee straightens and
+the head comes up last. The arms are out the whole way down and at the sides
+the whole way up, and both shoulders always move together. Each frame moves
+one part by one pixel and no pose repeats.
 
-1. Standing, arms down at the sides
-2. Knees bend, hips drop
-3. Arms follow
-4. Head follows: fully low
-5. Arms lead back up
-6. Legs straighten; the head comes up last as it loops
+1. Tall, arms down at the sides
+2. Arms swing out as the drop starts
+3. Knees soften
+4. Knees bend, hips drop, arms out
+5. Shoulders follow, arms out
+6. Head follows: fully low, arms out
+7. Arms drop to the sides as the rise starts
+8. Shoulders lead back up
+9. Hips rise, knee still bent
+10. Knee straightens; the head comes up last as it loops
 
 ### Run cycle — `run-cycle-8x8`
 
@@ -114,15 +121,16 @@ down.
 
 ![Standing jump](standing-jump-8x8/standing-jump-8x8.gif)
 
-A jump straight up from standing. Starts on the idle's first frame and dips
-through the idle's own knee-bend and low poses, springs up with both arms
+A jump straight up from standing. Starts on the idle's first frame, bends the
+knees and crouches into the idle's low pose, springs up with both arms
 swinging up, raises one knee high at the top, lowers it again and lands back
-through the idle's low and knee-bend poses, so it joins the idle at both ends.
-In the air the arms are mirrored either side of the body, like the fall, while
-one leg stays straight and the other bends at the hip and knee.
+in the idle's low pose, then rises with the knees bent into the idle's
+standing pose, so it joins the idle at both ends. In the air the arms are
+mirrored either side of the body, like the fall, while one leg stays straight
+and the other bends at the hip and knee.
 
 1. Standing, as in the idle
-2. Knees bend, as in the idle
+2. Knees bend
 3. Crouches low, as in the idle
 4. Springs up: legs straighten, arms swing up
 5. Leaves the ground: arms high, left leg straight, right leg bent with the foot lifted
@@ -130,7 +138,7 @@ one leg stays straight and the other bends at the hip and knee.
 7. Top of the jump: arms out, right knee still bent up, left leg straight
 8. Right leg lowers for the landing
 9. Lands low, as in the idle
-10. Rising with the knees still bent, back into the idle
+10. Rising with the knees still bent, back into the idle's standing pose
 
 ### Running jump — `running-jump-8x8`
 
