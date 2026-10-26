@@ -299,9 +299,10 @@ sprite up the ladder.
 
 The player shrinking away, for a teleport, a vanish or a death. Starts on the
 idle's first frame, crouches into the idle's low pose, curls into the
-cannonball's ball, squeezes into a solid circle and shrinks down to a dot on
-the ground, which bursts into a little spark that flares and fades. The last
-frame is empty.
+cannonball's ball, squeezes into a solid circle and shrinks to a dot, which
+bursts into a little spark that flares and fades. From the ball on, everything
+is centred in the frame (shapes an odd number of pixels across sit half a
+pixel down and to the right). The last frame is empty.
 
 1. Standing, as in the idle
 2. Crouches low, as in the idle
