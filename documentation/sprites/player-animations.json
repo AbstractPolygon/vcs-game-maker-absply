@@ -2287,50 +2287,6 @@
         "h": 8
       },
       "duration": 50
-    },
-    {
-      "filename": "player-animations 104.aseprite",
-      "frame": {
-        "x": 832,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 50
-    },
-    {
-      "filename": "player-animations 105.aseprite",
-      "frame": {
-        "x": 840,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 50
     }
   ],
   "meta": {
@@ -2338,7 +2294,7 @@
     "image": "player-animations.png",
     "format": "RGB888",
     "size": {
-      "w": 848,
+      "w": 832,
       "h": 8
     },
     "scale": "1",
@@ -2423,7 +2379,7 @@
       {
         "name": "climb",
         "from": 92,
-        "to": 105,
+        "to": 103,
         "direction": "forward",
         "color": "#607d8bff"
       }

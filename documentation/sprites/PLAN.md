@@ -17,7 +17,7 @@ file there. The shared export code is in `export_sprite.py`.
 ## All animations in one file
 
 `player-animations.aseprite` holds every animation below in one Aseprite file:
-106 frames on one layer, with a coloured tag per animation, named as in the
+104 frames on one layer, with a coloured tag per animation, named as in the
 "Aseprite name" column. `player-animations.png` + `player-animations.json` is
 the same thing as an Aseprite sprite sheet: pick both with **Import from
 Aseprite** to bring in every animation at once, one per tag. After changing
@@ -39,7 +39,7 @@ rebuild all three.
 | Hard landing | `hard-landing-8x8` | 8×8 | 10 | 100 ms (6) | No | `hard-landing` |
 | Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
 | Door opening | `door-open-8x8` | 8×8 | 8 | 100 ms (6) | No | `door-open` |
-| Ladder climb | `climb-8x8` | 8×8 | 14 | 50 ms (3) | Yes | `climb` |
+| Ladder climb | `climb-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `climb` |
 
 ## Lining the animations up
 
@@ -261,23 +261,22 @@ and ends on the idle's frame 1.
 ![Ladder climb](climb-8x8/climb-8x8.gif)
 
 Climbing a ladder, seen from the front with the arms and legs either side of
-the body, like the fall. The hands move together, one reaching up as the other
-pulls down, then the feet step: as a hand reaches the rung above, the opposite
-knee comes up to the next rung. Every frame moves just one part by one step;
-a full cycle (both hands, both feet) is 14 frames at 50 ms, 0.7 s. The game
-moves the sprite up the ladder.
+the body, like the fall. Made for a steady climb with no pauses: the hands and
+the feet take turns on every frame, one hand reaching up as the other pulls
+down, then a step of the feet, so something is always moving. As a hand
+reaches the rung above, the opposite knee is up at the next one. A full cycle
+(both hands, both feet) is 12 frames at 50 ms, 0.6 s. The game moves the
+sprite up the ladder.
 
-1. Left hand on the rung above, right knee up
-2. Right hand reaches up, left hand pulls down
-3. Right hand reaches up, left hand pulls down
-4. Right foot steps down
-5. Right foot steps down
-6. Left knee comes up
-7. Right hand reaches up, left hand pulls down
-8. Left knee comes up
-9. Left hand reaches up, right hand pulls down
-10. Left hand reaches up, right hand pulls down
-11. Left foot steps down
-12. Left foot steps down
-13. Right knee comes up
-14. Left hand reaches up, right hand pulls down
+1. Right knee up
+2. Right hand up, left hand down
+3. Left knee up, right foot down
+4. Right hand up, left hand down
+5. Left knee up, right foot down
+6. Right hand up, left hand down
+7. Left foot down
+8. Left hand up, right hand down
+9. Left foot down
+10. Left hand up, right hand down
+11. Right knee up
+12. Left hand up, right hand down
