@@ -131,50 +131,6 @@
         "h": 8
       },
       "duration": 100
-    },
-    {
-      "filename": "idle 6.aseprite",
-      "frame": {
-        "x": 48,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 100
-    },
-    {
-      "filename": "idle 7.aseprite",
-      "frame": {
-        "x": 56,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 100
     }
   ],
   "meta": {
@@ -182,7 +138,7 @@
     "image": "idle-8x8.png",
     "format": "RGB888",
     "size": {
-      "w": 64,
+      "w": 48,
       "h": 8
     },
     "scale": "1",
@@ -190,7 +146,7 @@
       {
         "name": "idle",
         "from": 0,
-        "to": 7,
+        "to": 5,
         "direction": "forward"
       }
     ]

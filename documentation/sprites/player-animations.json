@@ -152,7 +152,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 7.aseprite",
@@ -174,7 +174,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 8.aseprite",
@@ -328,7 +328,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 100
     },
     {
       "filename": "player-animations 15.aseprite",
@@ -350,7 +350,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 100
     },
     {
       "filename": "player-animations 16.aseprite",
@@ -1252,7 +1252,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 57.aseprite",
@@ -1274,7 +1274,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 58.aseprite",
@@ -1516,7 +1516,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 100
     },
     {
       "filename": "player-animations 69.aseprite",
@@ -1538,7 +1538,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 100
     },
     {
       "filename": "player-animations 70.aseprite",
@@ -2088,7 +2088,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 95.aseprite",
@@ -2110,7 +2110,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 96.aseprite",
@@ -2352,7 +2352,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "player-animations 107.aseprite",
@@ -2374,7 +2374,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "player-animations 108.aseprite",
@@ -2639,50 +2639,6 @@
         "h": 8
       },
       "duration": 67
-    },
-    {
-      "filename": "player-animations 120.aseprite",
-      "frame": {
-        "x": 960,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 67
-    },
-    {
-      "filename": "player-animations 121.aseprite",
-      "frame": {
-        "x": 968,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 8
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 8
-      },
-      "duration": 67
     }
   ],
   "meta": {
@@ -2690,7 +2646,7 @@
     "image": "player-animations.png",
     "format": "RGB888",
     "size": {
-      "w": 976,
+      "w": 960,
       "h": 8
     },
     "scale": "1",
@@ -2698,91 +2654,91 @@
       {
         "name": "idle",
         "from": 0,
-        "to": 7,
+        "to": 5,
         "direction": "forward",
         "color": "#4caf50ff"
       },
       {
         "name": "run",
-        "from": 8,
-        "to": 15,
+        "from": 6,
+        "to": 13,
         "direction": "forward",
         "color": "#2196f3ff"
       },
       {
         "name": "standing-jump",
-        "from": 16,
-        "to": 25,
+        "from": 14,
+        "to": 23,
         "direction": "forward",
         "color": "#ff9800ff"
       },
       {
         "name": "running-jump",
-        "from": 26,
-        "to": 33,
+        "from": 24,
+        "to": 31,
         "direction": "forward",
         "color": "#9c27b0ff"
       },
       {
         "name": "cannonball-jump",
-        "from": 34,
-        "to": 41,
+        "from": 32,
+        "to": 39,
         "direction": "forward",
         "color": "#f44336ff"
       },
       {
         "name": "cannonball-loop",
-        "from": 42,
-        "to": 49,
+        "from": 40,
+        "to": 47,
         "direction": "forward",
         "color": "#00bcd4ff"
       },
       {
         "name": "fall-start",
-        "from": 50,
-        "to": 57,
+        "from": 48,
+        "to": 55,
         "direction": "forward",
         "color": "#795548ff"
       },
       {
         "name": "fall",
-        "from": 58,
-        "to": 69,
+        "from": 56,
+        "to": 67,
         "direction": "forward",
         "color": "#3f51b5ff"
       },
       {
         "name": "hard-landing",
-        "from": 70,
-        "to": 79,
+        "from": 68,
+        "to": 77,
         "direction": "forward",
         "color": "#e91e63ff"
       },
       {
         "name": "wall-bounce",
-        "from": 80,
-        "to": 87,
+        "from": 78,
+        "to": 85,
         "direction": "forward",
         "color": "#8bc34aff"
       },
       {
         "name": "door-open",
-        "from": 88,
-        "to": 95,
+        "from": 86,
+        "to": 93,
         "direction": "forward",
         "color": "#ffc107ff"
       },
       {
         "name": "climb",
-        "from": 96,
-        "to": 107,
+        "from": 94,
+        "to": 105,
         "direction": "forward",
         "color": "#607d8bff"
       },
       {
         "name": "shrink",
-        "from": 108,
-        "to": 121,
+        "from": 106,
+        "to": 119,
         "direction": "forward",
         "color": "#cddc39ff"
       }
