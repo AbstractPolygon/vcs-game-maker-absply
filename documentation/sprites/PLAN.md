@@ -124,8 +124,8 @@ one leg stays straight and the other bends at the hip and knee.
 3. Crouches low, as in the idle
 4. Springs up: legs straighten, arms swing up
 5. Leaves the ground: arms high, left leg straight, right leg bent with the foot lifted
-6. Right knee comes up high, left leg straight
-7. Top of the jump: arms out, right knee high, left leg straight
+6. Right knee comes up: thigh out level, shin hanging from the knee; left leg straight
+7. Top of the jump: arms out, right knee still bent up, left leg straight
 8. Right leg lowers for the landing
 9. Lands low, as in the idle
 10. Rising with the knees still bent, back into the idle

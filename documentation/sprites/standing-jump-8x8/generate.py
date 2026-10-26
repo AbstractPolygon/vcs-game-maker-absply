@@ -72,25 +72,25 @@ FRAMES = [
     ...#.#..
     ...#....
     """,
-    # 6 right knee comes up high, left leg straight
+    # 6 right knee comes up: thigh out level, shin hanging from the knee; left leg straight
     """
     ....##..
     ....##..
     ..#.#.#.
     ...###..
     ....#...
-    ....##..
+    ....###.
     ...#..#.
     ...#....
     """,
-    # 7 top of the jump: arms out, right knee high, left leg straight
+    # 7 top of the jump: arms out, right knee still bent up, left leg straight
     """
     ....##..
     ....##..
     ....#...
     ..#####.
     ....#...
-    ....##..
+    ....###.
     ...#..#.
     ...#....
     """,
