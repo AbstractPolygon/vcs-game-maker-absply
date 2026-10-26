@@ -9,31 +9,31 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from export_sprite import export  # noqa: E402
 
 # Facing right. A jump from standing that curls up into a ball at the top,
-# hugging the knees, then uncurls to land. Starts and ends with the standing
-# jump's crouch and landing frames. Only the pose is drawn; the jump's height
+# hugging the knees, then uncurls to land. Starts on the standing jump's crouch
+# and spring and lands on its low landing pose. Only the pose is drawn; the jump's height
 # comes from moving the sprite in the game.
 FRAMES = [
-    # 1 crouch, arms swung back, as in the standing jump
+    # 1 crouches low, as in the idle and the standing jump
     """
     ........
-    ........
-    .....##.
-    .....##.
-    .#..#...
-    ..###...
     ....##..
+    ....##..
+    ....#...
+    ...###..
+    ..#.#.#.
     ...#.#..
+    ..#...#.
     """,
-    # 2 spring up: stretched out on the toes, arm reaching up
+    # 2 springs up: legs straighten, arms swing up
     """
-    ......#.
-    ....###.
     ....##..
+    ....##..
+    ..#.#.#.
+    ...###..
     ....#...
-    ....#...
-    ....#...
-    ....#...
-    ....#...
+    ...#.#..
+    ...#.#..
+    ...#.#..
     """,
     # 3 knees pulled up, hands reaching for them
     """
@@ -79,27 +79,27 @@ FRAMES = [
     ...###..
     ........
     """,
-    # 7 uncurling: legs reaching down, arms out
+    # 7 uncurls: legs open out for the landing, arms out
     """
     ....##..
     ....##..
-    ..#.#.#.
-    ...###..
+    ....#...
+    ..#####.
     ....#...
     ....#...
-    ....#...
-    ....##..
-    """,
-    # 8 landing: knees bend to absorb it, arms out for balance, as in the standing jump
-    """
-    ........
-    ........
-    ....##..
-    ....##..
-    ..#.#.#.
-    ...##...
-    ....##..
     ...#.#..
+    ..#...#.
+    """,
+    # 8 lands low, as in the idle and the standing jump
+    """
+    ........
+    ....##..
+    ....##..
+    ....#...
+    ...###..
+    ..#.#.#.
+    ...#.#..
+    ..#...#.
     """,
 ]
 export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'cannonball-jump-8x8', 'cannonball_jump', 'cannonball-jump')

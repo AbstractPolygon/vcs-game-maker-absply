@@ -175,6 +175,50 @@
         "h": 8
       },
       "duration": 100
+    },
+    {
+      "filename": "standing-jump 8.aseprite",
+      "frame": {
+        "x": 64,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
+    },
+    {
+      "filename": "standing-jump 9.aseprite",
+      "frame": {
+        "x": 72,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
     }
   ],
   "meta": {
@@ -182,7 +226,7 @@
     "image": "standing-jump-8x8.png",
     "format": "RGB888",
     "size": {
-      "w": 64,
+      "w": 80,
       "h": 8
     },
     "scale": "1",
@@ -190,7 +234,7 @@
       {
         "name": "standing-jump",
         "from": 0,
-        "to": 7,
+        "to": 9,
         "direction": "forward"
       }
     ]

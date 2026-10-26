@@ -17,7 +17,7 @@ file there. The shared export code is in `export_sprite.py`.
 ## All animations in one file
 
 `player-animations.aseprite` holds every animation below in one Aseprite file:
-104 frames on one layer, with a coloured tag per animation, named as in the
+106 frames on one layer, with a coloured tag per animation, named as in the
 "Aseprite name" column. `player-animations.png` + `player-animations.json` is
 the same thing as an Aseprite sprite sheet: pick both with **Import from
 Aseprite** to bring in every animation at once, one per tag. After changing
@@ -30,7 +30,7 @@ rebuild all three.
 | --- | --- | --- | --- | --- | --- | --- |
 | Idle | `idle-8x8` | 8×8 | 6 | 100 ms (6) | Yes | `idle` |
 | Run cycle | `run-cycle-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `run` |
-| Standing jump | `standing-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `standing-jump` |
+| Standing jump | `standing-jump-8x8` | 8×8 | 10 | 100 ms (6) | No | `standing-jump` |
 | Running jump | `running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
 | Cannonball jump | `cannonball-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `cannonball-jump` |
 | Cannonball loop | `cannonball-loop-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `cannonball-loop` |
@@ -58,7 +58,9 @@ rebuild all three.
 | Running jump frame 8 | Run cycle frame 1 (carry on from frame 2) | Landing |
 | Run cycle frame 1 | Wall bounce frame 1 | Running in |
 | Wall bounce frame 8 | Idle frame 1 | Standing |
-| Standing jump frames 1 and 8 | Cannonball jump frames 1 and 8 | Crouch and landing |
+| Idle frame 1 | Standing jump frame 1 | Standing |
+| Standing jump frame 10 | Idle frame 2 (then go to idle frame 1) | Knees bent |
+| Standing jump frames 3, 4, 8 and 9 | Cannonball jump frames 1, 2, 7 and 8 | Crouch, spring, legs opening, landing |
 | Run cycle frame 8 | Fall start frame 1 | Toe-off |
 | Fall start frame 8 | Fall frame 1 (carry on from frame 2) | Both arms up, legs apart |
 | Hard landing frame 10 | Idle frame 1 | Standing |
@@ -110,31 +112,39 @@ down.
 
 ![Standing jump](standing-jump-8x8/standing-jump-8x8.gif)
 
-A jump straight up from standing. Starts from the idle pose and lands back in
-it.
+A jump straight up from standing. Starts on the idle's first frame and dips
+through the idle's own knee-bend and low poses, springs up with both arms
+swinging up, tucks the knees at the top, opens the legs out and lands back
+through the idle's low and knee-bend poses, so it joins the idle at both ends.
+In the air the arms and legs are mirrored either side of the body, like the
+fall.
 
-1. Crouch, arms swung back
-2. Launch: stretched out on the toes, arm reaching up
-3. Rising
-4. Knees start to tuck, arms out
-5. Top of the jump, knees tucked
-6. Falling, legs opening
-7. Legs reaching for the ground
-8. Landing: knees bend to absorb it, arms out for balance
+1. Standing, as in the idle
+2. Knees bend, as in the idle
+3. Crouches low, as in the idle
+4. Springs up: legs straighten, arms swing up
+5. Leaves the ground: stretched out, arms high, toes pointed
+6. Knees tuck up
+7. Top of the jump: tucked, arms out
+8. Legs open out for the landing
+9. Lands low, as in the idle
+10. Rising with the knees still bent, back into the idle
 
 ### Running jump — `running-jump-8x8`
 
 ![Running jump](running-jump-8x8/running-jump-8x8.gif)
 
 A leap taken mid-run. It takes off from the run cycle's frame 8 and lands on
-its frame 1, so switch back to the run at frame 2.
+its frame 1, so switch back to the run at frame 2. The arms are the run's short
+arms on fixed shoulders: the front hand stays high through the leap while the
+back hand sweeps up behind and back down.
 
 1. Toe-off, as in the run
-2. Drive: back leg straight, front knee high
-3. Rising: back knee folds
-4. Top: arms up, legs gathering
+2. Drive: back leg straight, front knee high, front hand up
+3. Rising: back knee folds, back hand swings up
+4. Top: front leg reaching forward, both hands high
 5. Top: both legs swing forward
-6. Legs out in front, arms coming down
+6. Legs out in front, hands coming down
 7. Front leg reaches for the ground
 8. Landing, as in the run
 
@@ -143,17 +153,17 @@ its frame 1, so switch back to the run at frame 2.
 ![Cannonball jump](cannonball-jump-8x8/cannonball-jump-8x8.gif)
 
 A jump from standing that curls into a ball at the top, hugging the knees,
-then uncurls to land. Shares its first and last frames with the standing
-jump.
+then uncurls to land. Starts on the standing jump's crouch and spring, and
+uncurls and lands like it.
 
-1. Crouch, arms swung back, as in the standing jump
-2. Spring up: stretched out on the toes, arm reaching up
+1. Crouches low, as in the idle and the standing jump
+2. Springs up: legs straighten, arms swing up
 3. Knees pulled up, hands reaching for them
 4. Cannonball: curled up, hugging the knees
 5. Rolling forward in the ball
 6. Holding the ball tight
-7. Uncurling: legs reaching down, arms out
-8. Landing: knees bend to absorb it, arms out for balance, as in the standing jump
+7. Uncurls: legs open out for the landing, arms out
+8. Lands low, as in the idle and the standing jump
 
 ### Cannonball loop — `cannonball-loop-8x8`
 

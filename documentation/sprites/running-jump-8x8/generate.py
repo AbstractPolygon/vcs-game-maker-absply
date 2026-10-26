@@ -10,7 +10,8 @@ from export_sprite import export  # noqa: E402
 
 # Facing right. A leap taken mid-run: takes off from the run cycle's toe-off
 # pose (its frame 8) and lands in its frame 1, so switch back to the run at its
-# frame 2. Only the pose is drawn; the jump's height comes from moving the
+# frame 2. The arms are the run's short arms on fixed shoulders. Only the
+# pose is drawn; the jump's height comes from moving the
 # sprite in the game.
 FRAMES = [
     # 1 toe-off, as in the run
@@ -24,7 +25,7 @@ FRAMES = [
     ..#...##
     .#......
     """,
-    # 2 drive: back leg straight, front knee high
+    # 2 drive: back leg straight, front knee high, front hand up
     """
     ....##..
     ....##..
@@ -35,7 +36,7 @@ FRAMES = [
     ..#...#.
     .#......
     """,
-    # 3 rising: back knee folds
+    # 3 rising: back knee folds, back hand swings up
     """
     ....##..
     ....##..
@@ -46,29 +47,29 @@ FRAMES = [
     ..#...#.
     ........
     """,
-    # 4 top: arms up, legs gathering
+    # 4 top: front leg reaching forward, both hands high
     """
     ....##..
-    .#..##.#
+    ....##..
     ..#.#.#.
     ...###..
     ....#...
-    ..#.###.
-    ...#..#.
-    ........
+    .#.#.#..
+    ..#...#.
+    ......#.
     """,
     # 5 top: both legs swing forward
     """
     ....##..
-    ....##.#
+    ....##..
     ..#.#.#.
     ...###..
     ....#...
-    ....###.
-    ....#..#
-    .....#..
+    ...#.#..
+    ...#..##
+    ........
     """,
-    # 6 legs out in front, arms coming down
+    # 6 legs out in front, hands coming down
     """
     ....##..
     ....##..
@@ -76,15 +77,15 @@ FRAMES = [
     ..#####.
     ....#...
     ....##..
-    ....#.##
-    ........
+    ....#.#.
+    .......#
     """,
     # 7 front leg reaches for the ground
     """
     ....##..
     ....##..
-    ....#.#.
-    ...##...
+    ....#...
+    ...####.
     ..#.#...
     ...#.#..
     ..#...#.
