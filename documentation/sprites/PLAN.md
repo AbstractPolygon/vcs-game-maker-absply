@@ -17,7 +17,7 @@ file there. The shared export code is in `export_sprite.py`.
 ## All animations in one file
 
 `player-animations.aseprite` holds every animation below in one Aseprite file:
-120 frames on one layer, with a coloured tag per animation, named as in the
+122 frames on one layer, with a coloured tag per animation, named as in the
 "Aseprite name" column. `player-animations.png` + `player-animations.json` is
 the same thing as an Aseprite sprite sheet: pick both with **Import from
 Aseprite** to bring in every animation at once, one per tag. After changing
@@ -28,7 +28,7 @@ rebuild all three.
 
 | Animation | Folder | Size | Frames | Per frame | Loops | Aseprite name |
 | --- | --- | --- | --- | --- | --- | --- |
-| Idle | `idle-8x8` | 8×8 | 6 | 100 ms (6) | Yes | `idle` |
+| Idle | `idle-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `idle` |
 | Run cycle | `run-cycle-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `run` |
 | Standing jump | `standing-jump-8x8` | 8×8 | 10 | 100 ms (6) | No | `standing-jump` |
 | Running jump | `running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
@@ -77,16 +77,18 @@ rebuild all three.
 
 Facing right, with the front foot planted ahead of the back one and both arms
 down at the sides, bouncing gently up and down with overlapping action: going
-down the hips drop first, then the arms, then the head; coming up the arms
-lead, then the hips, with the head last. Each frame moves one part by one
-pixel and no pose repeats.
+down the hips drop first, then the back arm, then the front arm, then the
+head; coming up the back arm leads, then the front arm, then the hips, with
+the head last. Each frame moves one part by one pixel and no pose repeats.
 
 1. Standing, arms down at the sides
 2. Knees bend, hips drop
-3. Arms follow
-4. Head follows: fully low
-5. Arms lead back up
-6. Legs straighten; the head comes up last as it loops
+3. Back arm follows
+4. Front arm follows
+5. Head follows: fully low
+6. Back arm leads back up
+7. Front arm follows up
+8. Legs straighten; the head comes up last as it loops
 
 ### Run cycle — `run-cycle-8x8`
 
