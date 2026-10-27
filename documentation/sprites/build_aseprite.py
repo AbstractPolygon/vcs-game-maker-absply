@@ -4,7 +4,7 @@ player/player-animations.aseprite, with a tag per animation, plus the same
 frames as an Aseprite-style sprite sheet (player-animations.png + .json), which
 PlayerEditor.vue's "Import from Aseprite" turns into one animation per tag.
 
-Each prop (trampoline, double jump power-up, saw blades, fire) is kept apart from the
+Each prop (trampoline, double jump power-up, saw blades, fires, key, extra life) is kept apart from the
 player, in its own folder: its Aseprite file is written there, next to the
 folder's own sprite sheet (<folder>.png + .json) from its generate.py.
 
@@ -55,10 +55,13 @@ PROPS = {
     'saw-blade-large': 'saw-blade-large-8x16',
     'saw-blade-huge': 'saw-blade-huge-8x32',
     'fire': 'fire-8x16',
+    'fire-large': 'fire-large-8x24',
+    'key': 'key-8x6',
+    'life': 'life-8x8',
 }
 # Props drawn at double or quad width on the VCS (NUSIZ), and how many times
 # wider than tall their pixels are.
-PIXEL_WIDTH = {'saw-blade-large': 2, 'saw-blade-huge': 4}
+PIXEL_WIDTH = {'saw-blade-large': 2, 'saw-blade-huge': 4, 'fire-large': 2}
 
 # Distinct tag colours so the animations stand apart on Aseprite's timeline.
 TAG_COLORS = [

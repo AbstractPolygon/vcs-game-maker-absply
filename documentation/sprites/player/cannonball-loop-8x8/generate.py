@@ -101,4 +101,4 @@ FRAMES = [
     ........
     """,
 ]
-export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'cannonball-loop-8x8', 'cannonball_loop', 'cannonball-loop')
+export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'cannonball-loop-8x8', 'cannonball_loop', 'cannonball-loop', frame_ms=67)

@@ -39,7 +39,7 @@ own Aseprite file next to its sprite sheet, built by the same
 | Standing jump | `player/standing-jump-8x8` | 8×8 | 10 | 100 ms (6) | No | `standing-jump` |
 | Running jump | `player/running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
 | Cannonball jump | `player/cannonball-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `cannonball-jump` |
-| Cannonball loop | `player/cannonball-loop-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `cannonball-loop` |
+| Cannonball loop | `player/cannonball-loop-8x8` | 8×8 | 8 | 67 ms (4) | Yes | `cannonball-loop` |
 | Fall start | `player/fall-start-8x8` | 8×8 | 8 | 100 ms (6) | No | `fall-start` |
 | Fall | `player/fall-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `fall` |
 | Hard landing | `player/hard-landing-8x8` | 8×8 | 10 | 100 ms (6) | No | `hard-landing` |
@@ -380,9 +380,12 @@ file, so it imports as a separate sprite. The folder's `<folder>.png` +
 | Large saw blade | `saw-blade-large-8x16` | 8×16, double wide | 5 | 50 ms (3) | Yes | `saw-blade-large.aseprite` (tag `saw-blade-large`) |
 | Huge saw blade | `saw-blade-huge-8x32` | 8×32, quad wide | 12 | 17–33 ms (1–2) | Yes | `saw-blade-huge.aseprite` (tag `saw-blade-huge`) |
 | Fire | `fire-8x16` | 8×16 | 24 | 33 ms (2) | Yes | `fire.aseprite` (tag `fire`) |
+| Large fire | `fire-large-8x24` | 8×24, double wide | 24 | 33 ms (2) | Yes | `fire-large.aseprite` (tag `fire-large`) |
+| Key | `key-8x6` | 8×6 | 28 | 17–100 ms (1–6) | Yes | `key.aseprite` (tag `key`) |
+| Extra life | `life-8x8` | 8×8 | 6 | 33–100 ms (2–6) | Yes | `life.aseprite` (tag `life`) |
 
-The large and huge saw blades are drawn to be shown at double and quad width
-(NUSIZ), so they appear 16×16 and 32×32 on screen. Their frame files are still
+The large and huge saw blades and the large fire are drawn to be shown at
+double or quad width (NUSIZ), so they appear 16×16, 32×32 and 16×24 on screen. Their frame files are still
 8 pixels wide; their GIFs and Aseprite files (with a 2:1 or 4:1 pixel ratio)
 show them as they will look on the VCS.
 
@@ -498,8 +501,51 @@ leap up and die back by several rows (the middle one from about 6 rows to the
 full 16) and whip their tips side to side, out of time with each other, with
 quicker wobbles on top, so it flickers fast but flows from frame to frame.
 Whenever a tongue peaks its tip breaks off and rises as a separate lick that
-shrinks away. The outline slopes steeply down from the middle and the
-outermost columns only flicker on the bottom row, so the fire tapers to its
+shrinks away. The outline slopes steeply down from the middle, and the bottom
+row is a steady base clear of the outermost columns, so the fire tapers to its
 edges instead of ending in a hard edge 8 pixels across. A hollow core near the
-base keeps it reading as fire in one colour. All 24 frames are different, and
-frame 24 leads straight back into frame 1.
+base keeps it reading as fire in one colour. Six sparks rise out of the flame
+in turn, a row a frame, drifting a pixel side to side, and each burns out at its
+own height, so the top of the sprite isn't marked by a line where they all
+stop. All 24 frames are different, and frame 24 leads straight back into frame
+1.
+
+### Large fire — `fire-large-8x24`
+
+![Large fire](fire-large-8x24/fire-large-8x24.gif)
+
+The fire above, stretched to 24 rows and shown at double width, so on screen
+it's 16 wide and 24 tall. Same roaring tongues, breaking-off licks, tapered
+sides, steady base and hollow core. Its six sparks rise a row a frame and step
+just once to the side on the way up (the pixels are double wide, so more drift
+than that looks jittery), each burning out at its own height. 24 frames, all
+different, looping.
+
+### Key — `key-8x6`
+
+![Key](key-8x6/key-8x6.gif)
+
+A key (bow on the left, teeth hanging from the blade) spinning on its vertical
+axis through a full turn. It narrows a pixel a frame from 8 wide to edge on,
+widens out to its back (mirrored, bow on the right), narrows again and widens
+back to the front; on odd widths the nearer half is a pixel wider. Frame times
+follow a real spin, lingering face on and slipping quickly through the narrow
+widths, and match the double jump power-up's speed: half a turn in 34 NTSC
+frames, a full turn in about 1.1 s. Frame 1 is the key face on.
+
+### Extra life — `life-8x8`
+
+![Extra life](life-8x8/life-8x8.gif)
+
+A solid square spinning clockwise in place, inside the 8×8 area. Each frame is
+the square at a given angle, drawn from one edge turned about the centre and
+filled in, so it stays exactly symmetrical. A square looks the same every
+quarter turn, so the 6 frames are 90° of the spin; each is held for as long as
+the spin takes to pass through it (33–100 ms), a quarter turn every 0.4 s.
+
+1. Upright
+2. Turned 15°
+3. Turned about 25°
+4. On its point, 45°
+5. Turned about 65°
+6. Turned 75°; the next turn is frame 1 again
