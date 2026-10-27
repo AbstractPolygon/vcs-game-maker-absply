@@ -4,7 +4,7 @@ player/player-animations.aseprite, with a tag per animation, plus the same
 frames as an Aseprite-style sprite sheet (player-animations.png + .json), which
 PlayerEditor.vue's "Import from Aseprite" turns into one animation per tag.
 
-Each prop (trampoline, double jump power-up, saw blades, fires, key, extra life) is kept apart from the
+Each prop (trampoline, double jump power-up, saw blades, fires, key, extra life, coin, pikes, flamethrower, vortex, speed, explosions) is kept apart from the
 player, in its own folder: its Aseprite file is written there, next to the
 folder's own sprite sheet (<folder>.png + .json) from its generate.py.
 
@@ -46,6 +46,8 @@ PLAYER = [
     'climb-8x8',
     'shrink-8x8',
     'disintegrate-8x8',
+    'pikes-hit-8x8',
+    'blow-up-8x8',
 ]
 # Each prop's Aseprite file name and folder.
 PROPS = {
@@ -58,17 +60,31 @@ PROPS = {
     'fire-large': 'fire-large-8x24',
     'key': 'key-8x6',
     'life': 'life-8x8',
+    'coin': 'coin-8x8',
+    'pikes': 'pikes-8x8',
+    'vortex': 'vortex-8x8',
+    'vortex-large': 'vortex-large-8x16',
+    'speed': 'speed-8x8',
+    'explosion': 'explosion-8x16',
+    'explosion-large': 'explosion-large-8x32',
+    'explosion-small': 'explosion-small-8x8',
+}
+# Props made of several animations: one Aseprite file in the prop's folder,
+# with a tag per animation, from the animation folders inside it.
+MULTI = {
+    'flamethrower': ('flamethrower', ['flamethrower-idle-8x12', 'flamethrower-start-8x12', 'flamethrower-loop-8x12',
+                                      'flamethrower-end-8x12']),
 }
 # Props drawn at double or quad width on the VCS (NUSIZ), and how many times
 # wider than tall their pixels are.
-PIXEL_WIDTH = {'saw-blade-large': 2, 'saw-blade-huge': 4, 'fire-large': 2}
+PIXEL_WIDTH = {'saw-blade-large': 2, 'saw-blade-huge': 4, 'fire-large': 2, 'flamethrower': 4, 'explosion': 2, 'explosion-large': 4, 'vortex-large': 2}
 
 # Distinct tag colours so the animations stand apart on Aseprite's timeline.
 TAG_COLORS = [
     (0x4c, 0xaf, 0x50), (0x21, 0x96, 0xf3), (0xff, 0x98, 0x00), (0x9c, 0x27, 0xb0),
     (0xf4, 0x43, 0x36), (0x00, 0xbc, 0xd4), (0x79, 0x55, 0x48), (0x3f, 0x51, 0xb5),
     (0xe9, 0x1e, 0x63), (0x8b, 0xc3, 0x4a), (0xff, 0xc1, 0x07), (0x60, 0x7d, 0x8b),
-    (0xcd, 0xdc, 0x39), (0x9e, 0x9e, 0x9e),
+    (0xcd, 0xdc, 0x39), (0x9e, 0x9e, 0x9e), (0x7c, 0x4d, 0xff), (0xff, 0x57, 0x22),
 ]
 
 
@@ -213,4 +229,8 @@ if __name__ == '__main__':
     for name, folder in PROPS.items():
         path = os.path.join(HERE, folder, f'{name}.aseprite')
         tags, _ = write_aseprite(load([folder]), path, PIXEL_WIDTH.get(name, 1))
+        report(path, tags)
+    for name, (folder, parts) in MULTI.items():
+        path = os.path.join(HERE, folder, f'{name}.aseprite')
+        tags, _ = write_aseprite(load(parts, os.path.join(HERE, folder)), path, PIXEL_WIDTH.get(name, 1))
         report(path, tags)

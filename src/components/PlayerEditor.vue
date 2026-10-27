@@ -10,7 +10,7 @@
           player size) setting, which will be set automatically when that sprite is activated.
         </p>
 
-        <graphic-editor-toolbar class="tight-under-intro" import-export-first :active-editor="effectiveFrameEditor" @height-hotkey="handleSetHeightHotkey">
+        <graphic-editor-toolbar class="tight-under-intro" :active-editor="effectiveFrameEditor" :card-columns.sync="cardColumns" card-columns-what="animations" @height-hotkey="handleSetHeightHotkey">
           <template v-slot:before-tools>
             <editor-zoom v-model="zoom" :levels="playerZoomLevels" />
             <pixel-grid-toggle v-model="showPixelGrid" />
@@ -148,14 +148,26 @@
               </v-card>
             </v-menu>
           </template>
-          <template v-if="spriteColorsEnabled" v-slot:below-tools>
-            <quick-color-palette v-model="selectedQuickColor" :active-editor="effectiveFrameEditor" />
+          <template v-slot:below-tools>
+            <quick-color-palette v-if="spriteColorsEnabled" v-model="selectedQuickColor" :active-editor="effectiveFrameEditor" />
+            <card-folder-bar
+              :folders="foldersOf()"
+              :current="openFolderId()"
+              root-label="Sprites"
+              noun="sprite"
+              :accept="draggingCardIndex !== null"
+              @update:current="openFolder"
+              @change="refresh"
+              @add-folder="handleAddFolder"
+              @delete-folder="handleDeleteFolder"
+              @drop-cards="handleDropCards"
+            />
           </template>
         </graphic-editor-toolbar>
-        <v-list class="animation-list">
+        <v-list class="animation-list" :class="{'animation-list-columns': cardColumns}" :style="cardColumns ? {'--sprite-card-min': cardColumnMin()} : null">
           <v-list-item
             class="entry-list-item"
-            v-for="(animation, index) in state.animations"
+            v-for="{card: animation, index} in visibleEntries()"
             v-bind:key="animation.id"
           >
             <v-list-item-content>
@@ -171,7 +183,7 @@
                   class="animation-drag-handle"
                   title="Drag to reorder"
                   v-bind="dragAttrs(index)"
-                  v-on="dragHandleListeners(index)"
+                  v-on="cardHandleListeners(index)"
                 />
                 <v-list-item-title>
                   <v-btn
@@ -240,6 +252,14 @@
                   </v-btn-toggle>
 
                   <div class="animation-corner-toolbar">
+                    <confirm-delete-menu
+                      v-if="state.animations.length > 1"
+                      :title="deleteQuestion(animation.id, 'animation')"
+                      :selected="animation.id === selectedCardId && selectedCardIds.includes(animation.id)"
+                      :activator-title="deleteQuestion(animation.id, 'animation').replace('?', '')"
+                      icon-btn-class="player-icon-btn-size"
+                      @confirm="handleDeleteAnimation(animation)"
+                    />
                     <v-btn
                       icon
                       small
@@ -313,14 +333,6 @@
                     >
                       <v-icon>mdi-play</v-icon>
                     </v-btn>
-                    <confirm-delete-menu
-                      v-if="state.animations.length > 1"
-                      :title="deleteQuestion(animation.id, 'animation', 1)"
-                      :selected="animation.id === selectedCardId && selectedCardIds.includes(animation.id)"
-                      :activator-title="deleteQuestion(animation.id, 'animation', 1).replace('?', '')"
-                      icon-btn-class="player-icon-btn-size"
-                      @confirm="handleDeleteAnimation(animation)"
-                    />
                   </div>
 
                 </v-list-item-title>
@@ -363,7 +375,7 @@
                         v-model="frame.pixels"
                         :fgColor="fgColor"
                         :rowColors="editorRowColors(frame)"
-                        :name="name"
+                        :name="animation.name || name"
                         :showClearButton="true"
                         :showGrid="showPixelGrid"
                         :showCellIds="showPixelGrid && showPixelGridLabels"
@@ -372,6 +384,7 @@
                         @clear="() => handleClearRowColors(frame)"
                         @clear-colors="() => handleClearRowColors(frame)"
                         @move-rows="(move) => handleMoveRows(frame, move)"
+                        @flip-rows="() => handleFlipRowColors(frame)"
                         @activate="(editorInstance) => setActiveFrame(editorInstance, animation.id, frame.id)"
                       >
                         <template v-if="spriteColorsEnabled" v-slot:sidebar>
@@ -406,6 +419,15 @@
                         <template v-slot:badge>
                           <div class="frame-number-badge">ID:{{ frameIndex + 1 }}</div>
                           <div class="frame-corner-toolbar">
+                            <confirm-delete-menu
+                              v-if="animation.frames.length > 1"
+                              title="Delete this frame?"
+                              :selected="frameHighlightState(animation, frame) === 'blue'"
+                              :select-priority="2"
+                              activator-title="Delete this frame"
+                              icon-btn-class="player-icon-btn-size"
+                              @confirm="handleDeleteFrame(animation, frame)"
+                            />
                             <v-btn
                               v-if="spriteColorsEnabled"
                               icon
@@ -429,15 +451,6 @@
                               <v-icon>mdi-content-paste</v-icon>
                               <span class="copy-paste-color-badge">C</span>
                             </v-btn>
-                            <confirm-delete-menu
-                              v-if="animation.frames.length > 1"
-                              title="Delete this frame?"
-                              :selected="frameHighlightState(animation, frame) === 'blue'"
-                              :select-priority="2"
-                              activator-title="Delete this frame"
-                              icon-btn-class="player-icon-btn-size"
-                              @confirm="handleDeleteFrame(animation, frame)"
-                            />
                           </div>
                         </template>
                       </pixel-editor>
@@ -483,6 +496,7 @@ import Vue from 'vue';
 import {computed, defineComponent, getCurrentInstance, ref} from '@vue/composition-api';
 import {chunk, max} from 'lodash';
 
+import CardFolderBar from '../components/CardFolderBar.vue';
 import ConfirmDeleteMenu from '../components/ConfirmDeleteMenu.vue';
 import EditorZoom from '../components/EditorZoom.vue';
 import GraphicEditorToolbar from '../components/GraphicEditorToolbar.vue';
@@ -492,11 +506,13 @@ import PlayfieldColorStrip from '../components/PlayfieldColorStrip.vue';
 import QuickColorPalette from '../components/QuickColorPalette.vue';
 import {useCollapsedIds} from '../hooks/collapse';
 import {useDragReorder} from '../hooks/drag-reorder';
+import {useCardFolders} from '../hooks/card-folders';
 import {useCardSelection} from '../hooks/card-selection';
-import {recordRowColorsChange} from '../utils/row-color-history';
+import {recordFieldsChange, recordRowColorsChange} from '../utils/row-color-history';
 import {DEFAULT_ROW_COLOR, clearRowColors} from '../blocks/background';
 import {DEFAULT_SPRITES, processPlayerAnimationsStorageDefaults} from '../generators/bbasic/sprites';
-import {useColorPaletteStorage, useConfigurationStorage, useErrorStorage, usePixelGridLabelsStorage, usePixelGridOverlayStorage} from '../hooks/project';
+import {useColorPaletteStorage, useConfigurationStorage, useErrorStorage, usePixelGridLabelsStorage, usePixelGridOverlayStorage,
+  useSpriteCardColumnsStorage} from '../hooks/project';
 import {buildPlayerAnimationPreviewRom, useBuildInProgress} from '../hooks/rom';
 import {useEditorZoom, ZOOM_LEVELS} from '../hooks/zoom';
 
@@ -510,6 +526,7 @@ import {createCroppedResizedCanvas, createResizedCanvas} from '../utils/image';
 import {parseAsepriteSheet} from '../utils/aseprite';
 import {escapeHtml} from '../utils/build-error';
 import {clampFrameDuration} from '../utils/duration';
+import {REMOVED, removeCards} from '../utils/card-refs';
 import {parseSpriteFile, resizeRowsToWidth, setAnimationWide, widthOfAnimation} from '../utils/wide-sprite';
 
 // Width of one frame editor at 100% zoom. The container is normally sized by
@@ -534,7 +551,7 @@ const copiedFrameRowColors = ref(null);
 const copiedFrameData = ref(null);
 
 export default defineComponent({
-  components: {ConfirmDeleteMenu, EditorZoom, GraphicEditorToolbar, PixelEditor, PixelGridToggle, PlayfieldColorStrip, QuickColorPalette},
+  components: {CardFolderBar, ConfirmDeleteMenu, EditorZoom, GraphicEditorToolbar, PixelEditor, PixelGridToggle, PlayfieldColorStrip, QuickColorPalette},
   props: ['storageFactory', 'title', 'fgColor', 'name'],
   setup(props) {
     const instance = getCurrentInstance();
@@ -546,6 +563,8 @@ export default defineComponent({
     // PixelGridToggle.vue's  comment) - not per-player like zoom above.
     const showPixelGrid = usePixelGridOverlayStorage();
     const showPixelGridLabels = usePixelGridLabelsStorage();
+    // The animation cards in several columns (the window wide enough for more than one) or in one.
+    const cardColumns = useSpriteCardColumnsStorage();
     const editorWidth = computed(() => `${Math.round(EDITOR_BASE_WIDTH * zoom.value)}px`);
     // Widens the frame editor's  container by the SAME factor the
     // aspectRatio calculation below scales by, instead of just increasing
@@ -560,6 +579,12 @@ export default defineComponent({
     // so only the width actually changes as the toggle goes from 1x to 4x.
     const frameEditorWidth = (animation) =>
       `${Math.round(EDITOR_BASE_WIDTH * zoom.value * (animation.previewWidthScale || 1) * (widthOfAnimation(animation) / 8))}px`;
+    // With the cards in columns, a column is as wide as the widest frame editor shown needs (zoomed in, or a wide animation), and at least
+    // 520px; a card never gets wider than the list.
+    const cardColumnMin = () => {
+      const widest = Math.max(0, ...visibleEntries().map(({card}) => parseInt(frameEditorWidth(card), 10)));
+      return `${Math.max(520, widest + 40)}px`;
+    };
     const getMaxId = (elements) => {
       return max(elements.map((o) => o.id))||0;
     };
@@ -625,8 +650,12 @@ export default defineComponent({
     // Shift+click selects a range, Ctrl/Cmd+click adds or removes a card (see hooks/card-selection.js): deleting or
     // dragging one of several selected cards does it to all of them.
     const selectedCardId = ref(null);
-    const {selectedCardIds, selectCard, deselectCard, getSelectedIndices, idsToDelete, deleteQuestion} = useCardSelection(
-        () => state.value.animations.map(({id}) => id), selectedCardId);
+    const {selectedCardIds, selectCard, deselectCard, idsToDelete, deleteQuestion, remapIds: remapSelectedIds} =
+      useCardSelection(
+          () => visibleEntries().map(({card}) => card.id), selectedCardId);
+    // The indices, in the whole list, of the selected cards (dragging one of them moves them all).
+    const getSelectedFullIndices = () => state.value.animations
+        .map((animation, index) => (selectedCardIds.value.includes(animation.id) ? index : -1)).filter((index) => index >= 0);
 
     // Tracks whichever frame's PixelEditor instance was last clicked
     // into (see its "activate" event, emitted from PixelEditor.vue's
@@ -835,19 +864,60 @@ export default defineComponent({
     // Every card starts collapsed on every visit to this tab (see
     // collapseAll's  comment in hooks/collapse.js), not just ones never
     // expanded before.
-    const {isCollapsed, toggleCollapsed, collapseAll} = useCollapsedIds(props.name, true);
+    const {isCollapsed, toggleCollapsed, collapseAll, remapIds: remapCollapsedIds} = useCollapsedIds(props.name, true);
     collapseAll();
 
+    // The animations are numbered by their place (see utils/card-refs.js): after a move or a delete each keeps what the tab holds by
+    // number (collapsed, selected, being edited) under its new number.
+    const renumbered = (idMap) => {
+      remapSelectedIds(idMap);
+      remapCollapsedIds(idMap);
+      if (activeAnimationId.value !== null && idMap.has(activeAnimationId.value)) {
+        activeAnimationId.value = idMap.get(activeAnimationId.value) === REMOVED ? null : idMap.get(activeAnimationId.value);
+      }
+      if (importMenuOpenAnimationId.value !== null && idMap.has(importMenuOpenAnimationId.value)) {
+        importMenuOpenAnimationId.value = idMap.get(importMenuOpenAnimationId.value) === REMOVED ?
+          null : idMap.get(importMenuOpenAnimationId.value);
+      }
+    };
+
     // Card reordering - same hook/pattern as Text/SoundFX/Data/Music/
-    // Background (see hooks/drag-reorder.js's  comment).
+    // Background (see hooks/drag-reorder.js's  comment). The blocks, data table cells and title screen players that pick an animation
+    // hold its place in the list: they follow it to the new place.
     const {dragAttrs, dragCardClass, dragHandleListeners, dragTargetListeners} = useDragReorder(
         () => state.value.animations,
         (items) => {
           state.value.animations = items;
           handleChildChange();
         },
-        getSelectedIndices,
+        getSelectedFullIndices,
+        {sideBySide: () => cardColumns.value, renumber: {kind: 'animation', onRenumbered: renumbered}},
     );
+
+    // Folders for the cards (see hooks/card-folders.js and components/CardFolderBar.vue): the animations keep their numbers and their place in
+    // the one list, a folder is only for looking after them. The folders are `folders` of the storage, the folder an animation is in its `folder`.
+    const foldersOf = () => {
+      const player = state.value;
+      if (!Array.isArray(player.folders)) player.folders = [];
+      return player.folders;
+    };
+    const refresh = () => {
+      handleChildChange();
+      instance.proxy.$forceUpdate();
+    };
+    const {openFolderId, visibleEntries, openFolder, newCardFolder, handleAddFolder, handleDeleteFolder, draggingCardIndex, wrapHandleListeners, handleDropCards} =
+      useCardFolders({
+        getCards: () => state.value.animations,
+        getFolders: foldersOf,
+        setFolders: (folders) => {
+          state.value.folders = folders;
+        },
+        refresh,
+        getSelectedIndices: getSelectedFullIndices,
+        deselectCard,
+        tab: 'sprites',
+      });
+    const cardHandleListeners = wrapHandleListeners(dragHandleListeners);
 
     // Frame reordering: one drag-reorder instance per animation, made on
     // first use (the hook is per list), dropping a frame onto another moves
@@ -857,8 +927,9 @@ export default defineComponent({
     const frameDrag = (animation) => {
       // Looked up again on every drop: the stored state can be rebuilt between renders.
       const currentAnimation = () => state.value.animations.find(({id}) => id === animation.id) || animation;
-      if (!frameDragByAnimationId.has(animation.id)) {
-        frameDragByAnimationId.set(animation.id, useDragReorder(
+      // Kept by the animation itself, not its number, which changes when the animations are numbered again.
+      if (!frameDragByAnimationId.has(animation)) {
+        frameDragByAnimationId.set(animation, useDragReorder(
             () => currentAnimation().frames,
             (items) => {
               currentAnimation().frames = items;
@@ -866,7 +937,7 @@ export default defineComponent({
             },
         ));
       }
-      return frameDragByAnimationId.get(animation.id);
+      return frameDragByAnimationId.get(animation);
     };
 
     // The frame's drag listeners: the hook's, plus showing the whole frame as the thing being dragged.
@@ -1151,6 +1222,7 @@ export default defineComponent({
         // still read as "id 1 is next". Every animation after that keeps
         // incrementing off the real max exactly as before.
         id: state.value.animations.length ? getMaxId(state.value.animations) + 1 : 0,
+        ...newCardFolder(),
         name: `Animation ${state.value.animations.length + 1}`,
         frames: [
           {
@@ -1231,8 +1303,12 @@ export default defineComponent({
     };
 
     const handleDeleteAnimation = (animation) => {
-      const doomed = idsToDelete(animation.id, 1);
-      state.value.animations = state.value.animations.filter(({id}) => !doomed.includes(id));
+      // (At least one animation is kept: the ids are of the cards listed, so the whole list is counted here.)
+      let doomed = idsToDelete(animation.id);
+      if (doomed.length >= state.value.animations.length) doomed = doomed.slice(1);
+      const {remaining, idMap} = removeCards('animation', state.value.animations, doomed);
+      state.value.animations = remaining;
+      if (idMap) renumbered(idMap);
       if (doomed.length > 1) deselectCard();
       console.info('Deleted ', animation);
       handleChildChange();
@@ -1287,6 +1363,11 @@ export default defineComponent({
     // an ordinary pixel edit) resets its row colors back to the same
     // default every row starts at, rather than leaving old per-row picks
     // behind on an otherwise blank frame.
+    // Turning the whole frame upside down turns its row colors with it (one step for Undo, see recordRowColorsChange).
+    const handleFlipRowColors = (frame) => {
+      if (!spriteColorsEnabled.value || !frame.rowColors) return;
+      handleRowColorsInput(frame, frame.rowColors.slice().reverse());
+    };
     const handleClearRowColors = (frame) => {
       if (!spriteColorsEnabled.value || !frame.rowColors) return;
       handleRowColorsInput(frame, clearRowColors(frame.rowColors));
@@ -1326,12 +1407,18 @@ export default defineComponent({
     };
     const handlePasteFrame = (frame) => {
       if (!copiedFrameData.value) return;
-      frame.pixels = structuredClone(copiedFrameData.value.pixels);
-      if (spriteColorsEnabled.value && copiedFrameData.value.rowColors) {
-        frame.rowColors = structuredClone(copiedFrameData.value.rowColors);
-      }
-      handleChildChange();
-      instance.proxy.$forceUpdate();
+      const saveAndRedraw = () => {
+        handleChildChange();
+        instance.proxy.$forceUpdate();
+      };
+      // Can be undone (see recordFieldsChange): the history of the pixel editor does not see a pasted image.
+      recordFieldsChange([{owner: frame, fields: ['pixels', 'rowColors']}], () => {
+        frame.pixels = structuredClone(copiedFrameData.value.pixels);
+        if (spriteColorsEnabled.value && copiedFrameData.value.rowColors) {
+          frame.rowColors = structuredClone(copiedFrameData.value.rowColors);
+        }
+        saveAndRedraw();
+      }, {afterChange: saveAndRedraw});
     };
 
     // Same reasoning/mechanism as BackgroundEditor's  editorRowColors.
@@ -1353,14 +1440,15 @@ export default defineComponent({
       handleAddAnimation, handleDeleteAnimation, handleDuplicateAnimation, handleSetPreviewScale, handleSetWide, handleImportSpriteFiles,
       widthOfAnimation, isDpcPlus,
       testingId, buildInProgress, handleTestAnimation,
-      handleRowColorsInput, handleMoveRows, handleClearRowColors, editorRowColors, spriteColorsEnabled,
+      handleRowColorsInput, handleMoveRows, handleFlipRowColors, handleClearRowColors, editorRowColors, spriteColorsEnabled,
       copiedFrameRowColors, handleCopyRowColors, handlePasteRowColors,
       copiedFrameData, handleCopyFrame, handlePasteFrame,
       spriteColorPalette, selectedQuickColor,
       isCollapsed, toggleCollapsed,
       dragAttrs, dragCardClass, dragHandleListeners, dragTargetListeners, frameDrag, frameHandleListeners,
+      visibleEntries, foldersOf, openFolderId, openFolder, refresh, handleAddFolder, handleDeleteFolder, handleDropCards, draggingCardIndex, cardHandleListeners,
       armedFrameKey, frameKey, armFrameDrag,
-      zoom, playerZoomLevels: PLAYER_ZOOM_LEVELS, showPixelGrid, showPixelGridLabels, editorWidth, frameEditorWidth,
+      zoom, playerZoomLevels: PLAYER_ZOOM_LEVELS, showPixelGrid, showPixelGridLabels, cardColumns, cardColumnMin, editorWidth, frameEditorWidth,
       activeFrameEditor, setActiveFrame, isFrameActive, frameHighlightState, selectedAnimation,
       effectiveFrameEditor, pixelEditorRefKey,
       heightMenuVisible, heightMenuValue, heightMenuScaleContents,
@@ -1411,6 +1499,19 @@ export default defineComponent({
   margin-top: 4px;
 }
 
+/* Several columns of cards when the window is wide enough: each card at least as wide as its frames need to be useful. */
+.animation-list-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--sprite-card-min, 520px)), 1fr));
+  align-items: start;
+}
+
+/* A frame editor wider than its card (a very wide animation, or the list narrower than one column) shrinks to the card. */
+.animation-list-columns .pixel-editor-parent-container,
+.animation-list-columns .pixel-editor-container {
+  max-width: 100%;
+}
+
 /* A real <v-list> (unlike Title screen's equivalent .titlescreen-frame-list,
    a plain div), so it carries Vuetify's default 8px top/bottom padding
    unless stripped - stacking on top of .animation-card's 12px bottom
@@ -1418,6 +1519,8 @@ export default defineComponent({
    the same card's edges elsewhere (confirmed as a real reported bug). */
 .animation-frame-list {
   padding: 0;
+  /* 8px under the 1x/2x/4x and 8px/16px buttons above. */
+  margin-top: 8px;
 }
 
 .pixel-editor-container {
@@ -1570,8 +1673,9 @@ export default defineComponent({
    rather than leaving this card noticeably taller than every other tab's
    for no visible reason. */
 .animation-name-field {
-  margin-top: 20px;
-  margin-bottom: -12px;
+  /* 8px under the buttons in the corner and 8px above what follows. */
+  margin-top: 30px;
+  margin-bottom: -13px;
 }
 
 /* Sits right after the name field, in the same normal-flow row as the rest

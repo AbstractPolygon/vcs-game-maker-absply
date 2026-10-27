@@ -289,6 +289,33 @@ const buildCardDataAsm = (card, key, typeInfo, ref, Blockly, pageColor) => {
     frameDurations: frames.map((f) => clampFrameDuration(f.duration)), frameOffsets, colorOffsets, colorPages, colorSplit};
 };
 
+// The lines that put the Player 0 and Player 1 sprites where the Player card of a title screen says they start (its Start X and
+// Start Y fields; one that is empty is left alone) and how wide they are drawn (its Width: 2x or 4x; 1x is left alone). Run last
+// in "Title screen start", so the card has the say over the blocks there.
+export const titlePlayerStartLines = () => {
+  const {screens} = processTitleScreenStorageDefaults(useTitleScreenStorage());
+  const lines = [];
+  screens.forEach((screen) => (screen.cards || []).filter((card) => card.type === 'player').forEach((card) => {
+    [0, 1].forEach((player) => ['x', 'y'].forEach((axis) => {
+      const value = card[`player${player}${axis.toUpperCase()}`];
+      if (value === undefined || value === null || value === '' || !Number.isFinite(Number(value))) return;
+      const line = `player${player}${axis} = ${Math.max(0, Math.min(255, Math.round(Number(value))))}`;
+      if (!lines.includes(line)) lines.push(line);
+    }));
+  }));
+  // The TIA stretches a sprite to 2x (NUSIZ 5) or 4x (NUSIZ 7); the other bits of the size byte (a flag of the title screen loop,
+  // the pause bit) stay as they are.
+  screens.forEach((screen) => (screen.cards || []).filter((card) => card.type === 'player').forEach((card) => {
+    [0, 1].forEach((player) => {
+      const nusiz = {2: '$05', 4: '$07'}[Number(card[`player${player}Width`])];
+      if (!nusiz) return;
+      const first = `player${player}size = player${player}size & $F8`;
+      if (!lines.includes(first)) lines.push(first, `player${player}size = player${player}size | ${nusiz}`);
+    });
+  }));
+  return lines;
+};
+
 // Resolves a "player" card's  player0Animation/player1Animation field
 // (an index into the shared animation pool, same convention as
 // sprite_player_animation_select's  dropdown - see blocks/sprites.js's
@@ -428,11 +455,11 @@ const buildScoreDataAsm = () => {
 // directly, 85*2 = 170*1), unaffected by how many frames an animated card
 // has (only the CURRENTLY selected frame's rows ever get drawn) or how many
 // OTHER pages exist (only one page's routine runs per actual frame
-// rendered). This instead estimates ROM STORAGE: every animation frame is a
-// separate, permanently-baked-in byte table (the kernel just changes which
-// one it points at), so unlike the draw-time budget, MORE frames or MORE
-// pages both genuinely add up here even though nothing about what's ever
-// visible at once changes. Deliberately a LOWER bound, not a byte-exact
+// rendered). This instead estimates ROM STORAGE: every DIFFERENT picture and every different row color list is a
+// permanently-baked-in byte table (the kernel just changes which one it points at), so unlike the draw-time budget,
+// more different frames or more pages add up here even though nothing about what's ever visible at once changes. A
+// picture that repeats (a held frame, the same picture under other row colors, the same graphic on another page) is
+// stored once, and so is a row color list that repeats (see buildCardDataAsm), and is counted once here. Deliberately a LOWER bound, not a byte-exact
 // prediction - it counts each card/frame's pixel and row-color bytes
 // (matching buildCardDataAsm/buildPlayerDataAsm/buildScoreDataAsm's real
 // output exactly), but skips the 256-byte alignment padding a card's
@@ -445,13 +472,39 @@ export const estimateTitleScreenGraphicsBytes = (storage) => {
   let bytes = 0;
   let countedPlayerCard = false;
   let countedScoreCard = false;
+  const seenPictures = new Set();
+  const seenColors = new Set();
   screens.forEach((screen) => {
     (screen.cards || []).forEach((card) => {
       const typeInfo = TITLE_SCREEN_KERNEL_TYPES[card.type];
       if (typeInfo) {
-        const height = cardFrameHeight(card) * ((card.frames && card.frames.length) || 1);
-        bytes += height * typeInfo.blockCount;
-        bytes += typeInfo.hasRowColors ? height : 1;
+        // As buildCardDataAsm stores it: a picture that repeats (in a held frame, under other row colors, or in another graphic)
+        // and a row color list that repeats are in the ROM once.
+        const {frameHeight, paddedFrames} = padTitleCardFrames(card, typeInfo);
+        const split = titleCardColorSplit(card, `${screen.id}:${card.id}`);
+        const distinct = (list) => [...new Set(list)];
+        // A graphic whose rows are stored per frame (no row colors, or its colors not split off) keeps a frame once when its
+        // picture and its row colors are the same; a split one keeps each picture once, and each row color list once.
+        const stored = distinct(paddedFrames.map(({pixelRows, colorRows}) =>
+          JSON.stringify(split || !typeInfo.hasRowColors ? [pixelRows] : [pixelRows, colorRows])));
+        const pictures = distinct(paddedFrames.map(({pixelRows}) => JSON.stringify(pixelRows)));
+        const pictureCount = split || !typeInfo.hasRowColors ? pictures.length : stored.length;
+        const pictureSignature = JSON.stringify([typeInfo.blockCount, split ? 1 : 0, split || !typeInfo.hasRowColors ? pictures : stored]);
+        if (!seenPictures.has(pictureSignature)) {
+          seenPictures.add(pictureSignature);
+          bytes += pictureCount * frameHeight * typeInfo.blockCount;
+        }
+        if (typeInfo.hasRowColors) {
+          const colorLists = distinct(paddedFrames.map(({colorRows}) => JSON.stringify(colorRows)));
+          const colorCount = split ? colorLists.length : stored.length;
+          const colorSignature = JSON.stringify([split, frameHeight, split ? colorLists : stored]);
+          if (!seenColors.has(colorSignature)) {
+            seenColors.add(colorSignature);
+            bytes += colorCount * frameHeight;
+          }
+        } else {
+          bytes += 1;
+        }
         return;
       }
       if (card.type === 'player' && !countedPlayerCard) {

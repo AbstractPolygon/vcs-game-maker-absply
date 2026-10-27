@@ -14,18 +14,17 @@
   >
     <div class="graphic-editor-toolbar-row">
       <slot name="before-tools" />
+      <pixel-grid-toggle
+        v-if="cardColumns !== null"
+        :value="cardColumns"
+        icon="mdi-view-column"
+        tall
+        :title-on="`Show the ${cardColumnsWhat} in one column`"
+        :title-off="`Show the ${cardColumnsWhat} in several columns`"
+        @input="(value) => $emit('update:cardColumns', value)"
+      />
       <v-divider class="get-outer-divider" vertical />
       <div class="get-tools">
-        <template v-if="importExportFirst">
-          <v-btn icon small title="Export to image (Shift+E)" :disabled="!activeEditor" @click="() => activeEditor.handleExportImage()">
-            <v-icon>mdi-export</v-icon>
-          </v-btn>
-          <v-btn icon small title="Import from image (Shift+I)" :disabled="!activeEditor" @click="() => activeEditor.handleImportImage()">
-            <v-icon>mdi-import</v-icon>
-          </v-btn>
-          <slot name="extra-tools" />
-          <v-divider class="get-inner-divider" vertical />
-        </template>
         <v-btn icon small :title="UNDO_TITLE" :disabled="!activeEditor && !hasPendingQuickColorUndo && !hasPendingCardUndo && !reorderCanUndo" @click="handleUndo">
           <v-icon>mdi-undo</v-icon>
         </v-btn>
@@ -220,26 +219,26 @@
         <v-btn icon small title="Flip vertically (Shift+V) - only the selected pixels when a selection is active" :disabled="!activeEditor" @click="() => activeEditor.flipVertical()">
           <v-icon>mdi-flip-vertical</v-icon>
         </v-btn>
-        <template v-if="!importExportFirst">
-          <v-divider class="get-inner-divider" vertical />
-          <v-btn icon small title="Export to image (Shift+E)" :disabled="!activeEditor" @click="() => activeEditor.handleExportImage()">
-            <v-icon>mdi-export</v-icon>
-          </v-btn>
-          <v-btn icon small title="Import from image (Shift+I)" :disabled="!activeEditor" @click="() => activeEditor.handleImportImage()">
-            <v-icon>mdi-import</v-icon>
-          </v-btn>
-          <slot name="extra-tools" />
-        </template>
+        <v-divider class="get-inner-divider" vertical />
+        <v-btn icon small title="Export to image (Shift+E)" :disabled="!activeEditor" @click="() => activeEditor.handleExportImage()">
+          <v-icon>mdi-export</v-icon>
+        </v-btn>
+        <v-btn icon small title="Import from image (Shift+I)" :disabled="!activeEditor" @click="() => activeEditor.handleImportImage()">
+          <v-icon>mdi-import</v-icon>
+        </v-btn>
+        <slot name="extra-tools" />
       </div>
       <template v-if="$slots['after-tools']">
         <v-divider class="get-after-tools-divider" vertical />
         <slot name="after-tools" />
       </template>
     </div>
+    <v-divider class="get-divider" :class="{'get-divider-last': !$slots['below-tools']}" />
     <slot name="below-tools" />
   </div>
 </template>
 <script>
+import PixelGridToggle from './PixelGridToggle.vue';
 import {tryUndoQuickColorDeletion, usePendingQuickColorDeletion} from '../hooks/quick-color-undo';
 import {tryUndoCardDeletion, usePendingCardDeletion} from '../hooks/card-delete-undo';
 import {usePixelGridOverlayStorage, usePixelGridLabelsStorage} from '../hooks/project';
@@ -281,7 +280,12 @@ const TOOL_HOTKEYS = {
 // single tab needs (currently just PlayerEditor.vue's "Import from
 // Aseprite" button) without every other tab growing an unused icon too.
 export default {
+  components: {PixelGridToggle},
   props: {
+    // The toggle at the end of the toolbar (after the "after-tools" slot) that puts the tab's cards in one column or several: its state
+    // (the caller keeps it; use .sync), or null for a tab with no such toggle, and what the cards are called, for the tooltip.
+    cardColumns: {type: Boolean, default: null},
+    cardColumnsWhat: {type: String, default: 'cards'},
     // The PixelEditor.vue instance the toolbar currently acts on - null
     // (every button disabled, no tool highlighted) until a caller resolves
     // one, however it chooses to (an explicit frame click, a $ref fallback
@@ -300,9 +304,6 @@ export default {
     // since its toolbar sits inside a SECOND nested v-card-text (the
     // "Text Minikernel Font" sub-card) on top of that.
     bleed: {type: Number, default: 16},
-    // Puts the export/import image buttons (and the "extra-tools" slot) at the
-    // left of the tool group, before undo/redo, instead of at its end.
-    importExportFirst: {type: Boolean, default: false},
   },
   data() {
     return {
@@ -624,6 +625,18 @@ export default {
   transition: padding 0.15s ease;
 }
 
+/* The line under the row of tools, always there (and the same on the Sound and Music tabs): the full width of the pinned toolbar around it. */
+.get-divider {
+  margin: 8px calc(-1 * var(--toolbar-bleed, 0px));
+  /* Vuetify caps a divider at its parent's width, which would leave the negative margin only moving it left. */
+  max-width: none;
+}
+
+/* Nothing under it (no Quick colors): the cards are as far under it as from the sides of the tab. */
+.get-divider-last {
+  margin-bottom: 0;
+}
+
 .graphic-editor-toolbar-row {
   display: flex;
   align-items: center;
@@ -649,12 +662,17 @@ export default {
   padding-bottom: 10px;
 }
 
+  /* The line at the bottom of the pinned toolbar takes the place of the toolbar's last divider (no double line). */
+.graphic-editor-toolbar-scrolled .get-divider-last {
+  display: none;
+}
+
 /* Separates the caller's "before-tools" controls (zoom, pixel grid
    toggles) from the standard tool icons - a wider gap than the inner
    dividers below since it's splitting two unrelated groups, not sub-groups
    within one. */
 .get-outer-divider {
-  margin: 0 6px;
+  margin: 0 4px;
 }
 
 /* gap (not per-button margins) is what actually guarantees every icon-to-

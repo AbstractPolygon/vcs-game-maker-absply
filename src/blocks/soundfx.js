@@ -4,6 +4,7 @@ import Vue from 'vue';
 import * as Blockly from 'blockly/core';
 
 import {useSoundEffectsStorage} from '../hooks/project';
+import {cardOptions} from '../utils/card-refs';
 import {channelOptions} from './sound';
 import {SOUND_ICON} from './icon';
 import {STAIRCASE_FRAME_OPTIONS, DEFAULT_STAIRCASE_STEP, DEFAULT_STAIRCASE_FRAMES, MAX_STAIRCASE_STEP} from '../utils/staircase';
@@ -309,7 +310,7 @@ export const processSoundEffectsStorageDefaults = (soundEffectsStorage) => {
     Vue.set(soundEffect, 'sweepRepeat', !!soundEffect.sweepRepeat);
     Vue.set(soundEffect, 'sweepWrap', !!soundEffect.sweepWrap);
     Vue.set(soundEffect, 'dpcSweepEnd', whole(soundEffect.dpcSweepEnd, 0, 0, 108));
-    // (Left unset when it never was: a sweep with no end note of its own then follows the Standard pitch, see utils/pitch-table.js.)
+    // (Left unset when it never was: a sweep with no end note then follows the Standard pitch, see utils/pitch-table.js.)
     if (soundEffect.dpcSweepMatch !== undefined) Vue.set(soundEffect, 'dpcSweepMatch', !!soundEffect.dpcSweepMatch);
     Vue.set(soundEffect, 'sweepEnd', whole(soundEffect.sweepEnd, DEFAULT_SWEEP_END, 0, 31));
     Vue.set(soundEffect, 'sweepStep', whole(soundEffect.sweepStep, DEFAULT_SWEEP_STEP, 1, MAX_SWEEP_STEP));
@@ -349,6 +350,8 @@ export const buildSoundEffectOptions = () => {
     return [['Error', '1']];
   }
 };
+
+cardOptions('sound', buildSoundEffectOptions);
 
 // Looks up one stored sound effect preset by id, or null if it can't be found.
 export const findSoundEffectById = (id) => {

@@ -258,6 +258,12 @@ export const useHideToolbarLabelsStorage = () =>
 // turns it off, and the VCSGM Options switch turns it back on.
 export const useShowStartupTipsStorage = () =>
   useBooleanAppSetting('vcs-game-maker.showStartupTips', true);
+// Desktop app only: whether it looks at the release page when it starts and tells you about a newer version (see App.vue and
+// utils/update-check.js). On unless turned off in the VCSGM Options.
+export const useCheckForUpdatesStorage = () =>
+  useBooleanAppSetting('vcs-game-maker.checkForUpdates', true);
+// The newest version the user chose not to hear about again (the update notice's "Skip this version").
+export const useSkippedUpdateStorage = () => useLocalStorage('vcs-game-maker.skippedUpdate');
 export const useMuteBlocklySoundsStorage = () =>
   useBooleanAppSetting('vcs-game-maker.muteBlocklySounds');
 // On by default (see public/js/gopher2600-worker.js's adaptive frame skipping): it only does
@@ -361,6 +367,20 @@ export const usePixelGridOverlayStorage = () =>
 // explicitly turned on.
 export const usePixelGridLabelsStorage = () =>
   useBooleanAppSetting('vcs-game-maker.pixelGridLabels', true);
+
+// Whether the cards of the Playfield tab (backgrounds) or of the Sprites tab (animations) sit in more than one column when the window is
+// wide enough, or in one: a view preference that is kept between visits. The backgrounds have been in columns since they got a grid, the
+// animations (wide cards with their frames in a row) in one.
+export const useBackgroundCardColumnsStorage = () =>
+  useBooleanAppSetting('vcs-game-maker.backgroundCardColumns', true);
+export const useSpriteCardColumnsStorage = () =>
+  useBooleanAppSetting('vcs-game-maker.spriteCardColumns', false);
+// The same for the Scene tab's cards (one column).
+export const useSceneCardColumnsStorage = () =>
+  useBooleanAppSetting('vcs-game-maker.sceneCardColumns', false);
+// The same for the Title tab's pages (one column, as they always were).
+export const useTitleCardColumnsStorage = () =>
+  useBooleanAppSetting('vcs-game-maker.titleCardColumns', false);
 
 // Which Music-tab instrument rows are muted/soloed - a view preference (see
 // MusicEditor.vue's  mutedTrackIds/soloedTrackIds refs, which load these

@@ -1,0 +1,286 @@
+{
+  "frames": [
+    {
+      "filename": "vortex-large 0.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 50
+    },
+    {
+      "filename": "vortex-large 1.aseprite",
+      "frame": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 50
+    },
+    {
+      "filename": "vortex-large 2.aseprite",
+      "frame": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 50
+    },
+    {
+      "filename": "vortex-large 3.aseprite",
+      "frame": {
+        "x": 24,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 50
+    },
+    {
+      "filename": "vortex-large 4.aseprite",
+      "frame": {
+        "x": 32,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 50
+    },
+    {
+      "filename": "vortex-large 5.aseprite",
+      "frame": {
+        "x": 40,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 50
+    },
+    {
+      "filename": "vortex-large 6.aseprite",
+      "frame": {
+        "x": 48,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 50
+    },
+    {
+      "filename": "vortex-large 7.aseprite",
+      "frame": {
+        "x": 56,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 50
+    },
+    {
+      "filename": "vortex-large 8.aseprite",
+      "frame": {
+        "x": 64,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 50
+    },
+    {
+      "filename": "vortex-large 9.aseprite",
+      "frame": {
+        "x": 72,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 50
+    },
+    {
+      "filename": "vortex-large 10.aseprite",
+      "frame": {
+        "x": 80,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 50
+    },
+    {
+      "filename": "vortex-large 11.aseprite",
+      "frame": {
+        "x": 88,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 50
+    }
+  ],
+  "meta": {
+    "app": "https://www.aseprite.org/",
+    "image": "vortex-large-8x16.png",
+    "format": "RGB888",
+    "size": {
+      "w": 96,
+      "h": 16
+    },
+    "scale": "1",
+    "frameTags": [
+      {
+        "name": "vortex-large",
+        "from": 0,
+        "to": 11,
+        "direction": "forward"
+      }
+    ]
+  }
+}

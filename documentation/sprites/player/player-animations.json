@@ -1164,7 +1164,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 53.aseprite",
@@ -1186,7 +1186,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 54.aseprite",
@@ -1208,7 +1208,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 55.aseprite",
@@ -1230,7 +1230,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 56.aseprite",
@@ -1252,7 +1252,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 57.aseprite",
@@ -1274,7 +1274,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 58.aseprite",
@@ -1296,7 +1296,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 59.aseprite",
@@ -1318,7 +1318,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 50
     },
     {
       "filename": "player-animations 60.aseprite",
@@ -3057,6 +3057,842 @@
         "h": 8
       },
       "duration": 33
+    },
+    {
+      "filename": "player-animations 139.aseprite",
+      "frame": {
+        "x": 1112,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "player-animations 140.aseprite",
+      "frame": {
+        "x": 1120,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "player-animations 141.aseprite",
+      "frame": {
+        "x": 1128,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 142.aseprite",
+      "frame": {
+        "x": 1136,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 143.aseprite",
+      "frame": {
+        "x": 1144,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "player-animations 144.aseprite",
+      "frame": {
+        "x": 1152,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 145.aseprite",
+      "frame": {
+        "x": 1160,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 146.aseprite",
+      "frame": {
+        "x": 1168,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 147.aseprite",
+      "frame": {
+        "x": 1176,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 148.aseprite",
+      "frame": {
+        "x": 1184,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 149.aseprite",
+      "frame": {
+        "x": 1192,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "player-animations 150.aseprite",
+      "frame": {
+        "x": 1200,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 151.aseprite",
+      "frame": {
+        "x": 1208,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 152.aseprite",
+      "frame": {
+        "x": 1216,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "player-animations 153.aseprite",
+      "frame": {
+        "x": 1224,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 154.aseprite",
+      "frame": {
+        "x": 1232,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "player-animations 155.aseprite",
+      "frame": {
+        "x": 1240,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 133
+    },
+    {
+      "filename": "player-animations 156.aseprite",
+      "frame": {
+        "x": 1248,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 157.aseprite",
+      "frame": {
+        "x": 1256,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 133
+    },
+    {
+      "filename": "player-animations 158.aseprite",
+      "frame": {
+        "x": 1264,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 159.aseprite",
+      "frame": {
+        "x": 1272,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 300
+    },
+    {
+      "filename": "player-animations 160.aseprite",
+      "frame": {
+        "x": 1280,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "player-animations 161.aseprite",
+      "frame": {
+        "x": 1288,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 162.aseprite",
+      "frame": {
+        "x": 1296,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "player-animations 163.aseprite",
+      "frame": {
+        "x": 1304,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 164.aseprite",
+      "frame": {
+        "x": 1312,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 165.aseprite",
+      "frame": {
+        "x": 1320,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 166.aseprite",
+      "frame": {
+        "x": 1328,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 167.aseprite",
+      "frame": {
+        "x": 1336,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 168.aseprite",
+      "frame": {
+        "x": 1344,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 66
+    },
+    {
+      "filename": "player-animations 169.aseprite",
+      "frame": {
+        "x": 1352,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 170.aseprite",
+      "frame": {
+        "x": 1360,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 171.aseprite",
+      "frame": {
+        "x": 1368,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 172.aseprite",
+      "frame": {
+        "x": 1376,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 173.aseprite",
+      "frame": {
+        "x": 1384,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 174.aseprite",
+      "frame": {
+        "x": 1392,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 175.aseprite",
+      "frame": {
+        "x": 1400,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
+    },
+    {
+      "filename": "player-animations 176.aseprite",
+      "frame": {
+        "x": 1408,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 33
     }
   ],
   "meta": {
@@ -3064,7 +3900,7 @@
     "image": "player-animations.png",
     "format": "RGB888",
     "size": {
-      "w": 1112,
+      "w": 1416,
       "h": 8
     },
     "scale": "1",
@@ -3166,6 +4002,20 @@
         "to": 138,
         "direction": "forward",
         "color": "#9e9e9eff"
+      },
+      {
+        "name": "pikes-hit",
+        "from": 139,
+        "to": 159,
+        "direction": "forward",
+        "color": "#7c4dffff"
+      },
+      {
+        "name": "blow-up",
+        "from": 160,
+        "to": 176,
+        "direction": "forward",
+        "color": "#ff5722ff"
       }
     ]
   }

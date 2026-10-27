@@ -4,6 +4,7 @@ import {superchipOn} from '../utils/superchip';
 import * as Blockly from 'blockly/core';
 
 import {useBackgroundsStorage, useConfigurationStorage} from '../hooks/project';
+import {cardOptions} from '../utils/card-refs';
 import {playfieldToMatrix} from '../utils/pixels';
 import {BACKGROUND_ICON, COLOR_ICON, CHECKBOX_CHECKED_ICON, CHECKBOX_CLEAR_ICON, FLIP_ICON, BACKGROUND_PFSCROLL_LEFT_ICON, BACKGROUND_PFSCROLL_RIGHT_ICON, BACKGROUND_PFSCROLL_UP_ICON, BACKGROUND_PFSCROLL_DOWN_ICON, BACKGROUND_PFSCROLL_DOWN2X_ICON, BACKGROUND_PFSCROLL_UP2X_ICON, PLAYER_ICON, MISSILE_ICON, BALL_ICON} from './icon';
 
@@ -317,8 +318,51 @@ export const dpcPlusPfresOf = (config) => {
 // keeps the project's.
 export const backgroundPfresOf = (background, config) => {
   const rows = Math.round(Number(background && background.pfres));
+  // A background whose groups of columns have separate rows (groupPfres, see backgroundGroupPfres) counts as the most rows of its groups
+  // (the finest resolution: the row colors have it, and so does the scroll's layout).
+  const groups = background && background.groupPfres;
+  if (config && config.kernel === 'dpcplus' && Array.isArray(groups) && groups.length === 4 && groups.every((value) => Math.round(Number(value)) > 0)) {
+    return Math.min(192, Math.max(...groups.map((value) => Math.round(Number(value)))));
+  }
   if (config && config.kernel === 'dpcplus' && rows > 0) return Math.min(192, rows);
   return dpcPlusPfresOf(config);
+};
+
+// DPC+ reads the playfield colors and the background colors through data separate fetchers, each with a separate row step, so a background can have
+// a number of color rows apart from its playfield's rows: pfColorRows for the playfield colors, bkColorRows for the background colors (each one
+// color for every scanline of picture height / rows, the rows of the pixels when the number is not set). The lists rowColors and bkRowColors have that many colors.
+export const backgroundColorRows = (background, kind) => {
+  const rows = Math.round(Number(background && background[kind === 'bk' ? 'bkColorRows' : 'pfColorRows']));
+  return rows > 0 ? Math.min(255, rows) : ((background && background.pixels) || []).length;
+};
+export const backgroundHasColorRows = (background, kind) => Math.round(Number(background && background[kind === 'bk' ? 'bkColorRows' : 'pfColorRows'])) > 0;
+// A list of row colors as the rows of another number of rows show it (each new row takes the color of the row at its middle).
+export const colorsAtRows = (colors, rows) => ((!colors || !colors.length || colors.length === rows) ? colors :
+  Array.from({length: rows}, (unused, i) => colors[Math.min(colors.length - 1, Math.floor((i + 0.5) * colors.length / rows))]));
+// The same for a background whose color rows are separate: the colors at the rows of its pixels (the list as it is when the number is not set).
+export const colorsAtPixelRows = (background, kind) => {
+  const colors = kind === 'bk' ? background.bkRowColors : background.rowColors;
+  return backgroundHasColorRows(background, kind) ? colorsAtRows(colors, (background.pixels || []).length) : colors;
+};
+
+// DPC+ draws the playfield as four groups of eight columns, each read by a data separate fetcher with a separate row step, so a background can
+// give every group a number of separate rows (groupPfres: four numbers, the rows on screen of the columns 0 to 7, 8 to 15, 16 to 23 and
+// 24 to 31). The pixel matrix of such a background is one matrix of the most rows: a group with fewer rows has them at the top of its columns
+// and leaves the rest empty. Returns the four numbers (the background's pfres for each when it has none).
+export const backgroundGroupPfres = (background, config) => {
+  const base = backgroundPfresOf(background, config);
+  const groups = background && background.groupPfres;
+  if (!config || config.kernel !== 'dpcplus' || !Array.isArray(groups) || groups.length !== 4) return [base, base, base, base];
+  return groups.map((rows) => {
+    const n = Math.round(Number(rows));
+    return n > 0 ? Math.min(192, n) : base;
+  });
+};
+
+// Whether the groups of columns of a background have different numbers of rows.
+export const backgroundHasGroups = (background, config) => {
+  const rows = backgroundGroupPfres(background, config);
+  return rows.some((value) => value !== rows[0]);
 };
 
 export const effectiveBackgroundRows = (config) => {
@@ -666,15 +710,14 @@ Blockly.Blocks['background_scroll_colors'] = {
 // The ways "Playfield offset" can move the pixels of an area (one pixel column or row per block).
 export const BACKGROUND_OFFSET_OPTIONS = [
   ['alternate rows left and right', 'alternate'],
+  ['alternate rows right and left', 'alternate_rl'],
   ['all left', 'left'],
   ['all right', 'right'],
+  ['alternate columns up and down', 'alternate_ud'],
+  ['alternate columns down and up', 'alternate_du'],
   ['all up', 'up'],
   ['all down', 'down'],
 ];
-// The playfield is four bytes of eight pixels a row; the area's left and right edges are whole bytes.
-export const BACKGROUND_OFFSET_LEFT_OPTIONS = [['0', '0'], ['8', '1'], ['16', '2'], ['24', '3']];
-export const BACKGROUND_OFFSET_RIGHT_OPTIONS = [['7', '0'], ['15', '1'], ['23', '2'], ['31', '3']];
-
 // Moves the pixels of the whole playfield, or of an area of it, by one pixel (column or row), wrapping around inside
 // the area. Run every few frames it makes the holes of a wall drift sideways, like the shield in Yars' Revenge.
 Blockly.Blocks['background_offset'] = {
@@ -697,9 +740,12 @@ Blockly.Blocks['background_offset'] = {
         `along (the shield in Yars' Revenge). A pixel that leaves the end of a row carries on at the start of the next row ` +
         `and one that leaves the last row comes back on the first, and "all up" and "all down" wrap the top and ` +
         `the bottom. "alternate rows left and right" moves one row left, the next right, and so on, so the ` +
-        `pixels run along the rows like a belt. Untick "whole playfield" to move just an area: its left and right edges ` +
-        `are whole bytes of the playfield (columns 0-7, 8-15, 16-23 and 24-31, so its width is a multiple of eight ` +
-        `pixels) and its top and bottom are rows counted from 0 like "Playfield get pixel". Run it every few frames ` +
+        `pixels run along the rows like a belt ("alternate rows right and left" starts the other way round: the first row ` +
+        `of the playfield goes right, the next left). "alternate columns up and down" moves one column up, the next down, and so on, ` +
+        `each column wrapping from the top to the bottom ("alternate columns down and up" starts the other way round: the first ` +
+        `column goes down, the next up). Untick "whole playfield" to move just an area: its left and right edges ` +
+        `are any of the playfield's columns 0 to 31 and its top and bottom are rows counted from 0 like "Playfield get ` +
+        `pixel". Run it every few frames ` +
         `for a slower drift. Pixels only move; per-row colors stay where they are.`);
   },
   mutationToDom: function() {
@@ -709,22 +755,31 @@ Blockly.Blocks['background_offset'] = {
   },
   domToMutation: function(xml) {
     this.updateShape_(xml.getAttribute('whole') !== '0');
+    // Older projects chose the left and right edge of an area from a list of the four bytes of eight columns (fields X1 and X2, 0 to 3):
+    // the area starts at the first column of the byte and ends at the last one of its byte.
+    const block = xml.parentNode;
+    if (!block || !this.getInput('X1')) return;
+    const legacy = (name) => Array.from(block.childNodes).find((node) => node.nodeName === 'field' && node.getAttribute('name') === name);
+    [['X1', 0], ['X2', 7]].forEach(([name, lastColumn]) => {
+      const node = legacy(name);
+      const text = node ? node.textContent : '';
+      // The byte of eight columns (0 to 3), or a column itself (c0 to c31, from the build of this block that listed the columns).
+      const column = /^[0-3]$/.test(text) ? Number(text) * 8 + lastColumn : /^c\d+$/.test(text) ? Math.min(31, Number(text.slice(1))) : null;
+      const shadow = this.getInputTargetBlock(name);
+      if (shadow && column !== null) shadow.setFieldValue(String(column), 'NUM');
+    });
   },
   // Adds or removes the top left and bottom right corner of the area.
   updateShape_: function(whole) {
-    const hasArea = !!this.getInput('X1IN');
+    const hasArea = !!this.getInput('X1');
     if (whole && hasArea) {
-      ['Y2', 'X2IN', 'Y1', 'X1IN'].forEach((name) => this.removeInput(name));
+      ['Y2', 'X2', 'Y1', 'X1'].forEach((name) => this.removeInput(name));
     } else if (!whole && !hasArea) {
-      this.appendDummyInput('X1IN')
-          .appendField('from X')
-          .appendField(new Blockly.FieldDropdown(BACKGROUND_OFFSET_LEFT_OPTIONS), 'X1');
+      this.appendValueInput('X1').setCheck('Number').appendField('from X');
       this.appendValueInput('Y1').setCheck('Number').appendField('Y');
-      this.appendDummyInput('X2IN')
-          .appendField('to X')
-          .appendField(new Blockly.FieldDropdown(BACKGROUND_OFFSET_RIGHT_OPTIONS), 'X2');
+      this.appendValueInput('X2').setCheck('Number').appendField('to X');
       this.appendValueInput('Y2').setCheck('Number').appendField('Y');
-      [['Y1', 0], ['Y2', 10]].forEach(([name, rows]) => {
+      [['X1', 0], ['Y1', 0], ['X2', 7], ['Y2', 10]].forEach(([name, rows]) => {
         const shadow = this.workspace.newBlock('math_number');
         shadow.setShadow(true);
         shadow.setFieldValue(String(rows), 'NUM');
@@ -793,6 +848,8 @@ const buildBackgroundOptions = () => {
     return [['Error', '1']];
   }
 };
+
+cardOptions('background', buildBackgroundOptions);
 
 // These two are defined below instead of in the JSON array, because a JSON
 // definition can only take a fixed list of options. Passing the function to
@@ -1137,7 +1194,7 @@ Blockly.defineBlocksWithJsonArray([
   // by it.
   {
     'type': `background_pixel_to_sprite`,
-    'message0': `${BACKGROUND_ICON} Convert playfield %1 %2 to %3`,
+    'message0': `${BACKGROUND_ICON} Convert playfield %1 %2 to %3 column %4`,
     'args0': [
       {
         'type': 'field_dropdown',
@@ -1160,16 +1217,18 @@ Blockly.defineBlocksWithJsonArray([
           ['double/quad-wide sprite', 'WIDE'],
         ],
       },
+      {'type': 'input_value', 'name': 'COLUMN', 'check': 'Number'},
     ],
     'inputsInline': true,
     'output': 'Number',
     'colour': BACKGROUND_COLOR,
     'tooltip': `Converts a playfield pixel column (0-31) or row to the matching Player/Missile/Ball X or ` +
-      `Y coordinate.`,
+      `Y coordinate. Under DPC+, when the four playfield columns of a background have separate rows, a row means the rows of the playfield column ` +
+      `that the column (0-31, the empty one is the first column) is in.`,
   },
   {
     'type': `background_sprite_to_pixel`,
-    'message0': `${BACKGROUND_ICON} Convert %3 %1 %2 to playfield`,
+    'message0': `${BACKGROUND_ICON} Convert %3 %1 %2 to playfield column %4`,
     'args0': [
       {
         'type': 'field_dropdown',
@@ -1192,12 +1251,14 @@ Blockly.defineBlocksWithJsonArray([
           ['double/quad-wide sprite', 'WIDE'],
         ],
       },
+      {'type': 'input_value', 'name': 'COLUMN', 'check': 'Number'},
     ],
     'inputsInline': true,
     'output': 'Number',
     'colour': BACKGROUND_COLOR,
     'tooltip': `Converts a Player/Missile/Ball X or Y coordinate to the matching playfield pixel column ` +
-      `(0-31) or row.`,
+      `(0-31) or row. Under DPC+, when the four playfield columns of a background have separate rows, a row means the rows of the playfield column ` +
+      `that the column (0-31, the empty one is the first column) is in.`,
   },
   // Given a sprite that just registered a hardware collision with the
   // Playfield (see collision_get/collision_check_position in blocks/

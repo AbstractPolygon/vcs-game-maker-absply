@@ -276,7 +276,7 @@
         />
         <v-switch
           v-model="configurationState.enableCycleScore"
-          @change="handleChangeConfiguration"
+          @change="handleToggleCycleScore"
           label="Show remaining CPU cycles as the score (cyclescore)"
           hint="Displays an estimate (accurate to about +/- 64 cycles) of how many machine cycles are left in the current frame, using the score digits - white means positive (cycles to spare), red means negative (over budget). Only measures +/- 2000 cycles; a bigger deficit may show garbage or crash. Meant for debugging - turn it back off before shipping. Has no effect while a Title screen is being shown."
           persistent-hint
@@ -284,7 +284,7 @@
         />
         <v-switch
           v-model="configurationState.enableScanlinesDebug"
-          @change="handleChangeConfiguration"
+          @change="handleToggleScanlinesScore"
           label="Show NTSC scanlines used as the score"
           hint="Writes the playfield kernel's scanline count (out of the 192-line NTSC visible picture) into the score once at startup, computed from the current pfres/pfrowheight settings. Useful for spotting a kernel overrun that shows up as screen rolling/tearing. Meant for debugging - turn it back off before shipping."
           persistent-hint
@@ -300,10 +300,28 @@
         <span class="text-subtitle-1">VCSGM Options</span>
       </div>
       <div v-if="!isSectionCollapsed('vcsgm')" class="option-section-content">
+        <v-text-field
+          v-model.number="undoLimit"
+          type="number"
+          :min="MIN_UNDO_LIMIT"
+          :max="MAX_UNDO_LIMIT"
+          label="Undo steps"
+          hint="How many steps back Undo can go, across all tabs. From 1 to 999, default 99."
+          persistent-hint
+          class="undo-limit-field"
+        />
         <v-switch
           v-model="loadLastProject"
-          label="Load last open project on startup"
-          hint="When off, the app always starts from the empty project instead of restoring whatever was last saved."
+          label="Load last project on startup"
+          hint="When on, the app starts with your last open project, so you can pick up where you left off."
+          persistent-hint
+          class="option-switch"
+        />
+        <v-switch
+          v-if="isElectron"
+          v-model="checkForUpdates"
+          label="Notify me of new versions"
+          hint="Tells you at startup when a newer version is out, with a download link for your system."
           persistent-hint
           class="option-switch"
         />
@@ -311,7 +329,7 @@
           id="show-startup-tips-option"
           v-model="showStartupTips"
           label="Show Tips at startup"
-          hint="Shows a tip about using the app, with a link to the wiki page it is about, each time the app starts. The tip popup's &quot;Don't show again&quot; checkbox turns this off."
+          hint="Shows a tip with a link to the wiki page about the topic, each time the app starts. The tip popup's &quot;Don't show again&quot; checkbox disables this feature."
           persistent-hint
           class="option-switch"
         />
@@ -378,7 +396,7 @@
         <v-switch
           v-model="hideDescriptionText"
           label="Expert mode"
-          hint="Hides the small explanatory hint text under fields and switches throughout the app (including this one), for a more compact layout once you already know what everything does."
+          hint="Hides the small explanatory hint text under fields and switches throughout the app (including this one), for a more compact layout once you're familiar with VCS Game Maker."
           persistent-hint
           class="option-switch"
         />
@@ -415,9 +433,10 @@ import {TV_STANDARD_OPTIONS} from '../utils/tv-standard';
 import {USER_VARIABLE_LETTERS_WITHOUT_SUPERCHIP, dpcPlusFreedSpriteRam} from '../generators/bbasic';
 import {useConfigurationStorage,
   useColorblindModeStorage, useDarkModeStorage, useDesaturateBlocklyColorsStorage, useErrorStorage,
-  useAdaptiveFrameSkipStorage, useHideDescriptionTextStorage, useHideToolbarLabelsStorage, useHideSidebarStorage, useHideTopToolbarStorage, useLoadLastProjectStorage,
+  useAdaptiveFrameSkipStorage, useHideDescriptionTextStorage, useHideToolbarLabelsStorage, useHideSidebarStorage, useHideTopToolbarStorage, useLoadLastProjectStorage, useCheckForUpdatesStorage,
   useMuteBlocklySoundsStorage, useShowStartupTipsStorage,
   useProjectAutoIncrementVersionStorage, useStellaPathStorage} from '../hooks/project';
+import {MAX_UNDO_LIMIT, MIN_UNDO_LIMIT, useUndoLimitStorage} from '../hooks/undo-limit';
 import {useEmulatorSettings} from '../hooks/emulator-settings';
 import {optionToReveal} from '../hooks/option-reveal';
 import {BANK_COUNT_BY_ROMSIZE, countUsedVariables, usesPlayer0RainbowColors} from '../hooks/rom';
@@ -479,7 +498,7 @@ const DEFAULT_CONFIGURATION = {
   scoreFont: '',
   secondaryScoreFont: '',
   muteAllAudio: false,
-  showVariableComments: true,
+  showVariableComments: false,
 };
 
 // Standard/DPC+ dropdown items for the new Kernel select - a plain, static
@@ -498,6 +517,8 @@ export default defineComponent({
     // below so it survives clearProjectStorage() and can be checked at
     // startup, before deciding whether to call that at all.
     const loadLastProject = useLoadLastProjectStorage();
+    const undoLimit = useUndoLimitStorage();
+    const checkForUpdates = useCheckForUpdatesStorage();
     const showStartupTips = useShowStartupTipsStorage();
     // Same reasoning as loadLastProject above - these three used to round-trip
     // with the project itself via configurationState, silently resetting
@@ -746,6 +767,17 @@ export default defineComponent({
       }
       handleChangeConfiguration();
     };
+    // Both of these write the score every frame, so only one can be on (together they garble the digits).
+    const handleToggleCycleScore = () => {
+      const state = configurationState.value;
+      if (state.enableCycleScore) state.enableScanlinesDebug = false;
+      handleChangeConfiguration();
+    };
+    const handleToggleScanlinesScore = () => {
+      const state = configurationState.value;
+      if (state.enableScanlinesDebug) state.enableCycleScore = false;
+      handleChangeConfiguration();
+    };
     const handleChangeResolution = () => {
       const state = configurationState.value;
       state.pfres = Math.min(MAX_PFRES, Math.max(MIN_PFRES, Number(state.pfres) || MIN_PFRES));
@@ -864,6 +896,7 @@ export default defineComponent({
 
       loadLastProject.value = false;
       showStartupTips.value = true;
+      checkForUpdates.value = true;
       muteBlocklySounds.value = false;
       adaptiveFrameSkip.value = true;
       hideDescriptionText.value = false;
@@ -873,7 +906,7 @@ export default defineComponent({
 
     return {
       configurationState,
-      handleChangeConfiguration,
+      handleChangeConfiguration, handleToggleCycleScore, handleToggleScanlinesScore,
       handleChangeResolution, handleInputPfres, handleTogglePfRowHeight, pfRowHeightShown, handleInputPfRowHeight, handleChangeDpcPlusPfres, handleChangeDpcPlusPfresPreset, dpcPlusPfresPreset, dpcPlusSpriteMax, dpcPlusSpriteVariableSlots, handleToggleDpcPlusSprite,
       DPC_PLUS_PFRES_PRESETS,
       handleChangePfRowHeight,
@@ -886,7 +919,7 @@ export default defineComponent({
       kernelIsDpcPlus,
       kernelOptions: KERNEL_OPTIONS,
       enableMissile0BlankLines,
-      loadLastProject, showStartupTips,
+      loadLastProject, showStartupTips, checkForUpdates, undoLimit, MIN_UNDO_LIMIT, MAX_UNDO_LIMIT,
       muteBlocklySounds, adaptiveFrameSkip, emulatorSettings, hideSidebar, hideTopToolbar, darkMode, desaturateBlocklyColors, colorblindMode,
       hideDescriptionText,
       hideToolbarLabels,
@@ -967,6 +1000,11 @@ export default defineComponent({
 
    Vuetify aligns a switch's hint under the toggle track by default; indent it
    to line up under the label text instead, matching the toggle's width. */
+.undo-limit-field {
+  max-width: 24rem;
+  margin-bottom: 8px;
+}
+
 .option-switch >>> .v-messages {
   margin-left: 46px;
 }

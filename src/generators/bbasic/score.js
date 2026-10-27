@@ -124,7 +124,8 @@ export const pokeScoreLiteral = (value) => {
 // "96-scanline-tall half-screen" comment), so the real total is double one
 // half's row-height*rows.
 export const generateScanlinesDebugScoreCode = (config) => {
-  if (!config || !config.enableScanlinesDebug) return '';
+  // (The cycle score writes the score every frame as well, so it is the one that shows when both are on.)
+  if (!config || !config.enableScanlinesDebug || config.enableCycleScore) return '';
   const rows = superchipOn(config) ? effectiveBackgroundRows(config) : 12;
   const scanlines = 2 * pfRowDivisorFor(config) * rows;
   return pokeScoreLiteral(scanlines);
@@ -236,11 +237,22 @@ export default (Blockly) => {
     return [code, Blockly.BBasic.ORDER_ATOMIC];
   };
 
+  // DPC+ draws the digits of the score in the colors of a table of 8 bytes in the display memory (one for each line of the digits: the
+  // "scorecolors:" statement the project starts with), not in scorecolor (which is only the color of what follows the score row), so
+  // a new score color has to be written to the table too: the 8 bytes at scoredata.
+  const dpcPlusScoreColorTableLines = () => {
+    const configurationStorage = useConfigurationStorage();
+    const config = (configurationStorage && configurationStorage.value) || {};
+    if (config.kernel !== 'dpcplus') return '';
+    return ['asm', 'lda #<scoredata', 'sta DF0LOW', 'lda #((>scoredata) & $0f)', 'sta DF0HI', 'lda scorecolor',
+      ...Array(8).fill('sta DF0WRITE'), '@end'].join('\n') + '\n';
+  };
+
   Blockly.BBasic[`score_color_set`] = function(block) {
     // Score's color setter.
     const argument0 = Blockly.BBasic.valueToCode(block, 'VALUE',
         Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-    return 'scorecolor = ' + argument0 + '\n';
+    return 'scorecolor = ' + argument0 + '\n' + dpcPlusScoreColorTableLines();
   };
 
   Blockly.BBasic[`score_fade_to`] = function(block) {
@@ -282,7 +294,7 @@ export default (Blockly) => {
         Blockly.BBasic.ORDER_ASSIGNMENT) || '1';
     const isNegativeConstant = /^\s*-\s*\d+\s*$/.test(argument0);
     const operator = isNegativeConstant ? '' : '+';
-    return `scorecolor = scorecolor ${operator} ${argument0}\n`;
+    return `scorecolor = scorecolor ${operator} ${argument0}\n` + dpcPlusScoreColorTableLines();
   };
 
   // The standard kernel's  generic score-row background hook - a
@@ -332,6 +344,8 @@ export default (Blockly) => {
     if (this.isTextMinikernelActive()) return '';
     const configurationStorage = useConfigurationStorage();
     const config = (configurationStorage && configurationStorage.value) || {};
+    // With the score hidden there is no score row to color (the kernel still calls the routine, which would only cost a line).
+    if (!(config.showScore ?? true)) return '';
     // The DPC+ kernel draws its score without a minikernel (its colors come from "scorecolors:"), and the
     // routine would be placed in bank 1, which holds the kernel, and break the picture.
     if (config.kernel === 'dpcplus') return '';
@@ -392,7 +406,7 @@ export default (Blockly) => {
     // that block needs a real, independent byte of its  to write to,
     // not backgroundrealcolor's  raw target.
     if (this.usesScoreBkColorSetter || !this.scoreBkColorIsBackground(config.scoreBkColor)) return '';
-    const comment = (config.showVariableComments ?? true) ?
+    const comment = (config.showVariableComments ?? false) ?
       '  ; score row\'s background color, aliased onto the live background color' : '';
     return `\n dim scorebkcolor = ${this.backgroundRealColorRawTarget()}${comment}`;
   };
@@ -430,7 +444,7 @@ export default (Blockly) => {
     // unlike writing to them.
     const configurationStorage = useConfigurationStorage();
     const config = (configurationStorage && configurationStorage.value) || {};
-    Blockly.BBasic.definitions_['score_digit_aliases'] = scoreDigitAliases(config.showVariableComments ?? true);
+    Blockly.BBasic.definitions_['score_digit_aliases'] = scoreDigitAliases(config.showVariableComments ?? false);
     const {alias, high} = scoreDigitTarget(block.getFieldValue('DIGIT'));
     // Integer division drops the low nibble.
     const code = high ? `(${alias} / 16)` : `(${alias} & $0F)`;
@@ -462,7 +476,7 @@ export default (Blockly) => {
     // 0-9 themselves rather than claiming any automatic correction.
     const configurationStorage = useConfigurationStorage();
     const config = (configurationStorage && configurationStorage.value) || {};
-    Blockly.BBasic.definitions_['score_digit_aliases'] = scoreDigitAliases(config.showVariableComments ?? true);
+    Blockly.BBasic.definitions_['score_digit_aliases'] = scoreDigitAliases(config.showVariableComments ?? false);
     const {alias, address, high} = scoreDigitTarget(block.getFieldValue('DIGIT'));
     const currentDigit = high ? `(${alias} / 16)` : `(${alias} & $0F)`;
     const argument0 = Blockly.BBasic.valueToCode(block, 'DELTA',

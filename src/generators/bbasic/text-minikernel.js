@@ -44,6 +44,7 @@ export const textLinesMaxVarName = () => 'textLinesMax';
 // textLinesMaxVarName/textLinesBaseVarName, for the same reason (see that
 // function's  doc comment).
 export const textRow2ColorVarName = () => 'textRow2Color';
+export const textClearTimerVarName = () => 'textClearTimer';
 export const textScrollCursorColorVarName = () => 'textScrollCursorColor';
 // The "end of message" icon's  color (via "Text: set end icon color",
 // text_minikernel_set_end_icon_color below) - the icon draws on GRP1 (its
@@ -453,15 +454,20 @@ export default (Blockly) => {
   };
   // Puts a named entry's  first line on just one row, reusing the same
   // registerFreeTypedRowMessage mechanism text_minikernel_show_row uses for
-  // its  free-typed text - the entry's justify setting isn't applied
-  // here (registerFreeTypedRowMessage always left-justifies, the same
-  // limitation "Show text: <free-typed text>" already has - see
-  // registerFreeTypedMessage's  comment), only its raw first-line text.
+  // its  free-typed text. That always left-justifies, so the entry's  justify setting
+  // (Left, Center, Right on the Text tab) is applied here, by padding the line with the
+  // spaces encodeTextMessage would put in front of it.
   Blockly.BBasic['text_minikernel_show_named_row'] = function(block) {
     markTextMinikernelUsed();
     const row = block.getFieldValue('ROW');
     const id = block.getFieldValue('TEXT_ID');
-    const offset = registerFreeTypedRowMessage(row, namedMessageFirstLine(id));
+    const entry = listTextStrings().find((candidate) => `${candidate.id}` === `${id}`);
+    const maxWidth = resolveTextMaxDisplayWidth();
+    const line = namedMessageFirstLine(id).toUpperCase().slice(0, maxWidth);
+    const totalPad = maxWidth - line.length;
+    const justify = entry && entry.justify;
+    const leftPad = justify === 'right' ? totalPad : justify === 'center' ? Math.floor(totalPad / 2) : 0;
+    const offset = registerFreeTypedRowMessage(row, ' '.repeat(leftPad) + line);
     return emitScrollSetup(offset, 0, DEFAULT_SCROLL_SPEED, DEFAULT_SCROLL_PAUSE) +
       setTextRow2ActiveCode(true) +
       setTextLinesRangeCode(offset, offset);
@@ -731,8 +737,37 @@ export default (Blockly) => {
       setTextLinesRangeCode(offsets, offsets);
   };
 
+  // The frames left before a "Clear text after" block clears the text (0: none is waiting): counted down once a frame, in the code
+  // that runs every frame.
+  Blockly.BBasic['text_minikernel_clear_after'] = function(block) {
+    markTextMinikernelUsed();
+    const timer = Blockly.BBasic.nameDB_.getName(textClearTimerVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+    const argument0 = Blockly.BBasic.valueToCode(block, 'FRAMES', Blockly.BBasic.ORDER_ASSIGNMENT) || '60';
+    const literal = /^\s*(\d+)\s*$/.exec(argument0);
+    if (literal) return `${timer} = ${Math.max(1, Math.min(255, Number(literal[1])))}\n`;
+    return `${timer} = ${argument0}\nif ${timer} = 0 then ${timer} = 1\n`;
+  };
+
+  Blockly.BBasic.generateTextClearTimerChecks = function() {
+    if (!this.textClearAfterUsed) return '';
+    const timer = this.nameDB_.getName(textClearTimerVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+    const skip = '_textcleartimer_done';
+    return [
+      ` if ${timer} = 0 then goto ${skip}`,
+      ` ${timer} = ${timer} - 1`,
+      ` if ${timer} > 0 then goto ${skip}`,
+      ...this.textClearCode().split('\n').filter(Boolean).map((line) => ` ${line}`),
+      skip,
+    ].join('\n') + '\n';
+  };
+
   Blockly.BBasic['text_minikernel_clear'] = function(block) {
     markTextMinikernelUsed();
+    return Blockly.BBasic.textClearCode();
+  };
+
+  // The code that clears the shown text (also run when the time of a "Clear text after" block is up).
+  Blockly.BBasic.textClearCode = function() {
     // Setting TextIndex alone isn't enough: if the message being cleared was
     // scrolling, generateTextScrollAdvance (text-scroll.js) runs every frame
     // in commongamelogic and keeps recomputing TextIndex from the OLD scroll
@@ -1104,7 +1139,7 @@ export default (Blockly) => {
     if (!this.isTextMinikernelActive()) return '';
     const configurationStorage = useConfigurationStorage();
     const config = (configurationStorage && configurationStorage.value) || {};
-    const showVariableComments = config.showVariableComments ?? true;
+    const showVariableComments = config.showVariableComments ?? false;
     const textIndexComment = showVariableComments ?
       '  ; which message/character is currently shown, and the scroll position tracker (see text-scroll.js)' : '';
     const textDataPtrComment = showVariableComments ? '  ; Text Minikernel\'s message-table pointer' : '';

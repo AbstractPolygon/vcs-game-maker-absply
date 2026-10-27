@@ -32,6 +32,14 @@
           @click.stop
         >
           <div class="data-toolbar-row">
+            <pixel-grid-toggle
+              v-model="dataColumns"
+              icon="mdi-view-column"
+              tall
+              title-on="Show the tables in one column"
+              title-off="Show the tables in several columns"
+            />
+            <v-divider class="data-toolbar-divider data-toolbar-outer-divider" vertical />
             <v-btn
               icon
               small
@@ -104,15 +112,8 @@
             >
               <v-icon>mdi-content-paste</v-icon>
             </v-btn>
-            <v-divider class="data-toolbar-divider" vertical />
-            <v-switch
-              v-model="dataColumns"
-              label="Columns"
-              title="Lay data table cards out in multiple columns when there's room, instead of one full-width column."
-              hide-details
-              class="data-columns-switch"
-            />
           </div>
+          <v-divider class="data-divider" />
         </div>
 
         <v-list class="data-list" :class="{'data-list--single-column': !dataColumns}">
@@ -351,7 +352,9 @@ import {max} from 'lodash';
 import {saveAs} from 'file-saver';
 
 import {useCollapsedIds} from '../hooks/collapse';
+import {insertCardAfter, remapKeyed, removeCards} from '../utils/card-refs';
 import {recordReorder, sameItems} from '../hooks/reorder-history';
+import {newestSteps} from '../hooks/undo-limit';
 import {canRedoReorder, canUndoReorder, noteEdit, settleEdits, tryRedoReorder, tryUndoReorder} from '../hooks/reorder-history';
 import {useDragReorder, CSS_CLASS_DRAGGING} from '../hooks/drag-reorder';
 import {useCardSelection} from '../hooks/card-selection';
@@ -369,6 +372,7 @@ import {processTitleScreenStorageDefaults} from '../blocks/titlescreen';
 import {getDateInfix} from '../utils/date';
 import {openFileDialog} from '../utils/file';
 import ColorSwatchPicker from '../components/ColorSwatchPicker.vue';
+import PixelGridToggle from '../components/PixelGridToggle.vue';
 import ConfirmDeleteMenu from '../components/ConfirmDeleteMenu.vue';
 import {REDO_TITLE, UNDO_TITLE, undoRedoKind} from '../utils/undo-hotkey';
 
@@ -431,7 +435,7 @@ const DATA_VALUE_CELL_MIN_PX = 120;
 const copiedTableData = ref(null);
 
 export default defineComponent({
-  components: {ColorSwatchPicker, ConfirmDeleteMenu},
+  components: {ColorSwatchPicker, ConfirmDeleteMenu, PixelGridToggle},
   setup() {
     const dataTablesStorage = useDataTablesStorage();
     const dataColumns = useDataColumnsStorage();
@@ -495,8 +499,9 @@ export default defineComponent({
     // Shift+click selects a range, Ctrl/Cmd+click adds or removes a card (see hooks/card-selection.js): deleting or
     // dragging one of several selected cards does it to all of them.
     const selectedCardId = ref(null);
-    const {selectedCardIds, selectCard, deselectCard, getSelectedIndices, idsToDelete, deleteQuestion} = useCardSelection(
-        () => state.value.dataTables.map(({id}) => id), selectedCardId);
+    const {selectedCardIds, selectCard, deselectCard, getSelectedIndices, idsToDelete, deleteQuestion, remapIds: remapSelectedIds} =
+      useCardSelection(
+          () => state.value.dataTables.map(({id}) => id), selectedCardId);
     // The table the shared toolbar below acts on - whichever card is
     // currently selected, same pattern as MusicEditor.vue's activeSong()
     // and GraphicEditorToolbar.vue's activeEditor driving each toolbar.
@@ -525,7 +530,7 @@ export default defineComponent({
     // Every card starts collapsed on every visit to this tab (see
     // collapseAll's  comment in hooks/collapse.js), not just ones never
     // expanded before.
-    const {isCollapsed, toggleCollapsed, collapseAll} = useCollapsedIds('data', true);
+    const {isCollapsed, toggleCollapsed, collapseAll, remapIds: remapCollapsedIds} = useCollapsedIds('data', true);
     collapseAll();
 
     // Undo/redo for a whole table's  content (name/columns/values/
@@ -569,7 +574,7 @@ export default defineComponent({
           if (last !== undefined && last !== snapshot) {
             const stack = tableUndoStacks.value[table.id] || [];
             noteEdit();
-            tableUndoStacks.value = {...tableUndoStacks.value, [table.id]: [...stack, last]};
+            tableUndoStacks.value = {...tableUndoStacks.value, [table.id]: newestSteps([...stack, last])};
             // A fresh edit invalidates whatever redo history existed from an
             // earlier undo - same convention as any standard undo/redo stack.
             if ((tableRedoStacks.value[table.id] || []).length) {
@@ -610,7 +615,7 @@ export default defineComponent({
       const stack = tableUndoStacks.value[table.id] || [];
       if (!stack.length) return;
       const redoStack = tableRedoStacks.value[table.id] || [];
-      tableRedoStacks.value = {...tableRedoStacks.value, [table.id]: [...redoStack, snapshotTable(table)]};
+      tableRedoStacks.value = {...tableRedoStacks.value, [table.id]: newestSteps([...redoStack, snapshotTable(table)])};
       tableUndoStacks.value = {...tableUndoStacks.value, [table.id]: stack.slice(0, -1)};
       applyTableSnapshot(table, stack[stack.length - 1]);
       settleEdits();
@@ -621,17 +626,27 @@ export default defineComponent({
       const stack = tableRedoStacks.value[table.id] || [];
       if (!stack.length) return;
       const undoStack = tableUndoStacks.value[table.id] || [];
-      tableUndoStacks.value = {...tableUndoStacks.value, [table.id]: [...undoStack, snapshotTable(table)]};
+      tableUndoStacks.value = {...tableUndoStacks.value, [table.id]: newestSteps([...undoStack, snapshotTable(table)])};
       tableRedoStacks.value = {...tableRedoStacks.value, [table.id]: stack.slice(0, -1)};
       applyTableSnapshot(table, stack[stack.length - 1]);
     };
 
+    // The tables are numbered by their place (see utils/card-refs.js): after a move, a delete or a copy each keeps what it holds by
+    // number (undo history, the value selected, collapsed, selected), under its new number.
+    const renumbered = (idMap) => {
+      remapSelectedIds(idMap);
+      remapCollapsedIds(idMap);
+      tableUndoStacks.value = remapKeyed(tableUndoStacks.value, idMap);
+      tableRedoStacks.value = remapKeyed(tableRedoStacks.value, idMap);
+      const snapshots = remapKeyed(tableLastSnapshot, idMap);
+      Object.keys(tableLastSnapshot).forEach((key) => delete tableLastSnapshot[key]);
+      Object.assign(tableLastSnapshot, snapshots);
+      selectedValueIndex.value = remapKeyed(selectedValueIndex.value, idMap);
+    };
+
     // Card reordering (see hooks/drag-reorder.js and TextEditor.vue/
-    // SoundFXEditor.vue/MusicEditor.vue's  uses of this same hook) -
-    // tables are already referenced everywhere by their  permanent id
-    // (see dataTableSymbolName/buildDataTableOptions in blocks/data.js),
-    // never by array position, so reordering the display order here is
-    // already safe.
+    // SoundFXEditor.vue/MusicEditor.vue's  uses of this same hook): the tables get the numbers of their new places, and the blocks
+    // and data table cells that name a table follow.
     const {dragAttrs, dragCardClass, dragHandleListeners, dragTargetListeners: rawDragTargetListeners} =
       useDragReorder(
           () => state.value.dataTables,
@@ -640,6 +655,7 @@ export default defineComponent({
             handleChildChange();
           },
           getSelectedIndices,
+          {renumber: {kind: 'datatable', onRenumbered: renumbered}},
       );
 
     const instance = getCurrentInstance();
@@ -699,7 +715,9 @@ export default defineComponent({
 
     const handleDeleteTable = (table) => {
       const doomed = idsToDelete(table.id, 1);
-      state.value.dataTables = state.value.dataTables.filter(({id}) => !doomed.includes(id));
+      const {remaining, idMap} = removeCards('datatable', state.value.dataTables, doomed);
+      state.value.dataTables = remaining;
+      if (idMap) renumbered(idMap);
       if (doomed.length > 1) deselectCard();
       handleChildChange();
       instance.proxy.$forceUpdate();
@@ -712,15 +730,12 @@ export default defineComponent({
     // shallow spread) since values/columns are the table's  real data,
     // not just a reference the copy should keep sharing with the original.
     const handleDuplicateTable = (table) => {
-      const dataTables = state.value.dataTables;
-      const maxId = max(dataTables.map((o) => o.id)) || 0;
       const newTable = {
         ...structuredClone(table),
-        id: maxId + 1,
         name: `${table.name || 'Table'} copy`,
       };
-      const sourceIndex = dataTables.findIndex(({id}) => id === table.id);
-      dataTables.splice(sourceIndex + 1, 0, newTable);
+      const idMap = insertCardAfter('datatable', state.value.dataTables, table, newTable);
+      if (idMap) renumbered(idMap);
       handleChildChange();
       instance.proxy.$forceUpdate();
     };
@@ -1293,20 +1308,6 @@ export default defineComponent({
   padding-right: 0;
 }
 
-/* Same margin-top/padding-top override as SoundFXEditor.vue's
-   .soundfx-columns-switch - Vuetify's selection-control margin-top
-   (meant for stacking below other fields) otherwise pushes this out of
-   line with the intro paragraph above it. */
-.data-columns-switch {
-  flex: 0 0 auto;
-  margin: 0 !important;
-  /* Room between the divider before it and the switch itself, on top of the
-     row's 4px gap (the icon buttons' padding already gives them this). */
-  margin-left: 8px !important;
-  padding: 0 !important;
-}
-
-
 /* Same fix, and matching 8px/12px values, as BackgroundEditor.vue's
    .background-list/.entry-list-item rules - v-list-item__content's default
    12px top/bottom padding was adding extra space between cards beyond
@@ -1489,6 +1490,8 @@ export default defineComponent({
   padding-top: 4px;
   padding-bottom: 4px;
   transition: padding 0.15s ease;
+  /* For the line inside it (see the Sprite tab's toolbar). */
+  --toolbar-bleed: 16px;
   /* Matches GraphicEditorToolbar.vue's 16px gap above exactly (measured
      live against its padding plus its neighbours' margins, not guessed) -
      a real reported case of this not already matching ("the spacing seems
@@ -1523,6 +1526,11 @@ export default defineComponent({
   padding-right: 16px;
 }
 
+.data-divider {
+  margin: 8px -16px 0;
+  max-width: none;
+}
+
 .data-toolbar-row {
   display: flex;
   align-items: center;
@@ -1539,6 +1547,12 @@ export default defineComponent({
   margin: 0;
 }
 
+/* The wider gap the graphic editor toolbar leaves after its first group of controls. */
+.data-toolbar-outer-divider {
+  /* The same space either side as the other dividers of the row (its gap). */
+  margin: 0 !important;
+}
+
 .data-toolbar-divider {
   margin: 0;
   /* Same 26px as the icon buttons (the graphic editor toolbar's inner
@@ -1551,20 +1565,20 @@ export default defineComponent({
    rest color, a dimmer color when disabled (Vuetify's default disabled color was
    a visibly stronger grey), darker on hover only while enabled, and the same
    small press-in. */
-.data-toolbar-row >>> .v-btn .v-icon {
+.data-toolbar-row >>> .v-btn:not(.pixel-grid-toggle-btn) .v-icon {
   color: var(--editor-icon-rest-color, rgba(0, 0, 0, 0.38)) !important;
   transition: color 0.15s ease, transform 0.08s ease;
 }
 
-.data-toolbar-row >>> .v-btn--disabled .v-icon {
+.data-toolbar-row >>> .v-btn--disabled:not(.pixel-grid-toggle-btn) .v-icon {
   color: rgba(0, 0, 0, 0.18) !important;
 }
 
-.data-toolbar-row >>> .v-btn:not(.v-btn--disabled):hover .v-icon {
+.data-toolbar-row >>> .v-btn:not(.v-btn--disabled):not(.pixel-grid-toggle-btn):hover .v-icon {
   color: rgba(0, 0, 0, 0.87) !important;
 }
 
-.data-toolbar-row >>> .v-btn:not(.v-btn--disabled):active .v-icon {
+.data-toolbar-row >>> .v-btn:not(.v-btn--disabled):not(.pixel-grid-toggle-btn):active .v-icon {
   transform: scale(0.82);
 }
 
@@ -1574,6 +1588,11 @@ export default defineComponent({
   border-bottom: 1px solid rgba(0, 0, 0, 0.24);
   padding-top: 10px;
   padding-bottom: 10px;
+}
+
+  /* The line at the bottom of the pinned toolbar takes the place of the toolbar's last divider (no double line). */
+.data-toolbar-scrolled .data-divider {
+  display: none;
 }
 
 /* "Soft Colors" (see App.vue's desaturate-app-colors class/comment) -
@@ -1839,10 +1858,9 @@ export default defineComponent({
   margin-left: 5px;
 }
 
-/* A value that has a note: its number is underlined and no longer faded. */
+/* A value that has a note: its number is no longer faded. */
 .data-value-index.data-value-index-has-note {
   opacity: 1;
-  text-decoration: underline dotted;
 }
 
 /* One shared sizing rule for every format (decimal, binary, hex) - it used

@@ -20,7 +20,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 17
     },
     {
       "filename": "life 1.aseprite",
@@ -42,7 +42,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 33
+      "duration": 17
     },
     {
       "filename": "life 2.aseprite",
@@ -64,7 +64,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 67
+      "duration": 50
     },
     {
       "filename": "life 3.aseprite",
@@ -86,7 +86,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 100
+      "duration": 17
     },
     {
       "filename": "life 4.aseprite",
@@ -108,7 +108,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 67
+      "duration": 83
     },
     {
       "filename": "life 5.aseprite",
@@ -130,7 +130,183 @@
         "w": 8,
         "h": 8
       },
-      "duration": 33
+      "duration": 17
+    },
+    {
+      "filename": "life 6.aseprite",
+      "frame": {
+        "x": 48,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "life 7.aseprite",
+      "frame": {
+        "x": 56,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 17
+    },
+    {
+      "filename": "life 8.aseprite",
+      "frame": {
+        "x": 64,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 17
+    },
+    {
+      "filename": "life 9.aseprite",
+      "frame": {
+        "x": 72,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 17
+    },
+    {
+      "filename": "life 10.aseprite",
+      "frame": {
+        "x": 80,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 17
+    },
+    {
+      "filename": "life 11.aseprite",
+      "frame": {
+        "x": 88,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "life 12.aseprite",
+      "frame": {
+        "x": 96,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 17
+    },
+    {
+      "filename": "life 13.aseprite",
+      "frame": {
+        "x": 104,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 17
     }
   ],
   "meta": {
@@ -138,7 +314,7 @@
     "image": "life-8x8.png",
     "format": "RGB888",
     "size": {
-      "w": 48,
+      "w": 112,
       "h": 8
     },
     "scale": "1",
@@ -146,7 +322,7 @@
       {
         "name": "life",
         "from": 0,
-        "to": 5,
+        "to": 13,
         "direction": "forward"
       }
     ]

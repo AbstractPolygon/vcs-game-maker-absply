@@ -102,4 +102,4 @@ FRAMES = [
     ..#...#.
     """,
 ]
-export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'fall-start-8x8', 'fall_start', 'fall-start')
+export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'fall-start-8x8', 'fall_start', 'fall-start', frame_ms=50)

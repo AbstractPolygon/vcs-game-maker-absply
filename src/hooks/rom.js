@@ -2,6 +2,7 @@
 
 import {superchipOn} from '../utils/superchip';
 import {shareIdenticalPlayerData} from '../utils/dpc-share-data';
+import {resolveDpcPictureTables, hasUnresolvedPictureTables, trimRedundantHeightLoads} from '../utils/dpc-picture-tables';
 import {expandDpcPlusTiles} from '../utils/dpc-tile';
 import {shareDpcPlusPlayerSource, aliasSharedPlayerData} from '../utils/dpc-share-source';
 import {dpcPlusRamUsage} from '../utils/dpc-ram-usage';
@@ -16,6 +17,7 @@ import BlocklyBB, {RELOCATABLE_EVENT_NAMES, SYSTEM_VARIABLES} from '../generator
 import {processPlayerAnimationsStorageDefaults} from '../generators/bbasic/sprites';
 import {getFastMathSiblingFiles, fastMathOn} from '../utils/fast-math';
 import {getDpcPlusProgramSiblingFile} from '../utils/dpc-program';
+import {patchArmProgramAddress} from '../generators/bbasic/offset-arm';
 import {getDpcPlusNoScoreSiblingFiles} from '../utils/dpc-noscore';
 import {getDpcPlusSquishSiblingFiles} from '../utils/dpc-squish';
 import {getDpcPlusAudioSiblingFiles} from '../generators/bbasic/dpcplus-audio';
@@ -33,11 +35,12 @@ import {buildTextFontOverride, buildTextScrollCursorOverride, buildTextRow2Color
 import {textLinesMaxVarName, textLinesBaseVarName, textRow2ColorVarName,
   textScrollCursorColorVarName, textEndIconColorVarName} from '../generators/bbasic/text-minikernel';
 import {showError} from '../utils/build-error';
+import {expandSceneBlocks, sceneBlocksXml} from '../utils/scene';
 import {emulatorTvSpec} from '../utils/tv-standard';
 import {computeRomCapacity} from '../utils/rom-capacity';
 import {useGeneratedBasic} from './generated';
 import {appendCompileLog, clearCompileLog, useBackgroundsStorage, useConfigurationStorage, useErrorStorage,
-  usePlayerAnimationsStorage, useTextFontStorage, useTextStringsStorage, useTitleScreenStorage,
+  useDataTablesStorage, usePlayerAnimationsStorage, useTextFontStorage, useTextStringsStorage, useTitleScreenStorage,
   useWorkspaceStorage} from './project';
 import {getRelocationBanks, resetRelocationBanks, setRelocationBank,
   recordSuccessfulRelocationBanks, seedRelocationBanksFromLastSuccess} from './relocation-banks';
@@ -94,6 +97,11 @@ const withHeadlessWorkspace = (callback, xmlOverride) => {
     // package's real signature, confirmed directly against core/xml.d.ts.
     const dom = Blockly.utils.xml.textToDom(
         xmlText && xmlText !== 'null' ? xmlText : EMPTY_WORKSPACE);
+    // The "Set scene" blocks become the blocks of the scenes, so the build only meets ordinary ones.
+    if (xmlOverride === undefined) {
+      const tables = useDataTablesStorage().value;
+      expandSceneBlocks(dom, tables && tables.dataTables, Blockly, (useConfigurationStorage() || {}).value || {});
+    }
     Blockly.Xml.domToWorkspace(dom, workspace);
     return callback(workspace);
   } finally {
@@ -206,6 +214,16 @@ const shareDpcPlusPlayerData = (compiled, config) => {
   compiled.mainAsm = asm;
   if (saved || aliases.aliased) {
     appendCompileLog(`Shared the sprite graphics and colors that repeat (${aliases.aliased} frames pointed at an earlier copy).`);
+  }
+};
+
+// The animations load their pictures from tables of addresses: the statements that make the rows' addresses are cut out of the
+// assembly, and the tables use the names they leave (see utils/dpc-picture-tables.js).
+const resolveAnimationPictureTables = (compiled) => {
+  compiled.mainAsm = trimRedundantHeightLoads(resolveDpcPictureTables(compiled.mainAsm).asm).asm;
+  if (hasUnresolvedPictureTables(compiled.mainAsm)) {
+    // (Left in, the code would assemble with names that have no address and run as garbage.)
+    throw new Error('An animation picture could not be found in the compiled code.');
   }
 };
 
@@ -400,8 +418,8 @@ const titleScreenOverflowHint = (e) => {
   // after the <pre>, see App.vue's template) rather than split between a
   // plain-text "text" paragraph and a separate bold summary - text stays
   // empty below, this is the one and only paragraph shown.
-  const highlight = `This may be caused by the Title Screen's graphics data: every animation frame on ` +
-    `every page is baked into ROM at once, and the title screen's bank (bank ${bank}) ` +
+  const highlight = `This may be caused by the Title Screen's graphics data: every different picture and every different row color list ` +
+    `on every page is baked into ROM at once (one that repeats is stored once), and the title screen's bank (bank ${bank}) ` +
     `${isEstimate ? 'is estimated to need at least' : 'is using'} <b>${usedBytes} of its ${totalBytes}</b> ` +
     `usable bytes${isEstimate ? ' (a real build can still fail even under this estimate)' : ''}.` +
     `${rowsClause} Try reducing animation frame counts, shrinking card heights, ` +
@@ -696,7 +714,7 @@ const computeBankContents = (maxBanks, textMinikernelActive, titleScreenKernelAc
       bankOverhead: false, fixed: [],
     };
   }
-  // What is in the banks whatever the project has: the main loop sits in the main bank with the kernel's own code, and DPC+ keeps its
+  // What is in the banks whatever the project has: the main loop sits in the main bank with the kernel's code, and DPC+ keeps its
   // kernel and driver in bank 1.
   const dpcPlus = (useConfigurationStorage().value || {}).kernel === 'dpcplus';
   if (dpcPlus) {
@@ -1062,7 +1080,10 @@ const musicReservedBank = (maxBanks, textMinikernelActive, minBank) => {
   // A project without music has nothing to keep there: the bank joins the shared pool.
   if (!BlocklyBB.getMusicUnitKeys().length) return null;
   const lowestBank = minBank || 2;
-  const highestBank = textMinikernelActive ? maxBanks - 1 : maxBanks;
+  let highestBank = textMinikernelActive ? maxBanks - 1 : maxBanks;
+  // The Text Minikernel's drawing code and messages are in the bank below the kernel's (textKernelBank), which is the one the line
+  // above lands on: music there shares 4 KB with the text, and a song and its engine did not fit in what is left of it.
+  if (textMinikernelActive && highestBank === BlocklyBB.textKernelBank()) highestBank--;
   return highestBank - lowestBank >= 1 ? highestBank : null;
 };
 
@@ -1070,7 +1091,6 @@ const musicReservedBank = (maxBanks, textMinikernelActive, minBank) => {
 // has long labels and comments, and an animation's text is mostly the graphics, which go to the graphics bank, not the code).
 const COMPILED_BYTES_PER_EVENT_CHAR = 0.3;
 const BANK_FULL_ESTIMATE = 3500;
-const SPILL_TIGHT_AFTER_ATTEMPTS = 5;
 const BANK_PACK_ESTIMATE = 2800;
 const SQUEEZE_MARGIN = 1.3;
 const MAX_SQUEEZE_ATTEMPTS = 12;
@@ -1160,7 +1180,7 @@ const pickNextBank = (banks, maxBanks, textMinikernelActive, excludeBanks, minBa
   Object.keys(counts).forEach((bank) => {
     counts[bank] = bytes[bank] || 0;
   });
-  // Units go to as few banks as possible: every bank that holds code also holds a copy of the data tables that code reads and its own
+  // Units go to as few banks as possible: every bank that holds code also holds a copy of the data tables that code reads and its
   // bank switching code, so spreading units over every bank takes more room than filling one bank before starting the next.
   const roomy = Object.keys(counts).map(Number).filter((bank) => counts[bank] < BANK_PACK_ESTIMATE);
   const lightest = roomy.length ?
@@ -1225,7 +1245,6 @@ const buildRomInner = async () => {
   const configurationStorage = useConfigurationStorage();
   const relocatedThisBuild = [];
   BlocklyBB.displayRamExcludedSeed = null;
-  BlocklyBB.spillTight = false;
 
   // Tracks every bank each unit has already been tried in during THIS
   // build (keyed by "kind:name"), so the fallback below (see its
@@ -1406,6 +1425,11 @@ const buildRomInner = async () => {
       // text12b.asm in the first place then), and only actually returns an
       // override once the Text Font Editor has ever written to storage.
       if (textMinikernelActive) {
+        // The text on a Title Screen page: the stack of the Title Screen kernel's call to the text kernel runs over statusbarlength ($f5),
+        // where the text color is by default, so there it is a variable of its own (see titleTextColor in generators/bbasic.js).
+        if (BlocklyBB.isTitleTextUsed() && siblingFiles['text12a.asm']) {
+          siblingFiles['text12a.asm'] = siblingFiles['text12a.asm'].replace(/^TextColor = statusbarlength/m, 'TextColor = titleTextColor');
+        }
         // DPC+ keeps its whole text kernel in one file, the standard kernel's drawing code is text12b.asm
         const textKernelFile = config.kernel === 'dpcplus' ? 'text12DPCplus.asm' : 'text12b.asm';
         const textFontOverride = await buildTextFontOverride(
@@ -1470,11 +1494,15 @@ const buildRomInner = async () => {
       Object.assign(siblingFiles, await getDpcPlusProgramSiblingFile((configurationStorage.value || {}).kernel, {
         audio: Object.keys(BlocklyBB.dpcAudioFiles || {}).length > 0,
         math: !!(BlocklyBB.usesDivMulRoutine() && fastMathOn(configurationStorage.value || {})),
+        rows: !!BlocklyBB.pfBoxArmRows,
+        offset: !!BlocklyBB.offsetArmUsed || !!BlocklyBB.pfBoxArm,
       }));
       const compiled = await compileBatariBasicToAsm(preprocessed, siblingFiles, log);
       shareDpcPlusPlayerData(compiled, configurationStorage.value);
+      resolveAnimationPictureTables(compiled);
       appendCompileLog('Assembling ROM...', 'stage');
       const compiledResult = await assembleBatariBasic(compiled.mainAsm, compiled.workDir, log);
+      if (BlocklyBB.offsetArmUsed || BlocklyBB.pfBoxArm) patchArmProgramAddress(compiledResult);
       // The ROM itself is fully compiled and valid at this point - a failure
       // from here on is the PREVIEW emulator's problem, not a compile error,
       // and must never be reported (or retried into) as one. In particular,
@@ -1585,8 +1613,6 @@ const buildRomInner = async () => {
       // block's  git history/comments below), starting from true
       // scratch exactly like a never-seeded build's  first failure would.
       if (attempt === 0 && seededFromLastSuccess) resetRelocationBanks();
-      // Several overflows in: the code has to get smaller, so the variables that did not have to go in Display RAM stay where they are.
-      if (attempt >= SPILL_TIGHT_AFTER_ATTEMPTS) BlocklyBB.spillTight = true;
       const maxBanks = BANK_COUNT_BY_ROMSIZE[bankSizeKeyFor(config)];
       if (isOverflowError(e) && maxBanks && !isDpcPlusGraphicsOverflow(e)) {
         // Diagnostic-only for now (see bb-compiler.js's  comment on
@@ -2053,11 +2079,14 @@ export const buildBackgroundPreviewRom = (backgroundId, name) => {
   const hide = (player) => `<block type="sprite_player_set"><field name="PLAYER">${player}</field>` +
     `<field name="VAR">player${player}visibility</field><value name="VALUE"><shadow type="math_number">` +
     `<field name="NUM">0</field></shadow></value>`;
+  // With a color for each row of the background (DPC+), the colors of the background itself show; setting one color would paint over them all.
+  const projectConfig = useConfigurationStorage().value || {};
+  const rowBackgroundColors = projectConfig.kernel === 'dpcplus' && !!projectConfig.enableDpcPlusBkColors;
   const steps = [
     `<block type="background_set_select"><field name="VAR">${backgroundId}</field>`,
     // The screen behind the playfield is black.
-    `<block type="background_set_color"><field name="VAR">COLUBK</field><value name="VALUE">` +
-      `<shadow type="math_number"><field name="NUM">0</field></shadow></value>`,
+    ...(rowBackgroundColors ? [] : [`<block type="background_set_color"><field name="VAR">COLUBK</field><value name="VALUE">` +
+      `<shadow type="math_number"><field name="NUM">0</field></shadow></value>`]),
     previewNameBlockXml(name),
     hide(0),
     hide(1),
@@ -2066,6 +2095,26 @@ export const buildBackgroundPreviewRom = (backgroundId, name) => {
   return buildPreviewRom({
     name: name ? `Background ${backgroundId} (${name})` : `Background ${backgroundId}`,
     // The score area is left out whether score fade is on or off, so the text row sits in the same place.
+    configOverride: {...PREVIEW_TEXT_CONFIG, showScore: false},
+    xml: `<xml xmlns="https://developers.google.com/blockly/xml">` +
+      `<block type="event_block"><field name="EVENT">system_start</field>` +
+      `<statement name="DO">${chain}</statement></block></xml>`,
+  });
+};
+
+// Same for one scene of the Scene tab: the project as it is, with the blocks of the scene run once at the start (the ones a "Set scene" block
+// stands for, see utils/scene.js), so the playfield and the sprites show as placed. A sprite that is not in the scene is hidden.
+export const buildScenePreviewRom = (table) => {
+  const config = useConfigurationStorage().value || {};
+  const hide = (player) => `<block type="sprite_player_set"><field name="PLAYER">${player}</field>` +
+    `<field name="VAR">player${player}visibility</field><value name="VALUE"><shadow type="math_number">` +
+    `<field name="NUM">0</field></shadow></value>`;
+  // The name of the scene shows on the Text Minikernel's first line, as the previews of a playfield and of a sprite show theirs.
+  const steps = [previewNameBlockXml(table.name), hide(0), hide(1)];
+  const chain = steps.map((step) => step + '<next>').join('') + sceneBlocksXml(table, config) + steps.map(() => '</next></block>').join('');
+  return buildPreviewRom({
+    name: `Scene ${table.id}${table.name ? ` (${table.name})` : ''}`,
+    // The score area is left out, so the text row sits in the same place as in the other previews.
     configOverride: {...PREVIEW_TEXT_CONFIG, showScore: false},
     xml: `<xml xmlns="https://developers.google.com/blockly/xml">` +
       `<block type="event_block"><field name="EVENT">system_start</field>` +
@@ -2310,11 +2359,14 @@ const buildPreviewRom = async ({name, xml, titleScreen = false, configOverride =
       Object.assign(siblingFiles, await getDpcPlusProgramSiblingFile((configurationStorage.value || {}).kernel, {
         audio: Object.keys(BlocklyBB.dpcAudioFiles || {}).length > 0,
         math: !!(BlocklyBB.usesDivMulRoutine() && fastMathOn(configurationStorage.value || {})),
+        rows: !!BlocklyBB.pfBoxArmRows,
       }));
       const compiled = await compileBatariBasicToAsm(preprocessed, siblingFiles, log);
       shareDpcPlusPlayerData(compiled, configurationStorage.value);
+      resolveAnimationPictureTables(compiled);
       appendCompileLog('Assembling ROM...', 'stage');
       const compiledResult = await assembleBatariBasic(compiled.mainAsm, compiled.workDir, log);
+      if (BlocklyBB.offsetArmUsed || BlocklyBB.pfBoxArm) patchArmProgramAddress(compiledResult);
       try {
         withGopher2600((gopher2600) => {
           gopher2600.loadRom(compiledResult.output, buildTvSpec);

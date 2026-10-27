@@ -297,7 +297,7 @@
             <div v-if="soundBankWebsiteLink(bank)" class="example-card-line">
               <a :href="soundBankWebsiteLink(bank)" target="_blank" rel="noopener noreferrer" @click.stop>{{ bank.website }}</a>
             </div>
-            <div class="example-card-line example-card-kernel">{{ soundBankKernelLabel(bank) }} {{ bank.kernels && bank.kernels.length > 1 ? 'Kernels' : 'Kernel' }}</div>
+            <div class="example-card-line example-card-kernel">{{ soundBankChipLabel(bank) }}</div>
           </div>
         </v-card>
       </div>
@@ -355,7 +355,7 @@
             <div class="example-card-title">{{ exampleTitle(example) }}</div>
             <div v-if="example.version" class="example-card-line">Version {{ example.version }}</div>
             <div v-if="example.developer" class="example-card-line">by {{ example.developer }}</div>
-            <div class="example-card-line example-card-kernel">{{ soundBankKernelLabel(example) }} Kernel</div>
+            <div class="example-card-line example-card-kernel">{{ soundBankChipLabel(example) }}</div>
           </div>
         </v-card>
       </div>
@@ -369,7 +369,7 @@
       <v-card v-if="data.selectedExample" class="example-card">
         <v-card-title>{{ exampleTitle(data.selectedExample) }}</v-card-title>
         <v-card-text class="example-info-fields">
-          <div class="example-card-line example-dialog-kernel">{{ soundBankKernelLabel(data.selectedExample) }} Kernel</div>
+          <div class="example-card-line example-dialog-kernel">{{ soundBankChipLabel(data.selectedExample) }}</div>
           <div v-if="data.selectedExample.screenshot" class="example-screenshot-frame example-dialog-screenshot">
             <img
               :src="data.selectedExample.screenshot"
@@ -484,6 +484,8 @@ import {buildSoundBankImportEntries, importSoundBankEntries, soundEffectsInBankF
 import {KERNEL_NAMES} from '../utils/dpc-sound';
 import SoundBankImportDialog from '../components/SoundBankImportDialog.vue';
 import {previewSoundEffect, stopSoundEffectPreview} from '../utils/sound-preview';
+import {previewDpcPlusSoundEffect} from '../utils/dpc-preview';
+import {isDpcPlusSound} from '../utils/dpc-sound';
 import {DEFAULT_DIM_PERCENT, dimVolume} from '../generators/bbasic/soundfx';
 import pkg from '../../package.json';
 const appVersion = pkg.version;
@@ -1442,6 +1444,10 @@ export default defineComponent({
       // A bank or sound with settings for both kernels says so ("Standard and DPC+"); one without the list goes by its header.
       return bank.kernels && bank.kernels.length ? kernelSettingsLabel(bank.kernels) : (KERNEL_NAMES[bank.kernel] || bank.kernel);
     },
+    // What a sound file is set up for: "TIA", "ARM" or "TIA / ARM".
+    soundBankChipLabel(bank) {
+      return this.soundBankKernelLabel(bank).replace(/Standard/g, 'TIA').replace(/DPC\+/g, 'ARM').replace(/ and /g, ' / ');
+    },
     soundBankKindLabel(bank) {
       return {bank: 'Sound bank', instrument: 'Instrument', percussion: 'Percussion'}[bank.kind] || 'Sound';
     },
@@ -1478,7 +1484,11 @@ export default defineComponent({
       sounds.forEach((sound) => {
         // The volume the emulator plays it at with DIM on (see the Sound tab).
         const audv = dimOn ? dimVolume(sound.audv, dimPercent) : sound.audv;
-        this.soundBankPreviewTimers.push(window.setTimeout(() => previewSoundEffect({...sound, audv}), startMs));
+        // A sound with a DPC+ waveform is played by the DPC+ sound chip, the way the Sound tab does it (its Standard settings are the same for
+        // every waveform, so the TIA would play one sound over and over).
+        const dimMultiplier = dimOn ? (Number(dimPercent) || 0) / 100 : 1;
+        this.soundBankPreviewTimers.push(window.setTimeout(() => (isDpcPlusSound(sound) ?
+          previewDpcPlusSoundEffect(sound, useConfigurationStorage().value || {}, dimMultiplier) : previewSoundEffect({...sound, audv})), startMs));
         startMs += (Math.max(0, Number(sound.duration) || 0) / 60) * 1000 + 250;
       });
       this.soundBankPreviewTimers.push(window.setTimeout(() => {
@@ -1734,6 +1744,8 @@ export default defineComponent({
   flex-wrap: wrap;
   align-items: center;
   gap: 0 24px;
+  /* The same space to the Developer row below as that row has to the Website row (26px between the fields). */
+  margin-bottom: -12px;
 }
 
 .project-title-field {

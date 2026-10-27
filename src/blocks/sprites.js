@@ -82,7 +82,8 @@ const buildAnimationSetBlock = ({icon, colour, storageFactory}) => {
               new Blockly.FieldDropdown(buildAnimationOptions(storageFactory)), 'VAR')
           .appendField(' ')
           .appendField(new Blockly.FieldCheckbox('TRUE'), 'RESTART')
-          .appendField('restart')
+          .appendField('restart at frame')
+          .appendField(new Blockly.FieldNumber(1, 1, 255, 1), 'START')
           .appendField(' ')
           .appendField(new Blockly.FieldCheckbox('TRUE'), 'LOOP')
           .appendField('loop');
@@ -94,7 +95,8 @@ const buildAnimationSetBlock = ({icon, colour, storageFactory}) => {
       // an animation-list index too, never a "player0..."-prefixed name.
       Blockly.Extensions.apply('sprite_player_field_sync', this, false);
       this.setTooltip('Sets the chosen player\'s active animation by name, in one step. "restart" ' +
-        'on (the default) plays the new animation from its first frame; off carries on from the ' +
+        'on (the default) plays the new animation from its first frame, or from the frame number set after it (1 is the first; a ' +
+        'number past the last frame starts on the last one); off carries on from the ' +
         'current position in the animation that was playing. "loop" ' +
         'on (the default) replays it from the start every time it ends; off plays it once and ' +
         'leaves it on its last frame (see "Player animation has finished" to react to that ' +
@@ -372,6 +374,14 @@ const EXTRA_PLAYER_COLOURS = {
 const extraPlayerColour = (number) => EXTRA_PLAYER_COLOURS[number] || '#8a5ac2';
 const fireObjectColour = (value) => (value === 'ball' ? '#ff8800' : (value === '1' || value === 'player1') ? 'blue' :
   /^player[2-9]$/.test(value) ? extraPlayerColour(value.slice(6)) : 'red');
+
+// The color of the blocks for a sprite of a scene (utils/scene.js: 0 to 9 the players, 10 and 11 the missiles, 12 the ball).
+export const sceneObjectColour = (object) => {
+  const colour = object <= 9 ? (object === 0 ? 'red' : object === 1 ? 'blue' : extraPlayerColour(object)) :
+    fireObjectColour(object === 12 ? 'ball' : String(object - 10));
+  // The blocks draw the names red and blue as pure #ff0000 and #0000ff (a chip would take them for the Material colors).
+  return colour === 'red' ? '#ff0000' : colour === 'blue' ? '#0000ff' : colour;
+};
 
 const missileNameFromField = (block) => `missile${block && block.getFieldValue('MISSILE') === '1' ? '1' : '0'}`;
 

@@ -1,0 +1,198 @@
+{
+  "frames": [
+    {
+      "filename": "flamethrower-loop 0.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-loop 1.aseprite",
+      "frame": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-loop 2.aseprite",
+      "frame": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-loop 3.aseprite",
+      "frame": {
+        "x": 24,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-loop 4.aseprite",
+      "frame": {
+        "x": 32,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-loop 5.aseprite",
+      "frame": {
+        "x": 40,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-loop 6.aseprite",
+      "frame": {
+        "x": 48,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-loop 7.aseprite",
+      "frame": {
+        "x": 56,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    }
+  ],
+  "meta": {
+    "app": "https://www.aseprite.org/",
+    "image": "flamethrower-loop-8x12.png",
+    "format": "RGB888",
+    "size": {
+      "w": 64,
+      "h": 12
+    },
+    "scale": "1",
+    "frameTags": [
+      {
+        "name": "flamethrower-loop",
+        "from": 0,
+        "to": 7,
+        "direction": "forward"
+      }
+    ]
+  }
+}

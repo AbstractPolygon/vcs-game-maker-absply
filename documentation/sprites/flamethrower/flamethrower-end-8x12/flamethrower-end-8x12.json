@@ -1,0 +1,242 @@
+{
+  "frames": [
+    {
+      "filename": "flamethrower-end 0.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-end 1.aseprite",
+      "frame": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-end 2.aseprite",
+      "frame": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-end 3.aseprite",
+      "frame": {
+        "x": 24,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-end 4.aseprite",
+      "frame": {
+        "x": 32,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-end 5.aseprite",
+      "frame": {
+        "x": 40,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-end 6.aseprite",
+      "frame": {
+        "x": 48,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-end 7.aseprite",
+      "frame": {
+        "x": 56,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-end 8.aseprite",
+      "frame": {
+        "x": 64,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    },
+    {
+      "filename": "flamethrower-end 9.aseprite",
+      "frame": {
+        "x": 72,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 12
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 12
+      },
+      "duration": 33
+    }
+  ],
+  "meta": {
+    "app": "https://www.aseprite.org/",
+    "image": "flamethrower-end-8x12.png",
+    "format": "RGB888",
+    "size": {
+      "w": 80,
+      "h": 12
+    },
+    "scale": "1",
+    "frameTags": [
+      {
+        "name": "flamethrower-end",
+        "from": 0,
+        "to": 9,
+        "direction": "forward"
+      }
+    ]
+  }
+}

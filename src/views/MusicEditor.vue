@@ -1,10 +1,7 @@
 <template>
   <div>
     <v-card flat :ripple="false" class="editor-container">
-      <v-card-title>Music (alpha 0.8)</v-card-title>
-      <v-alert type="warning" dense outlined :icon="false" class="alpha-notice">
-        This feature is in alpha. Things may change or break. You've been warned!
-      </v-alert>
+      <v-card-title>Music (alpha 0.85)</v-card-title>
       <v-card-text class="tab-intro-section">
         <p class="v-messages theme--light v-messages__message music-intro-paragraph">
           Compose songs here, then play one at runtime with a "Play song" block (Actions tab).
@@ -32,6 +29,27 @@
             @click="handleImportSongBank"
           >
             <v-icon>mdi-database-import</v-icon>
+          </v-btn>
+          <v-divider class="music-toolbar-divider" vertical />
+          <v-btn
+            icon
+            small
+            :title="UNDO_TITLE"
+            class="music-flat-icon-btn music-icon-btn-size"
+            :disabled="!canToolbarHistory('undo')"
+            @click="() => handleToolbarHistory('undo')"
+          >
+            <v-icon>mdi-undo</v-icon>
+          </v-btn>
+          <v-btn
+            icon
+            small
+            :title="REDO_TITLE"
+            class="music-flat-icon-btn music-icon-btn-size"
+            :disabled="!canToolbarHistory('redo')"
+            @click="() => handleToolbarHistory('redo')"
+          >
+            <v-icon>mdi-redo</v-icon>
           </v-btn>
           <v-divider class="music-toolbar-divider" vertical />
           <v-btn
@@ -118,6 +136,7 @@
             <span class="dim-percent">{{ dimSoundFxPercentDisplay }}%</span>
           </div>
         </div>
+        <v-divider class="music-divider" />
       </div>
       <v-card-text class="song-list-section">
         <template v-for="song in activeSongArray">
@@ -255,6 +274,16 @@
                         :value="patternName(song, activePatternId(song))"
                         @change="(value) => handlePatternFieldChange(song, value)"
                       />
+                      <v-text-field
+                        class="steps-field"
+                        label="Length (steps)"
+                        type="number"
+                        :min="minPatternSteps"
+                        :max="maxPatternSteps"
+                        v-model.number="activePattern(song).stepCount"
+                        @input="() => handleStepCountTyping(song, activePattern(song))"
+                        @change="() => handleStepCountChange(song, activePattern(song))"
+                      />
                       <div class="pattern-actions-row">
                         <v-btn icon small class="music-icon-btn-size" title="Add pattern" @click="() => handleAddPattern(song)">
                           <v-icon small>mdi-plus</v-icon>
@@ -270,15 +299,6 @@
                           @confirm="handleDeletePattern(song, activePattern(song))"
                         />
                       </div>
-                      <v-text-field
-                        class="steps-field"
-                        label="Length (steps)"
-                        type="number"
-                        :min="minPatternSteps"
-                        :max="maxPatternSteps"
-                        v-model.number="activePattern(song).stepCount"
-                        @change="() => handleStepCountChange(song, activePattern(song))"
-                      />
                       <div class="pattern-length-tempo-group">
                         <v-checkbox
                           class="use-song-tempo-checkbox"
@@ -798,7 +818,9 @@ import {max} from 'lodash';
 
 import ConfirmDeleteMenu from '../components/ConfirmDeleteMenu.vue';
 import {useCollapsedIds} from '../hooks/collapse';
+import {removeCards} from '../utils/card-refs';
 import {recordReorder, sameItems} from '../hooks/reorder-history';
+import {newestSteps} from '../hooks/undo-limit';
 import {canRedoReorder, canUndoReorder, noteEdit, settleEdits, tryRedoReorder, tryUndoReorder} from '../hooks/reorder-history';
 import {useMusicEditorActiveState, usePlaybackStatusState} from '../hooks/music-editor-state';
 import {useConfigurationStorage, useDimSoundFxPercentStorage, useDimSoundFxStorage, useSongsStorage,
@@ -821,6 +843,7 @@ import {effectiveTempo, getPlaybackHead, playPattern, playSequence, previewPatte
 import {autoInstrumentColor, instrumentColorFor, isLightColor,
   mixColorWithWhite, mixColorWithTransparent} from '../utils/instrument-colors';
 import {REDO_TITLE, UNDO_TITLE, undoRedoKind} from '../utils/undo-hotkey';
+import {appVersionField} from '../utils/app-version';
 
 // The piano roll's  zoom range (25%-1600%) goes well past the shared
 // hooks/zoom.js's  discrete ZOOM_LEVELS (used by the sprite/background/
@@ -1079,7 +1102,9 @@ export default defineComponent({
         return;
       }
       const stepCount = stepsFor(pattern) || 1;
-      const availableWidth = el.clientWidth - PIANO_ROLL_LABEL_WIDTH;
+      // (Never wider than the box that holds it: while the page is still being laid out the scrolling element can be as wide as its content.)
+      const holder = el.parentElement;
+      const availableWidth = Math.min(el.clientWidth, holder ? holder.clientWidth : el.clientWidth) - PIANO_ROLL_LABEL_WIDTH;
       pianoRollBaseWidth.value = Math.max(1, availableWidth / stepCount);
     };
 
@@ -1102,6 +1127,28 @@ export default defineComponent({
     const handleFitZoom = (song, pattern) => {
       recalculateFitBaseWidth(song, pattern);
       pianoRollZoom.value = 1;
+    };
+    // Fits the zoom to the pattern's length as soon as its piano roll is in the page with a width. Right after the tab opens, or a song is
+    // switched, the roll is not drawn yet (or has no width yet), so a measurement taken at that moment would be of nothing and the zoom would
+    // stay at whatever it was left at; this waits for the roll and then fits. A newer request (another song, or the tab closing) cancels it.
+    let fitZoomRequest = 0;
+    const fitZoomWhenShown = (songId) => {
+      const request = ++fitZoomRequest;
+      let frames = 0;
+      const attempt = () => {
+        if (request !== fitZoomRequest) return;
+        const song = state.value.songs.find(({id}) => id === songId);
+        const pattern = song && activePattern(song);
+        if (!pattern) return;
+        const el = document.querySelector(`[data-song-id="${songId}"] .piano-roll-scroll`);
+        // (Once the scrolling element is no wider than the box that holds it, it has been laid out.)
+        if (el && el.clientWidth > PIANO_ROLL_LABEL_WIDTH && (!el.parentElement || el.clientWidth <= el.parentElement.clientWidth)) {
+          handleFitZoom(song, pattern);
+          return;
+        }
+        if (++frames < 180) requestAnimationFrame(attempt);
+      };
+      nextTick(() => requestAnimationFrame(attempt));
     };
 
 
@@ -1210,7 +1257,7 @@ export default defineComponent({
           if (last !== undefined && last !== snapshot) {
             const stack = patternUndoStacks.value[pattern.id] || [];
             noteEdit();
-            patternUndoStacks.value = {...patternUndoStacks.value, [pattern.id]: [...stack, last]};
+            patternUndoStacks.value = {...patternUndoStacks.value, [pattern.id]: newestSteps([...stack, last])};
             // A fresh edit invalidates whatever redo history existed from an
             // earlier undo - same convention as any standard undo/redo stack.
             if ((patternRedoStacks.value[pattern.id] || []).length) {
@@ -1235,13 +1282,33 @@ export default defineComponent({
     const canRedoPattern = (pattern) => (patternRedoStacks.value[pattern.id] || []).length > 0;
     const reorderCanUndo = computed(() => canUndoReorder());
     const reorderCanRedo = computed(() => canRedoReorder());
+    // The Undo and Redo of the toolbar: what was changed in the pattern being edited, or a move or a delete of a song (these need no
+    // pattern, so they work with no song open).
+    const canToolbarHistory = (kind) => {
+      const song = activeSong();
+      const pattern = song && activePattern(song);
+      if (kind === 'undo') return reorderCanUndo.value || !!(pattern && canUndoPattern(pattern));
+      return reorderCanRedo.value || !!(pattern && canRedoPattern(pattern));
+    };
+    const handleToolbarHistory = (kind) => {
+      const song = activeSong();
+      const pattern = song && activePattern(song);
+      if (pattern) {
+        (kind === 'undo' ? handleUndoPattern : handleRedoPattern)(song, pattern);
+      } else if (kind === 'undo') {
+        tryUndoReorder();
+      } else {
+        tryRedoReorder();
+      }
+    };
+
     const handleUndoPattern = (song, pattern) => {
       if (tryUndoReorder()) return;
       if (!pattern) return;
       const stack = patternUndoStacks.value[pattern.id] || [];
       if (!stack.length) return;
       const redoStack = patternRedoStacks.value[pattern.id] || [];
-      patternRedoStacks.value = {...patternRedoStacks.value, [pattern.id]: [...redoStack, snapshotPattern(pattern)]};
+      patternRedoStacks.value = {...patternRedoStacks.value, [pattern.id]: newestSteps([...redoStack, snapshotPattern(pattern)])};
       patternUndoStacks.value = {...patternUndoStacks.value, [pattern.id]: stack.slice(0, -1)};
       applyPatternSnapshot(pattern, stack[stack.length - 1]);
       recalculateFitBaseWidth(song, pattern);
@@ -1255,7 +1322,7 @@ export default defineComponent({
       const stack = patternRedoStacks.value[pattern.id] || [];
       if (!stack.length) return;
       const undoStack = patternUndoStacks.value[pattern.id] || [];
-      patternUndoStacks.value = {...patternUndoStacks.value, [pattern.id]: [...undoStack, snapshotPattern(pattern)]};
+      patternUndoStacks.value = {...patternUndoStacks.value, [pattern.id]: newestSteps([...undoStack, snapshotPattern(pattern)])};
       patternRedoStacks.value = {...patternRedoStacks.value, [pattern.id]: stack.slice(0, -1)};
       applyPatternSnapshot(pattern, stack[stack.length - 1]);
       recalculateFitBaseWidth(song, pattern);
@@ -1320,7 +1387,7 @@ export default defineComponent({
     // toggleSequenceCollapsed's  comment just below), so no synthetic
     // compound entry is needed here either.
     const {isCollapsed: isInstrumentsCollapsedRaw, toggleCollapsed: toggleInstrumentsCollapsedRaw,
-      setCollapsed: setInstrumentsCollapsed, collapseAll: collapseAllInstruments} =
+      setCollapsed: setInstrumentsCollapsed, collapseAll: collapseAllInstruments, remapIds: remapInstrumentsCollapsedIds} =
       useCollapsedIds('music-instruments', true);
     collapseAllInstruments();
     const isInstrumentsCollapsed = (song) => isInstrumentsCollapsedRaw(song);
@@ -1333,7 +1400,7 @@ export default defineComponent({
     // key off the song object directly instead of needing a synthetic
     // compound entry.
     const {isCollapsed: isSequenceCollapsed, toggleCollapsed: toggleSequenceCollapsed,
-      setCollapsed: setSequenceCollapsed, collapseAll: collapseAllSequences} =
+      setCollapsed: setSequenceCollapsed, collapseAll: collapseAllSequences, remapIds: remapSequenceCollapsedIds} =
       useCollapsedIds('music-sequence', true);
     collapseAllSequences();
 
@@ -1472,7 +1539,7 @@ export default defineComponent({
     // Router destroying and recreating this component when the user leaves
     // and returns to the Music tab.
     const {activePatternIdsRef, activeTrackIdsRef, activeSongIdRef, setActivePatternId, setActiveTrackId,
-      setActiveSongId} = useMusicEditorActiveState();
+      setActiveSongId, remapSongIds} = useMusicEditorActiveState();
     const activePatternId = (song) =>
       activePatternIdsRef.value[song.id] || (song.patterns[0] && song.patterns[0].id);
     const setActivePattern = (song, patternId) => {
@@ -1564,6 +1631,8 @@ export default defineComponent({
       const song = state.value.songs.find(({id}) => id === songId);
       const pattern = song && activePattern(song);
       if (pattern) handleFitZoom(song, pattern);
+      // (The new song's piano roll is not in the page yet, so it is fitted again once it is.)
+      if (song) fitZoomWhenShown(song.id);
       forceUpdate();
     };
 
@@ -1715,8 +1784,16 @@ export default defineComponent({
     };
 
     const handleDeleteSong = (song) => {
-      state.value.songs = state.value.songs.filter(({id}) => id != song.id);
-      if (activeSongId() === song.id) {
+      const wasActive = activeSongId() === song.id;
+      // The songs after it are numbered again, and what names a song (blocks, data table cells) follows.
+      const {remaining, idMap} = removeCards('music', state.value.songs, [song.id]);
+      state.value.songs = remaining;
+      if (idMap) {
+        remapInstrumentsCollapsedIds(idMap);
+        remapSequenceCollapsedIds(idMap);
+        remapSongIds(idMap);
+      }
+      if (wasActive) {
         setActiveSong(state.value.songs[0] && state.value.songs[0].id);
       }
       handleChildChange();
@@ -1749,7 +1826,7 @@ export default defineComponent({
       const usedSoundEffects = soundEffects().filter(({id}) => usedIds.has(String(id)));
       // eslint-disable-next-line no-unused-vars
       const {id, ...songData} = song;
-      const exportData = {...songData, soundEffects: usedSoundEffects};
+      const exportData = {...appVersionField(), ...songData, soundEffects: usedSoundEffects};
       const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
       const filename = (song.name || `song-${song.id}`).replace(/[^A-Za-z0-9]+/g, '_');
       saveAs(blob, `Song_${filename}-${getDateInfix()}.vcsmus`);
@@ -1802,7 +1879,7 @@ export default defineComponent({
               throw new Error('File does not contain valid song data');
             }
             // eslint-disable-next-line no-unused-vars
-            const {soundEffects: importedSoundEffects, ...songData} = parsed;
+            const {'app-version': appVersion, soundEffects: importedSoundEffects, ...songData} = parsed;
             const idMap = importSoundEffects(importedSoundEffects);
             // Always resolved through idMap, never left as the raw imported
             // id - a track whose id has no idMap entry (the bundle didn't
@@ -1847,6 +1924,7 @@ export default defineComponent({
       state.value.songs.forEach((song) => soundEffectIdsUsedBySong(song).forEach((id) => usedIds.add(id)));
       const usedSoundEffects = soundEffects().filter(({id}) => usedIds.has(String(id)));
       const exportData = {
+        ...appVersionField(),
         // eslint-disable-next-line no-unused-vars
         songs: state.value.songs.map(({id, ...songData}) => songData),
         soundEffects: usedSoundEffects,
@@ -1923,7 +2001,7 @@ export default defineComponent({
       const usedSoundEffects = soundEffects().filter(({id}) => usedIds.has(String(id)));
       // eslint-disable-next-line no-unused-vars
       const {id, ...patternData} = pattern;
-      const exportData = {...patternData, soundEffects: usedSoundEffects};
+      const exportData = {...appVersionField(), ...patternData, soundEffects: usedSoundEffects};
       const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
       const filename = (pattern.name || `pattern-${pattern.id}`).replace(/[^A-Za-z0-9]+/g, '_');
       saveAs(blob, `${filename}-${getDateInfix()}.vcsmus`);
@@ -1945,7 +2023,7 @@ export default defineComponent({
               throw new Error('File does not contain valid pattern data');
             }
             // eslint-disable-next-line no-unused-vars
-            const {soundEffects: importedSoundEffects, ...patternData} = parsed;
+            const {'app-version': appVersion, soundEffects: importedSoundEffects, ...patternData} = parsed;
             const idMap = importSoundEffects(importedSoundEffects);
             // Same reasoning as handleImportSong above: always resolved
             // through idMap, cleared to null rather than left pointing at
@@ -2012,6 +2090,14 @@ export default defineComponent({
       forceUpdate();
     };
 
+    // While the length is being typed or stepped, the roll follows it (a number in range is fitted to at once). The notes past the end are only
+    // cut, and the number kept in range, when the change is done (handleStepCountChange).
+    const handleStepCountTyping = (song, pattern) => {
+      const steps = Number(pattern.stepCount);
+      if (!Number.isFinite(steps) || steps < MIN_PATTERN_STEPS || steps > MAX_PATTERN_STEPS) return;
+      handleFitZoom(song, pattern);
+      forceUpdate();
+    };
     const handleStepCountChange = (song, pattern) => {
       pattern.stepCount = clampPatternSteps(pattern.stepCount);
       const maxUnits = pattern.stepCount * LENGTH_UNITS_PER_STEP;
@@ -3924,6 +4010,8 @@ export default defineComponent({
       window.removeEventListener('mousemove', handleMarqueeSelectMove);
       window.removeEventListener('mouseup', stopMarqueeSelect);
       window.removeEventListener('keydown', handlePianoRollToolHotkey);
+      // (A fit that is still waiting for the piano roll to be shown is cancelled.)
+      fitZoomRequest++;
     });
 
     // So 100% already reads as "fit" on first load/navigation too, not only
@@ -3933,6 +4021,11 @@ export default defineComponent({
     const handleWindowResize = () => {
       const song = activeSong();
       if (song) recalculateFitBaseWidth(song, activePattern(song));
+    };
+    // Every time the tab opens: the zoom is kept from the last time (one value for every song), so it is fitted to the pattern shown.
+    const fitZoomOnOpen = () => {
+      const song = activeSong();
+      if (song) fitZoomWhenShown(song.id);
     };
 
     // Same letters as GraphicEditorToolbar.vue's Move/Pencil/Eraser/
@@ -4015,6 +4108,7 @@ export default defineComponent({
 
     onMounted(() => {
       handleWindowResize();
+      fitZoomOnOpen();
       window.addEventListener('resize', handleWindowResize);
       window.addEventListener('keydown', handlePianoRollToolHotkey);
     });
@@ -4027,9 +4121,10 @@ export default defineComponent({
       handleTempoChange, minTempo: MIN_TEMPO, maxTempo: MAX_TEMPO,
       handleAddSong, handleDeleteSong, handleDuplicateSong, handleExportSong, handleImportSong, handleExportSongBank, handleImportSongBank,
       activeSongId, activeSong, activeSongArray, setActiveSong, songName, songOptions, handleSongFieldChange,
-      handleAddPattern, handleDuplicatePattern, handleDeletePattern, handleStepCountChange,
+      handleAddPattern, handleDuplicatePattern, handleDeletePattern, handleStepCountChange, handleStepCountTyping,
       handlePatternFieldChange,
       canUndoPattern, canRedoPattern, handleUndoPattern, handleRedoPattern, reorderCanUndo, reorderCanRedo, UNDO_TITLE, REDO_TITLE,
+      canToolbarHistory, handleToolbarHistory,
       handleExportPattern, handleImportPattern,
       handleAddTrack, handleDeleteTrack, copiedTrackNotes, handleCopyTrack, handlePasteTrack,
       handleAddSequenceStep, handleRemoveSequenceGroup,
@@ -4337,8 +4432,16 @@ export default defineComponent({
      border-bottom (.music-toolbar-scrolled, already matched to it) to
      show a line only once actually scrolled, the same way this toolbar
      already does now that the redundant static one is gone. */
-  margin-bottom: 4px;
+  /* Negative: the first thing in the song (its ID) is as far under the line as the sides of the tab are from the edge. */
+  margin-bottom: -8px;
   transition: padding 0.15s ease;
+  /* For the line inside it (see the Sprites tab's toolbar). */
+  --toolbar-bleed: 16px;
+}
+
+.music-divider {
+  margin: 8px -16px 0;
+  max-width: none;
 }
 
 /* Same "grows + gains a bottom border once actually scrolled" treatment as
@@ -4348,6 +4451,11 @@ export default defineComponent({
   border-bottom: 1px solid rgba(0, 0, 0, 0.24);
   padding-top: 10px;
   padding-bottom: 10px;
+}
+
+  /* The line at the bottom of the pinned toolbar takes the place of the toolbar's last divider (no double line). */
+.music-toolbar-scrolled .music-divider {
+  display: none;
 }
 
 /* Same "Soft Colors" override as GraphicEditorToolbar.vue's
@@ -4363,6 +4471,9 @@ export default defineComponent({
   display: flex;
   align-items: center;
   gap: 4px;
+  /* As tall as the Sound tab's row (its columns button is 28px), and the first icon in the same place as that tab's. */
+  min-height: 28px;
+  padding-left: 4px;
 }
 
 /* Zeroes .music-icon-btn-size's margin: 0 1px (needed elsewhere on

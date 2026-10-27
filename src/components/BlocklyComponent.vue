@@ -47,6 +47,8 @@ import {installBlocklyClipboardSync} from '../utils/blockly-clipboard';
 import '@blockly/toolbox-search';
 
 import {useDarkModeStorage, useDesaturateBlocklyColorsStorage} from '../hooks/project';
+import {darkenHex, desaturateHex} from '../utils/block-colours';
+import {getUndoLimit} from '../hooks/undo-limit';
 
 // @blockly/toolbox-search indexes EVERY registered block type for its
 // search category (BlockSearcher.indexBlocks, node_modules/@blockly/
@@ -82,6 +84,23 @@ if (!Blockly.FieldDropdown.prototype.getOptions.isAltTextGuardPatch) {
     return options;
   };
   Blockly.FieldDropdown.prototype.getOptions.isAltTextGuardPatch = true;
+}
+
+// A text or number field being edited moves its block back into view when the window is resized, but Blockly bumps the block that has the
+// field, and a block inside another one can not be moved by itself ("Block has parent", once for every resize event). The block that is
+// in the workspace itself (the root of the ones it is plugged into) is the one to bump.
+// (FieldInput, the class of the text and number fields, is not exported by name: it is the parent of FieldTextInput.)
+const fieldInputPrototype = Object.getPrototypeOf(Blockly.FieldTextInput.prototype);
+if (!fieldInputPrototype.repositionForWindowResize.isRootBlockPatch) {
+  fieldInputPrototype.repositionForWindowResize = function() {
+    const block = this.getSourceBlock();
+    if (!(block instanceof Blockly.BlockSvg)) return false;
+    const workspace = block.workspace;
+    const bumped = Blockly.bumpObjects.bumpIntoBounds(workspace, workspace.getMetricsManager().getViewMetrics(true), block.getRootBlock());
+    if (!bumped) this.resizeEditor_();
+    return true;
+  };
+  fieldInputPrototype.repositionForWindowResize.isRootBlockPatch = true;
 }
 
 // Same path geometry as the multiselect plugin's default icons
@@ -142,76 +161,6 @@ Blockly.blockRendering.ConstantProvider.prototype.generateTertiaryColour_ = func
 // matrix, a different algorithm that visibly darkened blues in particular
 // instead of just muting them, confirmed as a real reported mismatch
 // against Photoshop's  result at the same "50%".
-const clamp01 = (n) => Math.max(0, Math.min(1, n));
-
-const hexToRgb = (hex) => {
-  const clean = hex.replace('#', '');
-  return [0, 2, 4].map((i) => parseInt(clean.substr(i, 2), 16) / 255);
-};
-
-const rgbToHex = (r, g, b) => '#' + [r, g, b]
-    .map((v) => Math.round(clamp01(v) * 255).toString(16).padStart(2, '0'))
-    .join('');
-
-// Standard RGB<->HSL conversion (e.g. matching the CSS Color 4 spec's
-// algorithm) - h in [0,1) (not degrees), s/l in [0,1].
-const rgbToHsl = (r, g, b) => {
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  if (max === min) return [0, 0, l];
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h;
-  if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
-  else if (max === g) h = (b - r) / d + 2;
-  else h = (r - g) / d + 4;
-  return [h / 6, s, l];
-};
-
-const hue2rgb = (p, q, tIn) => {
-  let t = tIn;
-  if (t < 0) t += 1;
-  if (t > 1) t -= 1;
-  if (t < 1 / 6) return p + (q - p) * 6 * t;
-  if (t < 1 / 2) return q;
-  if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-  return p;
-};
-
-const hslToRgb = (h, s, l) => {
-  if (s === 0) return [l, l, l];
-  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-  const p = 2 * l - q;
-  return [hue2rgb(p, q, h + 1 / 3), hue2rgb(p, q, h), hue2rgb(p, q, h - 1 / 3)];
-};
-
-// saturationFactor multiplies S (0.5 = Photoshop's "-50") - same slider
-// Photoshop's  Hue/Saturation dialog exposes, applied to the same
-// component.
-const desaturateHex = (hex, saturationFactor) => {
-  const [h, s, l] = rgbToHsl(...hexToRgb(hex));
-  const [r, g, b] = hslToRgb(h, clamp01(s * saturationFactor), l);
-  return rgbToHex(r, g, b);
-};
-
-// Dark Mode's block-color treatment - see the .blocklyBlockCanvas exclusion
-// rule's comment in App.vue for why blocks get this dedicated JS handling
-// instead of the blanket CSS invert() every other tab uses: a plain RGB
-// channel invert approximates an HSL lightness flip, but block colors
-// (generateTertiaryColour_/hueToHex above) already sit at a roughly 50% HSL
-// lightness by construction - too close to that transform's fixed point
-// (1 - 0.5 = 0.5) to actually read as darker, confirmed as a real reported
-// "blocks are too bright" once Subdued Palette's desaturation (which leaves
-// lightness untouched) made that flat, washed-out midtone impossible to
-// miss against the newly-darkened workspace around it. A real lightness
-// reduction in HSL space instead - lightnessFactor multiplies L the same
-// way desaturateHex's saturationFactor multiplies S.
-const darkenHex = (hex, lightnessFactor) => {
-  const [h, s, l] = rgbToHsl(...hexToRgb(hex));
-  const [r, g, b] = hslToRgb(h, s, clamp01(l * lightnessFactor));
-  return rgbToHex(r, g, b);
-};
 
 // Every block's colour - a Classic-theme hue NUMBER or a raw hex/CSS
 // colour name string alike - used to fully resolve through
@@ -574,6 +523,11 @@ export default {
     options.plugins.blockDragger = MultiselectBlockDragger;
 
     this.workspace = Blockly.inject(this.$refs['blocklyDiv'], options);
+    // Blockly keeps this many steps back (the app's setting, see hooks/undo-limit.js), also when the setting changes while it is open.
+    this.workspace.MAX_UNDO = getUndoLimit();
+    this.unwatchUndoLimit = this.$watch(() => getUndoLimit(), (limit) => {
+      if (this.workspace) this.workspace.MAX_UNDO = limit;
+    });
     // WorkspaceSvg's constructor (node_modules/blockly/blockly_
     // compressed.js) auto-registers the "custom=VARIABLE" toolbox
     // category's callback itself, as
@@ -795,6 +749,7 @@ export default {
   },
   beforeDestroy() {
     this.unwatchFontLoading();
+    if (this.unwatchUndoLimit) this.unwatchUndoLimit();
     // Flushes any pending debounced save (see mounted()'s comment on
     // debouncedHandleChange) before the workspace below is disposed and
     // this component's "value" prop's last-known state becomes the

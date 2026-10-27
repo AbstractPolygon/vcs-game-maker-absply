@@ -31,7 +31,7 @@
             @mousemove="(e) => { handleMouse(e); handleHover(e); }"
           />
           <canvas
-            v-if="columnBackdrop || rowBackdrop"
+            v-if="columnBackdrop || rowBackdrop || rowColorsFine"
             ref="backdropOverlay"
             class="editor-canvas backdrop-canvas"
           />
@@ -83,6 +83,16 @@
           <v-icon>mdi-broom</v-icon>
         </v-btn>
       </div>
+      <v-btn
+        v-if="$slots['sidebar-right']"
+        icon
+        small
+        title="Clear this graphic's background row colors only (leaves the drawing and the playfield row colors untouched)"
+        class="pixel-editor-clear-colors-btn pixel-editor-clear-colors-btn-right"
+        @click="$emit('clear-bk-colors')"
+      >
+        <v-icon>mdi-invert-colors-off</v-icon>
+      </v-btn>
     </v-card-actions>
   </v-card>
 </template>
@@ -104,7 +114,8 @@ import {loadImageFromFile, openFileDialog} from '../utils/file';
 import {createResizedCanvas} from '../utils/image';
 import {usePixelTool, useMirrorDraw, useDrawColor} from '../hooks/pixel-tool';
 import {colorByteToCss} from '../utils/palette';
-import {noteEdit} from '../hooks/reorder-history';
+import {noteEdit, recordReorder} from '../hooks/reorder-history';
+import {limitPixelHistory} from '../hooks/undo-limit';
 import {resizePixelMatrixHeight} from '../utils/pixels';
 
 export default {
@@ -140,11 +151,18 @@ export default {
     // frame has no room to render it legibly and no matching "X" concept
     // worth calling out cell by cell.
     showCellIds: {type: Boolean, default: false},
+    // The column the first column of this editor is in a picture that is shown in several editors side by side (the labels count on from it).
+    cellIdColumnOffset: {type: Number, default: 0},
     // One CSS color per column, drawn over the cells that are off (a preview of what shows behind
     // the picture, such as the Title tab's picture background); null leaves the cells as they are.
     columnBackdrop: {type: Array, default: null},
     // One CSS color per row, drawn over the cells that are off the same way (the background colors behind a DPC+ background).
     rowBackdrop: {type: Array, default: null},
+    // Colors with a number of rows that is not the number of rows of the picture (the color rows of a DPC+ background, each one color for a part of
+    // the height of the picture): one CSS color for each of them, drawn over the cells that are on (rowColorsFine) or off (rowBackdropFine) so that the
+    // colors change at exactly the heights they have, in the middle of a picture row where that is where they change. Null for the usual one color a row.
+    rowColorsFine: {type: Array, default: null},
+    rowBackdropFine: {type: Array, default: null},
   },
   data() {
     return {
@@ -202,7 +220,8 @@ export default {
   },
   computed: {
     rowBackdropKey() {
-      return this.rowBackdrop ? this.rowBackdrop.join() : '';
+      return (this.rowBackdrop ? this.rowBackdrop.join() : '') + '|' + (this.rowColorsFine ? this.rowColorsFine.join() : '') + '|' +
+        (this.rowBackdropFine ? this.rowBackdropFine.join() : '');
     },
     // Changes whenever a mirror drawing switch is flipped, so the hover
     // highlight can be redrawn with or without the mirrored cells.
@@ -228,9 +247,6 @@ export default {
   },
   mounted() {
     this.initEditor(this.value.length, this.value);
-
-    // TODO: Just for testing
-    window.isMatrixEqual = isMatrixEqual;
 
     if (this.showGrid || this.selection || this.polygonPreview || this.hoverCell) this.setupGridOverlay();
     this.setupBackdrop();
@@ -464,25 +480,49 @@ export default {
       const cssWidth = canvas.clientWidth;
       const cssHeight = canvas.clientHeight;
       if (!cssWidth || !cssHeight) return;
-      canvas.width = Math.round(cssWidth * dpr);
-      canvas.height = Math.round(cssHeight * dpr);
+      // Drawn on a canvas whose number of pixels is a whole number of pixels for every cell and for every row of colors in each direction, a little
+      // more than the device pixels the canvas takes, and scaled down smoothly: every row is then exactly the same height as the others (a canvas of
+      // any other number of pixels has some of them a pixel taller than the rest).
+      const rows = this.editor.height;
+      const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+      let heightUnit = rows;
+      [this.rowColorsFine, this.rowBackdropFine].forEach((fine) => {
+        if (fine && fine.length) heightUnit = heightUnit / gcd(heightUnit, fine.length) * fine.length;
+      });
+      canvas.width = this.width * Math.max(1, Math.ceil(Math.round(cssWidth * dpr) / this.width));
+      canvas.height = heightUnit * Math.max(1, Math.ceil(Math.round(cssHeight * dpr) / heightUnit));
       const ctx = canvas.getContext('2d');
-      // Drawn in device pixels, so every cell edge lands on a whole pixel (a scaled context would blend
-      // neighbouring cells along their edges).
       const cellWidth = canvas.width / this.width;
-      const cellHeight = canvas.height / this.editor.height;
+      const cellHeight = canvas.height / rows;
       // The whole picture is repainted here (off cells in their backdrop color, the others as they are),
       // so the drawing underneath, scaled a little differently, can't show through between cells.
       this.editor.pixels.forEach((px) => {
-        if (!px.color || px.y < 0 || px.y >= this.editor.height) return;
+        if (!px.color || px.y < 0 || px.y >= rows) return;
         const off = px.color === this.bgColor;
         const color = (off && ((this.rowBackdrop && this.rowBackdrop[px.y]) || (this.columnBackdrop && this.columnBackdrop[px.x]))) ||
           px.color;
-        ctx.fillStyle = color;
         // Edges rounded to whole pixels, so neighbouring cells meet without gaps or overlap.
         const left = Math.round(px.x * cellWidth);
         const top = Math.round(px.y * cellHeight);
-        ctx.fillRect(left, top, Math.round((px.x + 1) * cellWidth) - left, Math.round((px.y + 1) * cellHeight) - top);
+        const right = Math.round((px.x + 1) * cellWidth);
+        const bottom = Math.round((px.y + 1) * cellHeight);
+        const fine = off ? this.rowBackdropFine : this.rowColorsFine;
+        if (fine && fine.length && (off || px.color !== this.bgColor)) {
+          // Each row of colors that the cell is in, from the top of the cell to the bottom, for the part of the cell it covers.
+          const count = fine.length;
+          const first = Math.floor(px.y * count / rows);
+          const last = Math.ceil((px.y + 1) * count / rows) - 1;
+          for (let k = first; k <= last; k++) {
+            const partTop = Math.max(top, Math.round(k * canvas.height / count));
+            const partBottom = Math.min(bottom, Math.round((k + 1) * canvas.height / count));
+            if (partBottom <= partTop) continue;
+            ctx.fillStyle = fine[k];
+            ctx.fillRect(left, partTop, right - left, partBottom - partTop);
+          }
+          return;
+        }
+        ctx.fillStyle = color;
+        ctx.fillRect(left, top, right - left, bottom - top);
       });
     },
 
@@ -640,24 +680,45 @@ export default {
       ctx.font = `${fontSize}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      // A label over an "on" pixel needs a darker color than the default
-      // gray to stay readable against a bright fill color (e.g. this
-      // editor's  default orange) - built once as a lookup rather than
-      // searching this.editor.pixels per cell. editor.pixels holds EVERY
-      // cell, on or off (setPixels above always writes a real color either
-      // way - this.onColorForRow(y) when on, this.bgColor when off - see
-      // its  comment), so "on" means the color differs from bgColor, the
-      // same test pixelMatrix() above already uses - not just presence in
-      // the list.
-      const filledCells = new Set(
-          this.editor.pixels.filter((px) => px.color !== this.bgColor).map((px) => `${px.x},${px.y}`));
+      // Each label is drawn in whichever of white and black reads best against the color of its cell (an "on" pixel in its row
+      // color, an off one in its backdrop color or the background color), so it stays readable on black, white and every color between.
+      // editor.pixels holds EVERY cell, on or off (setPixels above always writes a real color either way), so the color of a cell is
+      // the one stored for it, with an off cell showing the backdrop of its row or column when it has one, as the cells are painted.
+      const cellColors = new Map();
+      this.editor.pixels.forEach((px) => {
+        const off = px.color === this.bgColor;
+        const color = (off && ((this.rowBackdrop && this.rowBackdrop[px.y]) || (this.columnBackdrop && this.columnBackdrop[px.x]))) ||
+          px.color;
+        cellColors.set(`${px.x},${px.y}`, color);
+      });
+      const labelColors = new Map();
+      const labelColorFor = (cssColor) => {
+        const key = cssColor || this.bgColor;
+        if (!labelColors.has(key)) labelColors.set(key, this.contrastingLabelColor(key));
+        return labelColors.get(key);
+      };
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
-          ctx.fillStyle = filledCells.has(`${col},${row}`) ?
-            'rgba(0, 0, 0, 0.85)' : 'rgba(140, 140, 140, 0.85)';
-          ctx.fillText(`${col},${row}`, (col + 0.5) * cellWidth, (row + 0.5) * cellHeight);
+          ctx.fillStyle = labelColorFor(cellColors.get(`${col},${row}`));
+          ctx.fillText(`${col + this.cellIdColumnOffset},${row}`, (col + 0.5) * cellWidth, (row + 0.5) * cellHeight);
         }
       }
+    },
+
+    // White or black text, whichever has the higher contrast ratio (WCAG relative luminance) against the given CSS color.
+    contrastingLabelColor(cssColor) {
+      const probe = document.createElement('canvas').getContext('2d', {willReadFrequently: true});
+      probe.fillStyle = '#000000';
+      probe.fillStyle = cssColor;
+      probe.fillRect(0, 0, 1, 1);
+      const [r, g, b] = probe.getImageData(0, 0, 1, 1).data;
+      const linear = (channel) => {
+        const v = channel / 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      };
+      const luminance = 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+      // Contrast with white is 1.05 / (L + 0.05), with black (L + 0.05) / 0.05.
+      return 1.05 / (luminance + 0.05) > (luminance + 0.05) / 0.05 ? 'rgba(255, 255, 255, 0.95)' : 'rgba(0, 0, 0, 0.9)';
     },
 
     // The underlying @curtishughes/pixel-editor library only listens for
@@ -705,7 +766,7 @@ export default {
         historyLength: this.editor.history.undoStack.length,
         redoStack: [...this.editor.history.redoStack],
         selection: this.selection,
-        // The history keeps at most 100 entries, so once it is full a stroke adds none
+        // The history keeps at most the app's number of undo steps (see hooks/undo-limit.js), so once it is full a stroke adds none
         // and the length alone can't tell what the stroke drew.
         pixels: this.getPixels(),
       };
@@ -876,6 +937,9 @@ export default {
       const last = this.rowMoveUndo[this.rowMoveUndo.length - 1];
       const depth = this.editor.history.undoStack.length;
       this.editor.undo();
+      // The picture is what the project keeps: undoing a stroke without telling the tab that holds it would leave the old one saved
+      // (and built into the ROM) until the next stroke.
+      this.$emit('input', this.getPixels());
       if (last && last.depth === depth) {
         this.rowMoveUndo.pop();
         this.rowMoveRedo.push(last);
@@ -888,6 +952,7 @@ export default {
       const next = this.rowMoveRedo[this.rowMoveRedo.length - 1];
       const depth = this.editor.history.undoStack.length;
       this.editor.redo();
+      this.$emit('input', this.getPixels());
       if (next && next.depth === depth + 1) {
         this.rowMoveRedo.pop();
         this.rowMoveUndo.push(next);
@@ -945,7 +1010,9 @@ export default {
       });
 
       canvas.toBlob((blob) => {
-        saveAs(blob, `${this.name}-${getDateInfix()}.png`);
+        // The file is named after the card (its name with anything a file name cannot hold made into an underscore).
+        const base = String(this.name || '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'image';
+        saveAs(blob, `${base}-${getDateInfix()}.png`);
       });
     },
 
@@ -980,7 +1047,20 @@ export default {
 
             const pixels = chunk(pixelValues.map((v) => v > 32 ? 1 : 0), canvas.width);
             if (targetHeight !== this.editor.height) {
+              // An image of another height builds the editor again, which the pixel history does not cover: undo and redo bring
+              // back the picture as it was, at the height it had.
+              const previousPixels = this.getPixels();
+              const previousHeight = this.editor.height;
               this.initEditor(targetHeight, pixels);
+              const restore = (height, matrix) => {
+                this.initEditor(height, matrix);
+                this.$emit('input', matrix);
+              };
+              recordReorder({
+                undo: () => restore(previousHeight, previousPixels),
+                redo: () => restore(targetHeight, pixels),
+                isCurrent: () => !!this.editor && this.editor.height === targetHeight,
+              });
             } else {
               this.setPixels(pixels);
             }
@@ -1017,6 +1097,7 @@ export default {
       // toolbar, until setTool() was called again to actually apply it.
       const initialTool = this.toolFor(this.toggledTool);
       this.editor = new PixelEditor(canvas, this.width, rowCount, initialTool, history);
+      limitPixelHistory(this.editor.history);
       // Every tool draws through editor.set(), so mirror drawing hooks in here
       // (see mirrorPixels).
       const set = this.editor.set.bind(this.editor);
@@ -1031,7 +1112,7 @@ export default {
         const inside = pixels.filter((pixel) =>
           pixel.x >= 0 && pixel.y >= 0 && pixel.x < width && pixel.y < height);
         const result = set(this.mirrorPixels(inside, logToHistory), logToHistory);
-        if (this.columnBackdrop || this.rowBackdrop) this.scheduleBackdrop();
+        if (this.columnBackdrop || this.rowBackdrop || this.rowColorsFine) this.scheduleBackdrop();
         return result;
       };
       // Not logged to the history: this is loading the image, not an edit, and as
@@ -1145,16 +1226,16 @@ export default {
       this.$emit('input', pixels);
     },
 
-    // Reverses the row order top-to-bottom. Note this only flips the
-    // pixel DATA - a caller with per-row colors (rowColors - see
-    // BackgroundEditor.vue) keeps its existing row-color assignment, since
-    // that's driven by row position on the actual hardware playfield, not
-    // by whatever's currently drawn there.
+    // Reverses the row order top-to-bottom. A caller with per-row colors (rowColors) is told with 'flip-rows' so it can turn them
+    // the same way.
     flipVertical() {
       if (this.flipSelection(false)) return;
       const pixels = [...this.getPixels()].reverse();
       this.setPixels(pixels);
       this.$emit('input', pixels);
+      // The whole picture turned upside down: a graphic with a color for each row turns its colors with it (the tab that holds them
+      // does it, see "flip-rows").
+      this.$emit('flip-rows');
     },
 
     // With a selection, flips only the selected pixels, within the box that surrounds the selection, and
@@ -1293,6 +1374,7 @@ export default {
    underneath, not get intercepted by this purely visual layer). */
 .backdrop-canvas {
   /* Same box as the drawing canvas (including its border), so cells line up exactly. */
+  image-rendering: auto;
   pointer-events: none;
   border-color: transparent;
   width: 100%;
@@ -1395,6 +1477,12 @@ export default {
   flex: 0 0 22px;
   width: 22px !important;
   margin-right: 4px !important;
+}
+
+/* The same under the strip on the right of the canvas (the background row colors): the gap is on its left. */
+.pixel-editor-clear-colors-btn-right {
+  margin-right: 0 !important;
+  margin-left: 4px !important;
 }
 
 /* The Clear button - centered as one group with the "toolbar-end" slot's

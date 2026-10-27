@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Generates the 8x8, 6-frame spinning extra life pickup in this folder (see
-../export_sprite.py for the formats). A prop, not the player."""
+"""Generates the 8x8, 14-frame spinning, pulsing extra life pickup in this
+folder (see ../export_sprite.py for the formats). A prop, not the player."""
 import os
 import sys
 
@@ -8,27 +8,15 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from export_sprite import export  # noqa: E402
 
-# A solid square spinning in place inside the 8x8 area, turning clockwise.
-# Each frame is the square drawn at a given angle: one edge from corner to
-# corner, turned about the centre to make the other three, then filled in, so
-# every frame is exactly symmetrical and the corners never leave the 8x8. A square looks the
-# same every quarter turn, so these frames are 90 degrees of the spin and the
-# loop keeps turning. At this size only 6 different pictures come out of the
-# quarter turn; each is held for as long as the spin takes to pass through it,
-# so the speed stays even.
+# A solid square spinning clockwise in place inside the 8x8 area, at full size
+# for most of the turn, with a quick pulse each time it comes upright: it
+# shrinks to a 4x4 square and springs back to full size, still turning. Each
+# frame is the square drawn at its angle and size from one edge turned about
+# the centre and filled in, so it stays exactly symmetrical. A square looks the
+# same every quarter turn, so the loop is 90 degrees of the spin and one pulse;
+# each frame is held for as long as the spin takes to pass through it.
 FRAMES = [
-    # 1 square, upright
-    """
-    ........
-    .######.
-    .######.
-    .######.
-    .######.
-    .######.
-    .######.
-    ........
-    """,
-    # 2 turned 15 degrees
+    # 1 full size, turning
     """
     ..#.....
     .######.
@@ -39,7 +27,18 @@ FRAMES = [
     .######.
     .....#..
     """,
-    # 3 turned about 25 degrees
+    # 2 turning
+    """
+    ..#.....
+    ..####..
+    .#######
+    .######.
+    .######.
+    #######.
+    ..####..
+    .....#..
+    """,
+    # 3 turning
     """
     ..##....
     ..####..
@@ -50,7 +49,18 @@ FRAMES = [
     ..####..
     ....##..
     """,
-    # 4 on its point, 45 degrees
+    # 4 turning
+    """
+    ..###...
+    ..####..
+    .#######
+    ########
+    ########
+    #######.
+    ..####..
+    ...###..
+    """,
+    # 5 turning
     """
     ...##...
     ..####..
@@ -61,7 +71,18 @@ FRAMES = [
     ..####..
     ...##...
     """,
-    # 5 turned about 65 degrees
+    # 6 turning
+    """
+    ...###..
+    ..####..
+    #######.
+    ########
+    ########
+    .#######
+    ..####..
+    ..###...
+    """,
+    # 7 turning
     """
     ....##..
     ..####..
@@ -72,7 +93,18 @@ FRAMES = [
     ..####..
     ..##....
     """,
-    # 6 turned 75 degrees; the next turn is frame 1 again
+    # 8 turning
+    """
+    .....#..
+    ..####..
+    #######.
+    .######.
+    .######.
+    .#######
+    ..####..
+    ..#.....
+    """,
+    # 9 the pulse starts: shrinking as it comes upright
     """
     .....#..
     .######.
@@ -82,10 +114,65 @@ FRAMES = [
     .#######
     .######.
     ..#.....
+    """,
+    # 10 shrinking
+    """
+    ........
+    ..####..
+    .######.
+    .######.
+    .######.
+    .######.
+    ..####..
+    ........
+    """,
+    # 11 shrinking
+    """
+    ........
+    ....##..
+    .#####..
+    .#####..
+    ..#####.
+    ..#####.
+    ..##....
+    ........
+    """,
+    # 12 smallest, upright
+    """
+    ........
+    ........
+    ..####..
+    ..####..
+    ..####..
+    ..####..
+    ........
+    ........
+    """,
+    # 13 growing back
+    """
+    ........
+    ..##....
+    ..#####.
+    ..#####.
+    .#####..
+    .#####..
+    ....##..
+    ........
+    """,
+    # 14 back to full size
+    """
+    ........
+    ..####..
+    .######.
+    .######.
+    .######.
+    .######.
+    ..####..
+    ........
     """,
 ]
 
-# NTSC frames: 6, 2, 4, 6, 4, 2 (a quarter turn in 24)
-FRAME_MS = [100, 33, 67, 100, 67, 33]
+# NTSC frames: 1, 1, 3, 1, 5, 1, 3, 1, 1, 1, 1, 3, 1, 1 (a quarter turn in 24)
+FRAME_MS = [17, 17, 50, 17, 83, 17, 50, 17, 17, 17, 17, 50, 17, 17]
 
 export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'life-8x8', 'life', 'life', frame_ms=FRAME_MS)

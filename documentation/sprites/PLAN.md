@@ -19,7 +19,7 @@ file there. The shared export code is in `export_sprite.py`, next to
 ## All animations in one file
 
 `player/player-animations.aseprite` holds every player animation below in one
-Aseprite file: 139 frames on one layer, with a coloured tag per animation,
+Aseprite file: 177 frames on one layer, with a coloured tag per animation,
 named as in the "Aseprite name" column. `player/player-animations.png` +
 `.json` beside it is the same thing as an Aseprite sprite sheet: pick both with
 **Import from Aseprite** to bring in every animation at once, one per tag. After changing
@@ -35,19 +35,21 @@ own Aseprite file next to its sprite sheet, built by the same
 | Animation | Folder | Size | Frames | Per frame | Loops | Aseprite name |
 | --- | --- | --- | --- | --- | --- | --- |
 | Idle | `player/idle-8x8` | 8×8 | 10 | 67 ms (4) | Yes | `idle` |
-| Run cycle | `player/run-cycle-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `run` |
+| Run | `player/run-cycle-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `run` |
 | Standing jump | `player/standing-jump-8x8` | 8×8 | 10 | 100 ms (6) | No | `standing-jump` |
 | Running jump | `player/running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
 | Cannonball jump | `player/cannonball-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `cannonball-jump` |
 | Cannonball loop | `player/cannonball-loop-8x8` | 8×8 | 8 | 67 ms (4) | Yes | `cannonball-loop` |
-| Fall start | `player/fall-start-8x8` | 8×8 | 8 | 100 ms (6) | No | `fall-start` |
+| Fall start | `player/fall-start-8x8` | 8×8 | 8 | 50 ms (3) | No | `fall-start` |
 | Fall | `player/fall-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `fall` |
 | Hard landing | `player/hard-landing-8x8` | 8×8 | 10 | 100 ms (6) | No | `hard-landing` |
 | Wall bounce | `player/wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
 | Door opening | `player/door-open-8x8` | 8×8 | 8 | 100 ms (6) | No | `door-open` |
-| Ladder climb | `player/climb-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `climb` |
+| Climb | `player/climb-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `climb` |
 | Shrink | `player/shrink-8x8` | 8×8 | 14 | 67 ms (4) | No | `shrink` |
 | Disintegrate | `player/disintegrate-8x8` | 8×8 | 15 | 33 ms (2) | No | `disintegrate` |
+| Pikes | `player/pikes-hit-8x8` | 8×8 | 21 | 33–300 ms (2–18) | No | `pikes-hit` |
+| Blow up | `player/blow-up-8x8` | 8×8 | 17 | 33–67 ms (2–4) | No | `blow-up` |
 
 ## Lining the animations up
 
@@ -62,16 +64,18 @@ own Aseprite file next to its sprite sheet, built by the same
 
 | From | To | Shared frame |
 | --- | --- | --- |
-| Run cycle frame 8 | Running jump frame 1 | Toe-off |
-| Running jump frame 8 | Run cycle frame 1 (carry on from frame 2) | Landing |
-| Run cycle frame 1 | Wall bounce frame 1 | Running in |
+| Run frame 8 | Running jump frame 1 | Toe-off |
+| Running jump frame 8 | Run frame 1 (carry on from frame 2) | Landing |
+| Run frame 1 | Wall bounce frame 1 | Running in |
 | Wall bounce frame 8 | Idle frame 1 | Standing |
 | Idle frame 1 | Standing jump frame 1 | Standing |
 | Idle frame 1 | Shrink frame 1 | Standing |
 | Idle frame 1 | Disintegrate frame 1 | Standing |
+| Idle frame 1 | Blow up frame 1 | Standing |
+| Fall frame 1 | Pikes frame 1 | Arms up, feet out |
 | Standing jump frame 10 | Idle frame 1 | Rises into the standing pose |
 | Standing jump frames 3, 4 and 9 | Cannonball jump frames 1, 2 and 8 | Crouch, spring, landing |
-| Run cycle frame 8 | Fall start frame 1 | Toe-off |
+| Run frame 8 | Fall start frame 1 | Toe-off |
 | Fall start frame 8 | Fall frame 1 (carry on from frame 2) | Both arms up, legs apart |
 | Hard landing frame 10 | Idle frame 1 | Standing |
 | Idle frame 1 | Door opening frame 1 | Standing |
@@ -103,9 +107,9 @@ one part by one pixel and no pose repeats.
 9. Hips rise, knee still bent
 10. Knee straightens; the head comes up last as it loops
 
-### Run cycle — `run-cycle-8x8`
+### Run — `run-cycle-8x8`
 
-![Run cycle](player/run-cycle-8x8/run-cycle-8x8.gif)
+![Run](player/run-cycle-8x8/run-cycle-8x8.gif)
 
 The 8 frames cover a single step, from one foot landing to the other. In a
 1-colour silhouette both halves of a stride look the same, so this loops as a
@@ -152,7 +156,7 @@ and the other bends at the hip and knee.
 
 ![Running jump](player/running-jump-8x8/running-jump-8x8.gif)
 
-A leap taken mid-run. It takes off from the run cycle's frame 8 and lands on
+A leap taken mid-run. It takes off from the run's frame 8 and lands on
 its frame 1, so switch back to the run at frame 2. The arms are the run's short
 arms on fixed shoulders: the front hand stays high through the leap while the
 back hand sweeps up behind and back down.
@@ -205,7 +209,7 @@ for example in place of the cannonball jump's frames 4–6.
 ![Fall start](player/fall-start-8x8/fall-start-8x8.gif)
 
 The lead-in to a fall when the player walks or runs off the edge of a
-platform. Starts on the run cycle's frame 8 and ends on the fall loop's frame 1.
+platform. Starts on the run's frame 8 and ends on the fall loop's frame 1.
 
 1. Stepping off: toe-off, as in the run
 2. Front foot reaches out over the edge
@@ -254,7 +258,7 @@ the idle's frame 1.
 ![Wall bounce](player/wall-bounce-8x8/wall-bounce-8x8.gif)
 
 Running into a wall just past the right edge and bouncing off it. Starts on
-the run cycle's frame 1 and ends on the idle's frame 1. The game should push
+the run's frame 1 and ends on the idle's frame 1. The game should push
 the sprite left, mostly over frames 3–5.
 
 1. Running in, as in the run
@@ -284,9 +288,9 @@ and ends on the idle's frame 1.
 7. Door swings away, hand follows it up
 8. Lets go, standing again, as in the idle
 
-### Ladder climb — `climb-8x8`
+### Climb — `climb-8x8`
 
-![Ladder climb](player/climb-8x8/climb-8x8.gif)
+![Climb](player/climb-8x8/climb-8x8.gif)
 
 Climbing a ladder, seen from the front with the arms and legs either side of
 the body, like the fall. Made for a steady climb with no pauses: the hands and
@@ -365,6 +369,30 @@ row. No grain moves more than one pixel a frame.
 14. Packing down
 15. Settled into a pile of ash
 
+### Pikes — `pikes-hit-8x8`
+
+![Pikes](player/pikes-hit-8x8/pikes-hit-8x8.gif)
+
+The player falling onto pikes and getting stuck on them, for a death. Starts on
+the fall loop's first frame. On impact the body folds over the pikes at the
+hips, head and feet flung up, bounces once off the tips and drops back, then
+sags and hangs limp, draped face down across them with an arm and the legs
+dangling. The arm swings like a pendulum, right forward and right back, then in
+smaller swings dying away; the legs twitch, a foot flicks, and it goes still.
+It's the player sprite only: draw it over the pikes sprite, which shows
+through where they cross.
+
+### Blow up — `blow-up-8x8`
+
+![Blow up](player/blow-up-8x8/blow-up-8x8.gif)
+
+The player blowing up, for a death. Starts on the idle's first frame. A jolt
+flings the arms and legs out, then the body bursts into a round blast. Ten
+pieces fly out of it, the top ones thrown up and out and the rest out to the
+sides, each under a pixel a frame and falling as it goes, while a puff of smoke
+in the middle shrinks away. The pieces arc off the edges one by one and it ends
+empty.
+
 ## Props
 
 Objects in the level, not the player. Each one is self-contained in its own
@@ -382,11 +410,17 @@ file, so it imports as a separate sprite. The folder's `<folder>.png` +
 | Fire | `fire-8x16` | 8×16 | 24 | 33 ms (2) | Yes | `fire.aseprite` (tag `fire`) |
 | Large fire | `fire-large-8x24` | 8×24, double wide | 24 | 33 ms (2) | Yes | `fire-large.aseprite` (tag `fire-large`) |
 | Key | `key-8x6` | 8×6 | 28 | 17–100 ms (1–6) | Yes | `key.aseprite` (tag `key`) |
-| Extra life | `life-8x8` | 8×8 | 6 | 33–100 ms (2–6) | Yes | `life.aseprite` (tag `life`) |
+| Extra life | `life-8x8` | 8×8 | 14 | 17–83 ms (1–5) | Yes | `life.aseprite` (tag `life`) |
+| Spinning circle | `coin-8x8` | 8×8 | 10 | 33–133 ms (2–8) | Yes | `coin.aseprite` (tag `coin`) |
+| Speed | `speed-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `speed.aseprite` (tag `speed`) |
+| Pikes | `pikes-8x8` | 8×8 | 5 | 33–500 ms (2–30) | No | `pikes.aseprite` (tag `pikes`) |
+| Vortex | `vortex-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `vortex.aseprite` (tag `vortex`) |
+| Large vortex | `vortex-large-8x16` | 8×16, double wide | 12 | 50 ms (3) | Yes | `vortex-large.aseprite` (tag `vortex-large`) |
+| Flamethrower | `flamethrower/` | 8×12, quad wide | 12 + 4 + 8 + 10 | 33–67 ms (2–4) | Idle and loop | `flamethrower.aseprite` (tags `flamethrower-idle`, `-start`, `-loop`, `-end`) |
 
-The large and huge saw blades and the large fire are drawn to be shown at
-double or quad width (NUSIZ), so they appear 16×16, 32×32 and 16×24 on screen. Their frame files are still
-8 pixels wide; their GIFs and Aseprite files (with a 2:1 or 4:1 pixel ratio)
+The large and huge saw blades, the large fire, the large vortex, the
+flamethrower and the bigger explosions are drawn to be shown at double or quad
+width (NUSIZ). Their frame files are still 8 pixels wide; their GIFs and Aseprite files (with a 2:1 or 4:1 pixel ratio)
 show them as they will look on the VCS.
 
 ### Trampoline — `trampoline-8x8`
@@ -472,11 +506,13 @@ same again.
 ![Huge saw blade](saw-blade-huge-8x32/saw-blade-huge-8x32.gif)
 
 The biggest blade, at quad width and 32 rows tall, with 8 hooked teeth that
-ramp out and drop sharply, cutting edge first in the direction of the spin.
+ramp out and drop sharply, cutting edge first in the direction of the spin, and
+a ring of 8 slots around the hub that turns with it, so the spin shows in the
+middle of the blade as well as at the rim.
 Each frame turns it 3.75 degrees clockwise, which moves the teeth on the sides
 about one row, so after 12 frames (45 degrees, one tooth) it looks the same
-again. The frames run 33, 33 and 17 ms (2, 2, 1 NTSC frames) in turn, so a
-tooth passes every third of a second.
+again. The frames run 17, 17 and 33 ms (1, 1, 2 NTSC frames) in turn, so a
+tooth passes every quarter of a second.
 
 1. 8 hooked teeth
 2. Turned 3.75 degrees clockwise
@@ -537,15 +573,87 @@ frames, a full turn in about 1.1 s. Frame 1 is the key face on.
 
 ![Extra life](life-8x8/life-8x8.gif)
 
-A solid square spinning clockwise in place, inside the 8×8 area. Each frame is
-the square at a given angle, drawn from one edge turned about the centre and
-filled in, so it stays exactly symmetrical. A square looks the same every
-quarter turn, so the 6 frames are 90° of the spin; each is held for as long as
-the spin takes to pass through it (33–100 ms), a quarter turn every 0.4 s.
+A solid square spinning clockwise in place, inside the 8×8 area, with a quick
+pulse: full size for most of the turn, it shrinks to a 4×4 square and springs
+back each time it comes upright. Each frame is the square at its angle and size,
+drawn from one edge turned about the centre and filled in, so it stays exactly
+symmetrical. A square looks the same every quarter turn, so the loop is 90° of
+the spin and one pulse, a quarter turn every 0.4 s.
 
-1. Upright
-2. Turned 15°
-3. Turned about 25°
-4. On its point, 45°
-5. Turned about 65°
-6. Turned 75°; the next turn is frame 1 again
+### Spinning circle — `coin-8x8`
+
+![Spinning circle](coin-8x8/coin-8x8.gif)
+
+A solid circle 6 pixels across, like a coin, centred in the 8×8 and spinning on
+its vertical axis: it narrows a pixel a frame to edge on and widens back, leaning
+half a pixel to the nearer side on odd widths. A circle looks the same from
+behind, so the 10 frames are half a turn, at the double jump power-up's speed.
+
+### Speed — `speed-8x8`
+
+![Speed](speed-8x8/speed-8x8.gif)
+
+A speed boost: a wing seen from the side, joined at the right edge, its
+feathers fanning out to the left. It flaps from level up to raised high, down
+through level to all the way down and back, a step a frame, inside the 8×8.
+
+### Pikes — `pikes-8x8`
+
+![Pikes](pikes-8x8/pikes-8x8.gif)
+
+A pike trap. Frame 1 shows just the tips above the ground and is held for half a
+second as a warning; then four pikes, each one pixel thick with a clear column
+between them, burst out fast, middle first: a tall one straight up to the top
+row, one either side leaning outward and a short one at the right edge. It ends
+with them all out; play it backwards to pull them in.
+
+### Vortex — `vortex-8x8` and `vortex-large-8x16`
+
+![Vortex](vortex-8x8/vortex-8x8.gif) ![Large vortex](vortex-large-8x16/vortex-large-8x16.gif)
+
+A swirling vortex hazard: two spiral arms winding in to a solid eye inside a
+round area, turning a little each frame so it draws everything in. Two arms look
+the same every half turn, so each is 12 frames of half a turn, looping. The
+large one is double wide, 16×16 on screen, and its arms wind further round.
+
+### Flamethrower — `flamethrower/`
+
+![Flamethrower loop](flamethrower/flamethrower-loop-8x12/flamethrower-loop-8x12.gif)
+
+A jet of flame shooting right from a nozzle at the left edge, quad wide so it's
+32 pixels long on screen, widening into a billowing head that rounds off inside
+the 8 columns, with ragged edges and a hollow streak. Four animations in one
+Aseprite file, each in its own folder inside `flamethrower/`:
+
+- `flamethrower-idle`: the pilot light, a tiny flame flickering at the nozzle
+  with little sparks floating up off it, 12 frames looping.
+- `flamethrower-start`: the flame bursts out and reaches across in 4 frames,
+  leading into the loop.
+- `flamethrower-loop`: the full jet, streaming out a column a frame and
+  throwing off sparks, 8 frames looping.
+- `flamethrower-end`: the nozzle cuts out, the flame tears away and lifts,
+  throwing up a shower of 17 sparks that burn out at different heights, 10
+  frames, ending empty.
+
+## Visual effects
+
+Effects with no part in the game's rules, each in its own folder with its own
+Aseprite file like the props.
+
+| Effect | Folder | Size | Frames | Per frame | Loops | Aseprite file (in the folder) |
+| --- | --- | --- | --- | --- | --- | --- |
+| Small explosion | `explosion-small-8x8` | 8×8 | 8 | 50 ms (3) | No | `explosion-small.aseprite` (tag `explosion-small`) |
+| Explosion | `explosion-8x16` | 8×16, double wide | 10 | 50 ms (3) | No | `explosion.aseprite` (tag `explosion`) |
+| Large explosion | `explosion-large-8x32` | 8×32, quad wide | 23 | 50–67 ms (3–4) | No | `explosion-large.aseprite` (tag `explosion-large`) |
+
+### Explosions
+
+![Small explosion](explosion-small-8x8/explosion-small-8x8.gif) ![Explosion](explosion-8x16/explosion-8x16.gif) ![Large explosion](explosion-large-8x32/explosion-large-8x32.gif)
+
+The small (8×8) and regular (16×16 on screen) explosions are the same blast: a
+flash bursts into a ragged, churning fireball that fills the area, its middle
+blows clear into a ring of fire, and the ring breaks up into scraps, ending
+empty. The large one (32×32 on screen) is a chain explosion instead: four
+smaller blasts go off one after another around the area, then the biggest goes
+off in the middle and swallows them; at its biggest, puffs of smoke billow out
+of its ring and drift up as the fire crumbles away under them.

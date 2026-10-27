@@ -2,7 +2,8 @@
 
 import {superchipOn} from '../../utils/superchip';
 import {playfieldToMatrix} from '../../utils/pixels';
-import {useConfigurationStorage} from '../../hooks/project';
+import {useConfigurationStorage, usePlayerAnimationsStorage} from '../../hooks/project';
+import {clampFrameDuration} from '../../utils/duration';
 import {fireObjectName} from '../../utils/fire-object';
 import {pfRowDivisorFor as exactRowDivisorFor, missileBallPfXOffset} from '../../utils/playfield-coords';
 
@@ -84,10 +85,43 @@ export const processPlayerAnimationsStorageDefaults = (playerAnimationsStorage) 
 // The byte, per player, that remembers a "Player set width/quantity" block ran for it: 0 until then, else the size code it set plus
 // one. The player's animations apply a width every frame, and leave the player's size alone once a block set it.
 export const sizeSetVarName = (name) => `${name}sizeset`;
+// DPC+: the frame counter value at which a player's animation has to run again (the next picture, or the end of the animation); until the
+// counter gets there the animation code is not entered at all (see processAnimations in generators/bbasic.js).
+export const animNextVarName = (name) => `${name}animnext`;
+export const reserveAnimNextDevVars = (reserveDevVar, players) => {
+  (players || new Set()).forEach((name) => {
+    reserveDevVar(animNextVarName(name), undefined, `The frame counter value at which ${name}'s animation code runs next (DPC+)`);
+  });
+};
 export const reserveSizeSetDevVars = (reserveDevVar, players) => {
   (players || new Set()).forEach((name) => {
     reserveDevVar(sizeSetVarName(name), undefined, `0, or the width/quantity code a block set for ${name} plus 1`);
   });
+};
+
+// DPC+ players whose animations have per-row colors: a block that sets or fades the player's color puts this byte to 1, and from then on the
+// player is drawn in that one color (the animations stop loading their row colors) instead of the row colors.
+// One bit for each player (shared bytes, eight players to a byte: see flag-pool.js).
+const colorSetFamily = (name) => (Number(name.slice(6)) < 8 ? 'colorSetFlags' : 'colorSetFlagsB');
+const colorSetBit = (name) => Number(name.slice(6)) % 8;
+// The families the plan needs: [{family, bits}].
+export const colorSetFamilies = (players) => ['colorSetFlags', 'colorSetFlagsB'].map((family) => ({
+  family, bits: [...(players || [])].filter((name) => colorSetFamily(name) === family).map(colorSetBit)}));
+// The player's bit, as batari Basic writes it.
+export const colorOverrideRef = (Blockly, name) => `${Blockly.BBasic.nameDB_.getName(flagPoolVar(colorSetFamily(name)),
+    Blockly.Names.DEVELOPER_VARIABLE_TYPE)}{${flagPoolBit(colorSetFamily(name), colorSetBit(name))}}`;
+export const reserveColorOverrideDevVars = (reserveDevVar, players) => {
+  [...new Set([...(players || [])].map(colorSetFamily))].forEach((family) => {
+    reserveDevVar(flagPoolVar(family), undefined, 'a bit for each player that a block set or faded the color of, over its row colors');
+  });
+};
+// The lines that mark a set color as overriding the row colors; the picture and colors are loaded again when the mark is new.
+export const colorOverrideLines = (Blockly, owner) => {
+  if (!Blockly.BBasic.colorOverridePlayers || !Blockly.BBasic.colorOverridePlayers.has(owner)) return '';
+  const flag = colorOverrideRef(Blockly, owner);
+  return `if !${flag} then ${owner}size{7} = 0
+${flag} = 1
+`;
 };
 
 export const playerNameOfValue = (value) => `player${/^[0-9]$/.test(String(value)) ? value : '0'}`;
@@ -357,7 +391,7 @@ export const missileFireFracVarName = (index) => `missileFireFrac${index}`;
 // byte: the low nibble is the main axis's leftover and the high nibble the other axis's, and the
 // slot is the index of the byte (missileFireFracVarName).
 export const missileFireFracSlots = (usedFor, used16) => {
-  // Every object that fires in 16 directions keeps its leftover sixteenths in a byte of its own. That makes the movement smooth
+  // Every object that fires in 16 directions keeps its leftover sixteenths in a separate byte. That makes the movement smooth
   // for any speed and however often the object moves; working them out from the frame counter made the halfway directions
   // slower and jerky when the movement is throttled (it only runs on some frames of the counter).
   const slots = new Map();
@@ -790,6 +824,16 @@ export const reserveSeekDevVars = (reserveDevVar, reserveDevVarRW, usedFor) => {
 // "Background scroll" block present, since a "set/is scrolling with
 // playfield" block by itself still needs somewhere to read/nudge - see
 // bbasic.js's init().
+// A non-looping animation of a player that a "When animation has finished" block watches sets its finished bit (bit 5 of the size byte) on the frame it
+// ends on only: this bit, one for each such player, says it was already set for the animation, until a block sets the animation again.
+export const ANIM_FINISHED_DONE_FAMILY = 'animFinishedDone';
+export const animFinishedDoneRef = (Blockly, name) => `${Blockly.BBasic.nameDB_.getName(flagPoolVar(ANIM_FINISHED_DONE_FAMILY),
+    Blockly.Names.DEVELOPER_VARIABLE_TYPE)}{${flagPoolBit(ANIM_FINISHED_DONE_FAMILY, spriteOwnBit(name))}}`;
+export const reserveAnimFinishedDoneDevVars = (reserveDevVar, watched) => {
+  if (!watched || !watched.size) return;
+  reserveDevVar(flagPoolVar(ANIM_FINISHED_DONE_FAMILY), undefined, 'shared byte of the players whose animation has finished (a bit for each)');
+};
+
 export const reserveSpriteHiddenDevVars = (reserveDevVar, usedFor) => {
   if (!usedFor || !usedFor.size) return;
   reserveDevVar(flagPoolVar(SPRITE_HIDDEN_FLAGS_FAMILY), undefined, 'shared byte of the players that are hidden (a bit for each)');
@@ -1257,8 +1301,8 @@ const buildPlayfieldCheckedMovement = ({Blockly, name, is16, dirVar, speedVar, s
     Blockly.BBasic.superchipRwPairs[missileBounceStageVarName(name)] : null;
   const cellCheck = (tag) => [
     ...(stagePair ? [` if ${stagePair.read}{4} then goto ${label(`skip${tag}`)}`, ` if ${stagePair.read}{5} then goto ${label(`skip${tag}`)}`] : []),
+    ...Blockly.BBasic.rowOfLineCode(config, 'temp2', `${name}y - 1`, rowDivisor),
     ` temp1 = (${name}x - ${missileBallPfXOffset(config)}) / 4`,
-    ` temp2 = (${name}y - 1) / ${rowDivisor}`,
     ` if temp1 > 31 then goto ${label(`skip${tag}`)}`,
     ` if temp2 > ${maxRow} then goto ${label(`skip${tag}`)}`,
     ` if pfread(temp1, temp2) then goto ${label('end')}`,
@@ -1798,7 +1842,7 @@ export const generateInertiaChecks = (Blockly) => {
     const velocityYVar = resolveVar(inertiaVelocityYVarName(name));
     const accelBit = () => inertiaAccelActiveBit(name);
     const decelBit = () => inertiaDecelActiveBit(name);
-    const uid = Blockly.BBasic.blockNumbers.next(`inertia_${name}`);
+    const uid = `${name}${Blockly.BBasic.blockNumbers.next(`inertia_${name}`)}`;
     const isFine = fineUsedFor.has(name);
     const velocityFracXVar = isFine ? resolveVar(inertiaVelocityFracXVarName(name)) : null;
     const velocityFracYVar = isFine ? resolveVar(inertiaVelocityFracYVarName(name)) : null;
@@ -1999,7 +2043,7 @@ const assignAndReload = (varName, valueCode) => {
   return `temp1 = ${valueCode}\nif ${varName} <> temp1 then ${sizeVar}{7} = 0\n${varName} = temp1\n`;
 };
 
-const animationLoopBitsCode = (block, varName) => {
+const animationLoopBitsCode = (block, varName, clearDone = '', clearNext = '') => {
   const loopField = block.getField('LOOP');
   const loop = loopField ? block.getFieldValue('LOOP') === 'TRUE' : true;
   const sizeVar = varName.replace('animation', 'size');
@@ -2009,10 +2053,41 @@ const animationLoopBitsCode = (block, varName) => {
   const restart = block.getField('RESTART') && block.getFieldValue('RESTART') === 'TRUE';
   return `${sizeVar}{4} = ${loop ? 0 : 1}\n` +
     `${sizeVar}{5} = 0\n` +
-    (restart ? `${varName.replace('animation', 'frame')} = 0\n` : '');
+    clearDone +
+    (restart ? `${varName.replace('animation', 'frame')} = 0\n` + clearNext : '');
+};
+
+// How many frames of the game the frames of an animation before the given frame (1 is the first) last: where the frame counter is when that frame starts.
+const animationStartTicks = (index, startFrame) => {
+  try {
+    const animation = (processPlayerAnimationsStorageDefaults(usePlayerAnimationsStorage()).animations || [])[Number(index)];
+    const frames = (animation && animation.frames) || [];
+    let ticks = 0;
+    for (let i = 0; i < Math.min(Math.round(startFrame), frames.length) - 1; i++) ticks += clampFrameDuration(frames[i].duration);
+    return Math.min(ticks, 254);
+  } catch (e) {
+    return 0;
+  }
 };
 
 export default (Blockly) => {
+  // A write of a player's frame counter (DPC+): the animation code has to run on the next frame to find where it is now.
+  const animNextClear = (player) => (Blockly.BBasic.animSkipPlayers && Blockly.BBasic.animSkipPlayers.has(player) &&
+    !Blockly.BBasic.animSkipConst.has(player) ?
+    `${Blockly.BBasic.nameDB_.getName(animNextVarName(player), Blockly.Names.DEVELOPER_VARIABLE_TYPE)} = 0\n` : '');
+  // The loop and finished bits the blocks that set an animation write; a player that has a "When animation has finished" block also forgets
+  // that the animation already finished.
+  const loopBitsCode = (block, varName) => {
+    const player = varName.replace('animation', '');
+    const watched = Blockly.BBasic.playerAnimationFinishedWatches;
+    return animationLoopBitsCode(block, varName, watched && watched.has(player) ? `${animFinishedDoneRef(Blockly, player)} = 0\n` : '',
+        animNextClear(player));
+  };
+  // Players 2 to 9 (DPC+) keep their animation, frame, color and size in bytes the generator reserves itself, so the name is used as it
+  // is: asking the variable names for it handed back a renamed one (player3animation2, player2realcolor2) that nothing declares.
+  const spriteVarName = (field) => /^player[2-9](animation|frame|realcolor|size)$/.test(field) ? field :
+    Blockly.BBasic.nameDB_.getName(field, Blockly.VARIABLE_CATEGORY_NAME);
+
   const createGeneratorForSprite = (name) => {
     Blockly.BBasic[`sprite_${name}_get`] = function(block) {
       // Variable getter.
@@ -2040,15 +2115,10 @@ export default (Blockly) => {
       // Horizontal flip is bit 3 of the size variable.
       const flipOf = /^__(player\d)size_3_$/.exec(block.getFieldValue('VAR') || '');
       if (flipOf) return [`((${flipOf[1]}size & 8) / 8)`, Blockly.BBasic.ORDER_ATOMIC];
-      const code = Blockly.BBasic.nameDB_.getName(block.getFieldValue('VAR'),
-          Blockly.VARIABLE_CATEGORY_NAME);
+      const code = spriteVarName(block.getFieldValue('VAR'));
       return [code, Blockly.BBasic.ORDER_ATOMIC];
     };
 
-    // Players 2 to 9 (DPC+) keep their animation number in a byte the generator reserves itself, so its name is used as
-    // it is: asking the variable names for it handed back a renamed one (player3animation2) that nothing declares.
-    const spriteVarName = (field) => /^player[2-9]animation$/.test(field) ? field :
-      Blockly.BBasic.nameDB_.getName(field, Blockly.VARIABLE_CATEGORY_NAME);
 
     const dpcPlusThinHeight = /^(missile[01]|ball)height$/;
 
@@ -2148,7 +2218,7 @@ export default (Blockly) => {
         const bitVarName = varName.replace('__', '').replace('_3_', '{3}');
         return `if ${argument0} then ${bitVarName} = 1 else ${bitVarName} = 0\n`;
       } else if (varName.endsWith('animation')) {
-        return assignAndReload(varName, argument0) + animationLoopBitsCode(block, varName);
+        return assignAndReload(varName, argument0) + loopBitsCode(block, varName);
       }
       // Players 2 to 9 are colored by a table in ROM per color, so each fixed color a block gives one is noted
       // (see generateAnimations); a color worked out while the game runs can not be shown on them.
@@ -2161,11 +2231,18 @@ export default (Blockly) => {
           if (byte >= 0 && byte <= 255 && colors) (colors[extraColor[1]] = colors[extraColor[1]] || new Set()).add(byte);
         }
       }
-      if (extraColor && (useConfigurationStorage().value || {}).kernel === 'dpcplus') return assignAndReload(varName, argument0);
+      if (extraColor && (useConfigurationStorage().value || {}).kernel === 'dpcplus') {
+        return assignAndReload(varName, argument0) + colorOverrideLines(Blockly, extraColor[1]);
+      }
       // DPC+ counts a player's y in scanlines down to the sprite's top edge, the standard kernel in units of two
       // scanlines down to the sprite's bottom edge (line 2 * y + 4), and the DPC+ picture starts 4 lines higher, so
       // the same spot is 2 * y minus the sprite's height in lines.
       if (/^player\dy$/.test(varName) && (useConfigurationStorage().value || {}).kernel === 'dpcplus') {
+        // A value worked out from the y of a player, a missile or the ball (put a player where another one is, a few lines lower...) is
+        // already in lines, the unit the y of those is read in: it is set as it is.
+        if (/\b(player\d|missile[01]|ball)y\b/.test(argument0)) {
+          return `${varName} = ${argument0.trim()}\n`;
+        }
         const lines = Blockly.BBasic.dpcPlusSpriteLines(varName.slice(0, 7));
         const literal = /^\s*(\d+)\s*$/.exec(argument0);
         if (literal) return `${varName} = ${Math.min(255, Math.max(0, 2 * Number(literal[1]) - lines))}\n`;
@@ -2178,7 +2255,7 @@ export default (Blockly) => {
         if (literal) return `${varName} = ${Number(literal[1]) === 1 ? 2 : literal[1]}\n`;
         return `${varName} = ${argument0}\nif ${varName} = 1 then ${varName} = 2\n`;
       }
-      return varName + ' = ' + argument0 + '\n';
+      return varName + ' = ' + argument0 + '\n' + (varName.endsWith('frame') ? animNextClear(varName.replace('frame', '')) : '');
     };
 
     Blockly.BBasic[`sprite_${name}_change`] = function(block) {
@@ -2193,9 +2270,10 @@ export default (Blockly) => {
         return assignment + `if ${varName} = 1 then ${varName} = 2\n`;
       }
       if (varName.endsWith('animation') && (useConfigurationStorage().value || {}).kernel === 'dpcplus') {
-        return assignment + `${varName.replace('animation', 'size')}{7} = 0\n` + animationLoopBitsCode(block, varName);
+        return assignment + `${varName.replace('animation', 'size')}{7} = 0\n` + loopBitsCode(block, varName);
       }
-      return varName.endsWith('animation') ? assignment + animationLoopBitsCode(block, varName) : assignment;
+      return varName.endsWith('animation') ? assignment + loopBitsCode(block, varName) :
+        assignment + (varName.endsWith('frame') ? animNextClear(varName.replace('frame', '')) : '');
     };
   };
 
@@ -2231,7 +2309,10 @@ export default (Blockly) => {
     Blockly.BBasic['sprite_player_set_animation'] = function(block) {
       const varName = animationVarOf(resolvePlayerName(block));
       const index = block.getFieldValue('VAR') || '0';
-      return assignAndReload(varName, index) + animationLoopBitsCode(block, varName);
+      // Starting at a frame other than the first: the counter of the animation (the durations of the frames added up) is put where that frame starts.
+      const startTicks = block.getFieldValue('RESTART') === 'TRUE' ? animationStartTicks(index, Number(block.getFieldValue('START')) || 1) : 0;
+      return assignAndReload(varName, index) + loopBitsCode(block, varName) +
+        (startTicks > 0 ? `${varName.replace('animation', 'frame')} = ${startTicks}\n` + animNextClear(varName.replace('animation', '')) : '');
     };
 
     // Same assignment, for buildAnimationSetByIdBlock's VALUE-input sibling -
@@ -2239,7 +2320,7 @@ export default (Blockly) => {
     Blockly.BBasic['sprite_player_set_animation_id'] = function(block) {
       const varName = animationVarOf(resolvePlayerName(block));
       const argument0 = Blockly.BBasic.valueToCode(block, 'VALUE', Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-      return assignAndReload(varName, argument0) + animationLoopBitsCode(block, varName);
+      return assignAndReload(varName, argument0) + loopBitsCode(block, varName);
     };
 
     // One-step getter pairing with sprite_player_set_animation_id above -
@@ -2929,7 +3010,7 @@ export default (Blockly) => {
       // the object's cell (clamped), stepping back out of it when it is
       // already inside the wall
       ` temp3 = (${name}x - ${missileBallPfXOffset(config)}) / 4`,
-      ` temp4 = (${name}y - 1) / ${rowDivisor}`,
+      ...Blockly.BBasic.rowOfLineCode(config, 'temp4', `${name}y - 1`, rowDivisor),
       ` if temp3 > 31 then temp3 = 31`,
       ` if temp4 > ${maxRow} then temp4 = ${maxRow}`,
       ` if pfread(temp3, temp4) then goto ${label('inside')}`,
@@ -3327,7 +3408,7 @@ export default (Blockly) => {
       const byte = literal[1] ? parseInt(literal[1], 16) : Number(literal[2]);
       if (byte >= 0 && byte <= 255) (fades[owner] = fades[owner] || new Set()).add(byte & 0xFE);
     }
-    return Blockly.BBasic.emitColorFadeTrigger(rawVar, color, frames);
+    return colorOverrideLines(Blockly, owner) + Blockly.BBasic.emitColorFadeTrigger(rawVar, color, frames);
   };
 
   // Player 0/1's  fade-finished watch - same shared mechanism as
