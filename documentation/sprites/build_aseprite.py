@@ -68,6 +68,8 @@ PROPS = {
     'explosion': 'explosion-8x16',
     'explosion-large': 'explosion-large-8x32',
     'explosion-small': 'explosion-small-8x8',
+    'spark': 'spark-8x8',
+    'fireball': 'fireball-8x8',
 }
 # Props made of several animations: one Aseprite file in the prop's folder,
 # with a tag per animation, from the animation folders inside it.

@@ -108,7 +108,7 @@
         "w": 8,
         "h": 16
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "explosion 5.aseprite",
@@ -130,7 +130,7 @@
         "w": 8,
         "h": 16
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "explosion 6.aseprite",
@@ -152,7 +152,7 @@
         "w": 8,
         "h": 16
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "explosion 7.aseprite",
@@ -174,7 +174,7 @@
         "w": 8,
         "h": 16
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "explosion 8.aseprite",
@@ -196,7 +196,7 @@
         "w": 8,
         "h": 16
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "explosion 9.aseprite",
@@ -218,7 +218,95 @@
         "w": 8,
         "h": 16
       },
-      "duration": 50
+      "duration": 67
+    },
+    {
+      "filename": "explosion 10.aseprite",
+      "frame": {
+        "x": 80,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 67
+    },
+    {
+      "filename": "explosion 11.aseprite",
+      "frame": {
+        "x": 88,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 67
+    },
+    {
+      "filename": "explosion 12.aseprite",
+      "frame": {
+        "x": 96,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 67
+    },
+    {
+      "filename": "explosion 13.aseprite",
+      "frame": {
+        "x": 104,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 16
+      },
+      "duration": 67
     }
   ],
   "meta": {
@@ -226,7 +314,7 @@
     "image": "explosion-8x16.png",
     "format": "RGB888",
     "size": {
-      "w": 80,
+      "w": 112,
       "h": 16
     },
     "scale": "1",
@@ -234,7 +322,7 @@
       {
         "name": "explosion",
         "from": 0,
-        "to": 9,
+        "to": 13,
         "direction": "forward"
       }
     ]

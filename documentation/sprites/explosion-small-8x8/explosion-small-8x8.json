@@ -86,7 +86,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "explosion-small 4.aseprite",
@@ -108,7 +108,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "explosion-small 5.aseprite",
@@ -130,7 +130,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "explosion-small 6.aseprite",
@@ -152,7 +152,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "explosion-small 7.aseprite",
@@ -174,7 +174,73 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 67
+    },
+    {
+      "filename": "explosion-small 8.aseprite",
+      "frame": {
+        "x": 64,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "explosion-small 9.aseprite",
+      "frame": {
+        "x": 72,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
+    },
+    {
+      "filename": "explosion-small 10.aseprite",
+      "frame": {
+        "x": 80,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 67
     }
   ],
   "meta": {
@@ -182,7 +248,7 @@
     "image": "explosion-small-8x8.png",
     "format": "RGB888",
     "size": {
-      "w": 64,
+      "w": 88,
       "h": 8
     },
     "scale": "1",
@@ -190,7 +256,7 @@
       {
         "name": "explosion-small",
         "from": 0,
-        "to": 7,
+        "to": 10,
         "direction": "forward"
       }
     ]

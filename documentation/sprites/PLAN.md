@@ -415,6 +415,7 @@ file, so it imports as a separate sprite. The folder's `<folder>.png` +
 | Speed | `speed-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `speed.aseprite` (tag `speed`) |
 | Pikes | `pikes-8x8` | 8×8 | 5 | 33–500 ms (2–30) | No | `pikes.aseprite` (tag `pikes`) |
 | Vortex | `vortex-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `vortex.aseprite` (tag `vortex`) |
+| Fireball | `fireball-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `fireball.aseprite` (tag `fireball`) |
 | Large vortex | `vortex-large-8x16` | 8×16, double wide | 12 | 50 ms (3) | Yes | `vortex-large.aseprite` (tag `vortex-large`) |
 | Flamethrower | `flamethrower/` | 8×12, quad wide | 12 + 4 + 8 + 10 | 33–67 ms (2–4) | Idle and loop | `flamethrower.aseprite` (tags `flamethrower-idle`, `-start`, `-loop`, `-end`) |
 
@@ -616,6 +617,16 @@ round area, turning a little each frame so it draws everything in. Two arms look
 the same every half turn, so each is 12 frames of half a turn, looping. The
 large one is double wide, 16×16 on screen, and its arms wind further round.
 
+### Fireball — `fireball-8x8`
+
+![Fireball](fireball-8x8/fireball-8x8.gif)
+
+A fireball flying to the right: a round ball of fire with a wobbling edge and a
+ragged trail of flame streaming back from it to a point. The trail waves up and
+down and its edge is carried backwards a pixel a frame, and embers break off its
+tip and drift away, so it looks like it's rushing forward while the sprite stays
+still. Loops every 8 frames; flip it to fly left.
+
 ### Flamethrower — `flamethrower/`
 
 ![Flamethrower loop](flamethrower/flamethrower-loop-8x12/flamethrower-loop-8x12.gif)
@@ -642,18 +653,30 @@ Aseprite file like the props.
 
 | Effect | Folder | Size | Frames | Per frame | Loops | Aseprite file (in the folder) |
 | --- | --- | --- | --- | --- | --- | --- |
-| Small explosion | `explosion-small-8x8` | 8×8 | 8 | 50 ms (3) | No | `explosion-small.aseprite` (tag `explosion-small`) |
-| Explosion | `explosion-8x16` | 8×16, double wide | 10 | 50 ms (3) | No | `explosion.aseprite` (tag `explosion`) |
+| Small explosion | `explosion-small-8x8` | 8×8 | 11 | 50–67 ms (3–4) | No | `explosion-small.aseprite` (tag `explosion-small`) |
+| Explosion | `explosion-8x16` | 8×16, double wide | 14 | 50–67 ms (3–4) | No | `explosion.aseprite` (tag `explosion`) |
 | Large explosion | `explosion-large-8x32` | 8×32, quad wide | 23 | 50–67 ms (3–4) | No | `explosion-large.aseprite` (tag `explosion-large`) |
+| Spark | `spark-8x8` | 8×8 | 15 | 33 ms (2) | No | `spark.aseprite` (tag `spark`) |
 
 ### Explosions
 
 ![Small explosion](explosion-small-8x8/explosion-small-8x8.gif) ![Explosion](explosion-8x16/explosion-8x16.gif) ![Large explosion](explosion-large-8x32/explosion-large-8x32.gif)
 
 The small (8×8) and regular (16×16 on screen) explosions are the same blast: a
-flash bursts into a ragged, churning fireball that fills the area, its middle
-blows clear into a ring of fire, and the ring breaks up into scraps, ending
+flash bursts into a ragged, churning fireball that fills the area and its middle
+blows clear; as it does, puffs of smoke billow out of it, swell and drift up,
+shrinking away, while the fire under them crumbles away pixel by pixel, ending
 empty. The large one (32×32 on screen) is a chain explosion instead: four
 smaller blasts go off one after another around the area, then the biggest goes
 off in the middle and swallows them; at its biggest, puffs of smoke billow out
 of its ring and drift up as the fire crumbles away under them.
+
+### Spark — `spark-8x8`
+
+![Spark](spark-8x8/spark-8x8.gif)
+
+A spark: a hot point a little off the middle crackles out into six uneven rays,
+each at its own angle and speed, so it never looks regular. Gravity pulls on
+them: the rays droop at their far ends as they grow, and once they break off
+from the middle they fall faster and faster as they fly, the short ones burning
+out first, ending empty. 15 frames at 33 ms, moving about half a pixel a frame.
