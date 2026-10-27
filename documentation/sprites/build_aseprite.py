@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Compiles the player's animations in this folder into one Aseprite file,
-player-animations.aseprite, with a tag per animation, and each prop's into its
-own file (trampoline.aseprite, double-jump.aseprite and the saw-blade*.aseprite
-files). Also writes the same frames as an Aseprite-style sprite sheet
-(<name>.png + .json), which PlayerEditor.vue's "Import from Aseprite" turns
-into one animation per tag.
+player-animations.aseprite, with a tag per animation, plus the same frames as
+an Aseprite-style sprite sheet (player-animations.png + .json), which
+PlayerEditor.vue's "Import from Aseprite" turns into one animation per tag.
+
+Each prop (trampoline, double jump power-up, saw blades) is kept apart from the
+player, in its own folder: its Aseprite file is written there, next to the
+folder's own sprite sheet (<folder>.png + .json) from its generate.py.
 
 Reads each animation folder's generated strip and .json, so re-run each
 folder's generate.py first after changing its frames.
@@ -12,8 +14,8 @@ folder's generate.py first after changing its frames.
 The .aseprite file is written directly, following
 https://github.com/aseprite/aseprite/blob/main/docs/ase-file-specs.md:
 8 pixels wide RGBA canvas as tall as the frames, one layer, white pixels on
-transparent. A double- or quad-wide sprite gets Aseprite's 2:1 or 4:1 pixel ratio, so it shows
-as it will on the VCS."""
+transparent. A double- or quad-wide sprite gets Aseprite's 2:1 or 4:1 pixel
+ratio, so it shows as it will on the VCS."""
 import json
 import os
 import struct
@@ -43,15 +45,15 @@ PLAYER = [
     'climb-8x8',
     'shrink-8x8',
 ]
-FILES = {
-    'player-animations': PLAYER,
-    'trampoline': ['trampoline-8x8'],
-    'double-jump': ['double-jump-8x8'],
-    'saw-blade': ['saw-blade-8x8'],
-    'saw-blade-large': ['saw-blade-large-8x16'],
-    'saw-blade-huge': ['saw-blade-huge-8x32'],
+# Each prop's Aseprite file name and folder.
+PROPS = {
+    'trampoline': 'trampoline-8x8',
+    'double-jump': 'double-jump-8x8',
+    'saw-blade': 'saw-blade-8x8',
+    'saw-blade-large': 'saw-blade-large-8x16',
+    'saw-blade-huge': 'saw-blade-huge-8x32',
 }
-# Files drawn at double or quad width on the VCS (NUSIZ), and how many times
+# Props drawn at double or quad width on the VCS (NUSIZ), and how many times
 # wider than tall their pixels are.
 PIXEL_WIDTH = {'saw-blade-large': 2, 'saw-blade-huge': 4}
 
@@ -190,11 +192,18 @@ def write_sheet(name, tags, frames):
         f.write('\n')
 
 
+def report(path, tags):
+    print(f'{os.path.relpath(path, HERE)}:')
+    for tag, start, end in tags:
+        print(f'  {tag}: frames {start + 1}-{end + 1}')
+
+
 if __name__ == '__main__':
-    for name, folders in FILES.items():
-        path = os.path.join(HERE, f'{name}.aseprite')
-        tags, frames = write_aseprite(load(folders), path, PIXEL_WIDTH.get(name, 1))
-        write_sheet(name, tags, frames)
-        print(f'{name}.aseprite:')
-        for tag, start, end in tags:
-            print(f'  {tag}: frames {start + 1}-{end + 1}')
+    path = os.path.join(HERE, 'player-animations.aseprite')
+    tags, frames = write_aseprite(load(PLAYER), path)
+    write_sheet('player-animations', tags, frames)
+    report(path, tags)
+    for name, folder in PROPS.items():
+        path = os.path.join(HERE, folder, f'{name}.aseprite')
+        tags, _ = write_aseprite(load([folder]), path, PIXEL_WIDTH.get(name, 1))
+        report(path, tags)

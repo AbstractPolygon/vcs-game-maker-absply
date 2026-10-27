@@ -24,10 +24,9 @@ Aseprite** to bring in every animation at once, one per tag. After changing
 any animation, re-run its `generate.py` and then `build_aseprite.py` to
 rebuild all three.
 
-Props are not in the player's file. Each has its own Aseprite file and sprite
-sheet (`trampoline.aseprite`, `double-jump.aseprite`, `saw-blade.aseprite`,
-`saw-blade-large.aseprite`, `saw-blade-huge.aseprite`, each with a `.png` +
-`.json`), built by the same `build_aseprite.py`. See [Props](#props).
+Props are not in the player's file. Each lives in its own folder, with its
+own Aseprite file next to its sprite sheet, built by the same
+`build_aseprite.py`. See [Props](#props).
 
 ## Overview
 
@@ -336,10 +335,12 @@ frame is empty.
 
 ## Props
 
-Objects in the level, not the player. Each one has its own folder and its own
-Aseprite file, so it imports as a separate sprite.
+Objects in the level, not the player. Each one is self-contained in its own
+folder: the frames in every format listed at the top, plus its own Aseprite
+file, so it imports as a separate sprite. The folder's `<folder>.png` +
+`<folder>.json` is its sprite sheet for **Import from Aseprite**.
 
-| Prop | Folder | Size | Frames | Per frame | Loops | Aseprite file |
+| Prop | Folder | Size | Frames | Per frame | Loops | Aseprite file (in the folder) |
 | --- | --- | --- | --- | --- | --- | --- |
 | Trampoline | `trampoline-8x8` | 8×8 | 12 | 50 ms (3) | No | `trampoline.aseprite` (tag `trampoline`) |
 | Double jump power-up | `double-jump-8x8` | 8×8 | 12 | 33–100 ms (2–6) | Yes | `double-jump.aseprite` (tag `double-jump`) |
