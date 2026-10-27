@@ -415,7 +415,7 @@ file, so it imports as a separate sprite. The folder's `<folder>.png` +
 | Speed | `speed-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `speed.aseprite` (tag `speed`) |
 | Pikes | `pikes-8x8` | 8×8 | 5 | 33–500 ms (2–30) | No | `pikes.aseprite` (tag `pikes`) |
 | Vortex | `vortex-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `vortex.aseprite` (tag `vortex`) |
-| Fireball | `fireball-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `fireball.aseprite` (tag `fireball`) |
+| Fireball | `fireball-8x16` | 8×16 | 24 | 33 ms (2) | Yes | `fireball.aseprite` (tag `fireball`) |
 | Large vortex | `vortex-large-8x16` | 8×16, double wide | 12 | 50 ms (3) | Yes | `vortex-large.aseprite` (tag `vortex-large`) |
 | Flamethrower | `flamethrower/` | 8×12, quad wide | 12 + 4 + 8 + 10 | 33–67 ms (2–4) | Idle and loop | `flamethrower.aseprite` (tags `flamethrower-idle`, `-start`, `-loop`, `-end`) |
 
@@ -617,15 +617,16 @@ round area, turning a little each frame so it draws everything in. Two arms look
 the same every half turn, so each is 12 frames of half a turn, looping. The
 large one is double wide, 16×16 on screen, and its arms wind further round.
 
-### Fireball — `fireball-8x8`
+### Fireball — `fireball-8x16`
 
-![Fireball](fireball-8x8/fireball-8x8.gif)
+![Fireball](fireball-8x16/fireball-8x16.gif)
 
-A fireball flying to the right: a round ball of fire with a wobbling edge and a
-ragged trail of flame streaming back from it to a point. The trail waves up and
-down and its edge is carried backwards a pixel a frame, and embers break off its
-tip and drift away, so it looks like it's rushing forward while the sprite stays
-still. Loops every 8 frames; flip it to fly left.
+A fireball burning like a torch: a round, simmering ball of fire in the bottom
+half with flames rising straight up off it. Three tongues of flame, the middle
+one tallest, rise and fall and sway out of time with each other, and when one
+peaks a spark flies off its tip and drifts straight up, lit on every frame of
+its life so it doesn't flicker. Everything
+moves a pixel or less a frame, so it flows: 24 frames at 33 ms, looping.
 
 ### Flamethrower — `flamethrower/`
 
