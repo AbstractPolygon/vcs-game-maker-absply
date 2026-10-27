@@ -24,9 +24,9 @@ Aseprite** to bring in every animation at once, one per tag. After changing
 any animation, re-run its `generate.py` and then `build_aseprite.py` to
 rebuild all three.
 
-Props are not in the player's file. Each has its own: `trampoline.aseprite`,
-with `trampoline.png` + `trampoline.json` as its sprite sheet, is built by the
-same `build_aseprite.py`. See [Props](#props).
+Props are not in the player's file. Each has its own Aseprite file and sprite
+sheet (`trampoline.aseprite`, `double-jump.aseprite`, each with a `.png` +
+`.json`), built by the same `build_aseprite.py`. See [Props](#props).
 
 ## Overview
 
@@ -341,6 +341,7 @@ Aseprite file, so it imports as a separate sprite.
 | Prop | Folder | Size | Frames | Per frame | Loops | Aseprite file |
 | --- | --- | --- | --- | --- | --- | --- |
 | Trampoline | `trampoline-8x8` | 8×8 | 12 | 50 ms (3) | No | `trampoline.aseprite` (tag `trampoline`) |
+| Double jump power-up | `double-jump-8x8` | 8×8 | 12 | 33–100 ms (2–6) | Yes | `double-jump.aseprite` (tag `double-jump`) |
 
 ### Trampoline — `trampoline-8x8`
 
@@ -365,3 +366,28 @@ eases back down and settles with a smaller dip and a last flick.
 10. Flat
 11. A last small flick up
 12. Settled at rest
+
+### Double jump power-up — `double-jump-8x8`
+
+![Double jump power-up](double-jump-8x8/double-jump-8x8.gif)
+
+The double jump power-up, two stacked chevrons, spinning on its vertical axis.
+It narrows one pixel per frame from 8 wide to 2 (edge on) and widens back out.
+Widths of 7, 5 and 3 can't be centred, so on those frames the nearer half is a
+pixel wider: the left half on the way in, the right half on the way out. The
+back looks the same as the front, so one loop is a full turn, about 0.57 s.
+Frame times follow a real spin, lingering face on and passing quickly through
+edge on; each frame's time is listed below in ms (NTSC frames).
+
+1. Face on, 8 wide: 100 (6)
+2. 7 wide, left edge nearer: 67 (4)
+3. 6 wide: 50 (3)
+4. 5 wide: 33 (2)
+5. 4 wide: 33 (2)
+6. 3 wide: 33 (2)
+7. Edge on, 2 wide: 33 (2)
+8. 3 wide, right edge nearer: 33 (2)
+9. 4 wide: 33 (2)
+10. 5 wide: 33 (2)
+11. 6 wide: 50 (3)
+12. 7 wide: 67 (4)

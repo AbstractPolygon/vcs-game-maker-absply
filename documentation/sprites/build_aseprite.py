@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compiles the player's animations in this folder into one Aseprite file,
 player-animations.aseprite, with a tag per animation, and each prop's into its
-own file (trampoline.aseprite). Also writes the same frames as an Aseprite-style
+own file (trampoline.aseprite, double-jump.aseprite). Also writes the same frames as an Aseprite-style
 sprite sheet (<name>.png + .json), which PlayerEditor.vue's "Import from
 Aseprite" turns into one animation per tag.
 
@@ -43,6 +43,7 @@ PLAYER = [
 FILES = {
     'player-animations': PLAYER,
     'trampoline': ['trampoline-8x8'],
+    'double-jump': ['double-jump-8x8'],
 }
 
 # Distinct tag colours so the animations stand apart on Aseprite's timeline.

@@ -28,8 +28,11 @@ def frame_image(frame, scale=1):
 
 def export(frames, out, sheet_name, frame_prefix, tag, frame_ms=FRAME_MS):
     """frames: list of strings of 8-character rows of '#' and '.', all the
-    same height; files land in out."""
+    same height; files land in out. frame_ms is one time for every frame or a
+    list with a time per frame."""
     frames = parse_frames(frames)
+    durations = frame_ms if isinstance(frame_ms, list) else [frame_ms] * len(frames)
+    assert len(durations) == len(frames)
     height = len(frames[0])
     strip = Image.new('RGB', (WIDTH * len(frames), height), OFF)
     preview = Image.new('RGB', ((WIDTH + 1) * len(frames) * 16, height * 16), (40, 40, 40))
@@ -46,7 +49,7 @@ def export(frames, out, sheet_name, frame_prefix, tag, frame_ms=FRAME_MS):
     strip.save(os.path.join(out, f'{sheet_name}.png'))
     preview.save(os.path.join(out, 'preview.png'))
     gif = [frame_image(frame, 16) for frame in frames]
-    gif[0].save(os.path.join(out, f'{sheet_name}.gif'), save_all=True, append_images=gif[1:], duration=frame_ms, loop=0)
+    gif[0].save(os.path.join(out, f'{sheet_name}.gif'), save_all=True, append_images=gif[1:], duration=durations, loop=0)
 
     sheet = {
         'frames': [
@@ -57,7 +60,7 @@ def export(frames, out, sheet_name, frame_prefix, tag, frame_ms=FRAME_MS):
                 'trimmed': False,
                 'spriteSourceSize': {'x': 0, 'y': 0, 'w': WIDTH, 'h': height},
                 'sourceSize': {'w': WIDTH, 'h': height},
-                'duration': frame_ms,
+                'duration': durations[i],
             }
             for i in range(len(frames))
         ],
