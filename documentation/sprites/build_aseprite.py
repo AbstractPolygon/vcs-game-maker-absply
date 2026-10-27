@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Compiles the player's animations in this folder into one Aseprite file,
-player-animations.aseprite, with a tag per animation, plus the same frames as
-an Aseprite-style sprite sheet (player-animations.png + .json), which
+"""Compiles the player's animations in player/ into one Aseprite file,
+player/player-animations.aseprite, with a tag per animation, plus the same
+frames as an Aseprite-style sprite sheet (player-animations.png + .json), which
 PlayerEditor.vue's "Import from Aseprite" turns into one animation per tag.
 
-Each prop (trampoline, double jump power-up, saw blades) is kept apart from the
+Each prop (trampoline, double jump power-up, saw blades, fire) is kept apart from the
 player, in its own folder: its Aseprite file is written there, next to the
 folder's own sprite sheet (<folder>.png + .json) from its generate.py.
 
@@ -24,12 +24,13 @@ import zlib
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+PLAYER_DIR = os.path.join(HERE, 'player')
 WIDTH = 8
 ON = (255, 255, 255, 255)
 OFF = (0, 0, 0, 0)
 
-# Folder order is the tag order in each file. Props are kept out of the
-# player's file so they import as their own sprites.
+# Folders in player/, in tag order. Props are kept out of the player's file so
+# they import as their own sprites.
 PLAYER = [
     'idle-8x8',
     'run-cycle-8x8',
@@ -44,6 +45,7 @@ PLAYER = [
     'door-open-8x8',
     'climb-8x8',
     'shrink-8x8',
+    'disintegrate-8x8',
 ]
 # Each prop's Aseprite file name and folder.
 PROPS = {
@@ -52,6 +54,7 @@ PROPS = {
     'saw-blade': 'saw-blade-8x8',
     'saw-blade-large': 'saw-blade-large-8x16',
     'saw-blade-huge': 'saw-blade-huge-8x32',
+    'fire': 'fire-8x16',
 }
 # Props drawn at double or quad width on the VCS (NUSIZ), and how many times
 # wider than tall their pixels are.
@@ -62,17 +65,18 @@ TAG_COLORS = [
     (0x4c, 0xaf, 0x50), (0x21, 0x96, 0xf3), (0xff, 0x98, 0x00), (0x9c, 0x27, 0xb0),
     (0xf4, 0x43, 0x36), (0x00, 0xbc, 0xd4), (0x79, 0x55, 0x48), (0x3f, 0x51, 0xb5),
     (0xe9, 0x1e, 0x63), (0x8b, 0xc3, 0x4a), (0xff, 0xc1, 0x07), (0x60, 0x7d, 0x8b),
-    (0xcd, 0xdc, 0x39),
+    (0xcd, 0xdc, 0x39), (0x9e, 0x9e, 0x9e),
 ]
 
 
-def load(folders):
-    """Returns [(tag, [(pixels, duration_ms), ...]), ...] from the folders."""
+def load(folders, parent=HERE):
+    """Returns [(tag, [(pixels, duration_ms), ...]), ...] from the folders in
+    parent."""
     animations = []
     for folder in folders:
-        with open(os.path.join(HERE, folder, f'{folder}.json')) as f:
+        with open(os.path.join(parent, folder, f'{folder}.json')) as f:
             sheet = json.load(f)
-        strip = Image.open(os.path.join(HERE, folder, sheet['meta']['image'])).convert('RGB')
+        strip = Image.open(os.path.join(parent, folder, sheet['meta']['image'])).convert('RGB')
         frames = []
         for frame in sheet['frames']:
             r = frame['frame']
@@ -152,7 +156,7 @@ def write_aseprite(animations, path, pixel_width=1):
     return tags, frames
 
 
-def write_sheet(name, tags, frames):
+def write_sheet(out, name, tags, frames):
     height = len(frames[0][0])
     strip = Image.new('RGB', (WIDTH * len(frames), height), (0, 0, 0))
     for i, (pixels, _) in enumerate(frames):
@@ -160,7 +164,7 @@ def write_sheet(name, tags, frames):
             for x, on in enumerate(row):
                 if on:
                     strip.putpixel((i * WIDTH + x, y), (255, 255, 255))
-    strip.save(os.path.join(HERE, f'{name}.png'))
+    strip.save(os.path.join(out, f'{name}.png'))
     sheet = {
         'frames': [
             {
@@ -187,7 +191,7 @@ def write_sheet(name, tags, frames):
             ],
         },
     }
-    with open(os.path.join(HERE, f'{name}.json'), 'w') as f:
+    with open(os.path.join(out, f'{name}.json'), 'w') as f:
         json.dump(sheet, f, indent=2)
         f.write('\n')
 
@@ -199,9 +203,9 @@ def report(path, tags):
 
 
 if __name__ == '__main__':
-    path = os.path.join(HERE, 'player-animations.aseprite')
-    tags, frames = write_aseprite(load(PLAYER), path)
-    write_sheet('player-animations', tags, frames)
+    path = os.path.join(PLAYER_DIR, 'player-animations.aseprite')
+    tags, frames = write_aseprite(load(PLAYER, PLAYER_DIR), path)
+    write_sheet(PLAYER_DIR, 'player-animations', tags, frames)
     report(path, tags)
     for name, folder in PROPS.items():
         path = os.path.join(HERE, folder, f'{name}.aseprite')

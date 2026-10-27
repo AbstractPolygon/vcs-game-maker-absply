@@ -1,8 +1,9 @@
 # Player character animations
 
-Every animation for the player character: one 1-colour figure, facing right,
-8 pixels wide. Each folder holds the same set of files, all importable from
-the Player editor:
+Every animation for the player character, one 1-colour figure facing right,
+8 pixels wide, plus the props in the level. The player's animations are in
+`player/`, one folder each; every prop has its own folder. Each folder holds
+the same set of files, all importable from the Player editor:
 
 | File | Import with |
 | --- | --- |
@@ -12,15 +13,16 @@ the Player editor:
 | `<name>.gif`, `preview.png` | Previews only |
 
 Edit a folder's frames in its `generate.py` and re-run it to rebuild every
-file there. The shared export code is in `export_sprite.py`.
+file there. The shared export code is in `export_sprite.py`, next to
+`build_aseprite.py`, which builds the Aseprite files.
 
 ## All animations in one file
 
-`player-animations.aseprite` holds every animation below in one Aseprite file:
-124 frames on one layer, with a coloured tag per animation, named as in the
-"Aseprite name" column. `player-animations.png` + `player-animations.json` is
-the same thing as an Aseprite sprite sheet: pick both with **Import from
-Aseprite** to bring in every animation at once, one per tag. After changing
+`player/player-animations.aseprite` holds every player animation below in one
+Aseprite file: 139 frames on one layer, with a coloured tag per animation,
+named as in the "Aseprite name" column. `player/player-animations.png` +
+`.json` beside it is the same thing as an Aseprite sprite sheet: pick both with
+**Import from Aseprite** to bring in every animation at once, one per tag. After changing
 any animation, re-run its `generate.py` and then `build_aseprite.py` to
 rebuild all three.
 
@@ -32,19 +34,20 @@ own Aseprite file next to its sprite sheet, built by the same
 
 | Animation | Folder | Size | Frames | Per frame | Loops | Aseprite name |
 | --- | --- | --- | --- | --- | --- | --- |
-| Idle | `idle-8x8` | 8×8 | 10 | 67 ms (4) | Yes | `idle` |
-| Run cycle | `run-cycle-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `run` |
-| Standing jump | `standing-jump-8x8` | 8×8 | 10 | 100 ms (6) | No | `standing-jump` |
-| Running jump | `running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
-| Cannonball jump | `cannonball-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `cannonball-jump` |
-| Cannonball loop | `cannonball-loop-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `cannonball-loop` |
-| Fall start | `fall-start-8x8` | 8×8 | 8 | 100 ms (6) | No | `fall-start` |
-| Fall | `fall-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `fall` |
-| Hard landing | `hard-landing-8x8` | 8×8 | 10 | 100 ms (6) | No | `hard-landing` |
-| Wall bounce | `wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
-| Door opening | `door-open-8x8` | 8×8 | 8 | 100 ms (6) | No | `door-open` |
-| Ladder climb | `climb-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `climb` |
-| Shrink | `shrink-8x8` | 8×8 | 14 | 67 ms (4) | No | `shrink` |
+| Idle | `player/idle-8x8` | 8×8 | 10 | 67 ms (4) | Yes | `idle` |
+| Run cycle | `player/run-cycle-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `run` |
+| Standing jump | `player/standing-jump-8x8` | 8×8 | 10 | 100 ms (6) | No | `standing-jump` |
+| Running jump | `player/running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
+| Cannonball jump | `player/cannonball-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `cannonball-jump` |
+| Cannonball loop | `player/cannonball-loop-8x8` | 8×8 | 8 | 100 ms (6) | Yes | `cannonball-loop` |
+| Fall start | `player/fall-start-8x8` | 8×8 | 8 | 100 ms (6) | No | `fall-start` |
+| Fall | `player/fall-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `fall` |
+| Hard landing | `player/hard-landing-8x8` | 8×8 | 10 | 100 ms (6) | No | `hard-landing` |
+| Wall bounce | `player/wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
+| Door opening | `player/door-open-8x8` | 8×8 | 8 | 100 ms (6) | No | `door-open` |
+| Ladder climb | `player/climb-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `climb` |
+| Shrink | `player/shrink-8x8` | 8×8 | 14 | 67 ms (4) | No | `shrink` |
+| Disintegrate | `player/disintegrate-8x8` | 8×8 | 15 | 33 ms (2) | No | `disintegrate` |
 
 ## Lining the animations up
 
@@ -65,6 +68,7 @@ own Aseprite file next to its sprite sheet, built by the same
 | Wall bounce frame 8 | Idle frame 1 | Standing |
 | Idle frame 1 | Standing jump frame 1 | Standing |
 | Idle frame 1 | Shrink frame 1 | Standing |
+| Idle frame 1 | Disintegrate frame 1 | Standing |
 | Standing jump frame 10 | Idle frame 1 | Rises into the standing pose |
 | Standing jump frames 3, 4 and 9 | Cannonball jump frames 1, 2 and 8 | Crouch, spring, landing |
 | Run cycle frame 8 | Fall start frame 1 | Toe-off |
@@ -77,7 +81,7 @@ own Aseprite file next to its sprite sheet, built by the same
 
 ### Idle — `idle-8x8`
 
-![Idle](idle-8x8/idle-8x8.gif)
+![Idle](player/idle-8x8/idle-8x8.gif)
 
 Facing right, with the front foot planted ahead of the back one, bouncing
 gently up and down with overlapping action. Going down the arms swing out
@@ -101,7 +105,7 @@ one part by one pixel and no pose repeats.
 
 ### Run cycle — `run-cycle-8x8`
 
-![Run cycle](run-cycle-8x8/run-cycle-8x8.gif)
+![Run cycle](player/run-cycle-8x8/run-cycle-8x8.gif)
 
 The 8 frames cover a single step, from one foot landing to the other. In a
 1-colour silhouette both halves of a stride look the same, so this loops as a
@@ -123,7 +127,7 @@ down.
 
 ### Standing jump — `standing-jump-8x8`
 
-![Standing jump](standing-jump-8x8/standing-jump-8x8.gif)
+![Standing jump](player/standing-jump-8x8/standing-jump-8x8.gif)
 
 A jump straight up from standing. Starts on the idle's first frame, bends the
 knees and crouches into the idle's low pose, springs up with both arms
@@ -146,7 +150,7 @@ and the other bends at the hip and knee.
 
 ### Running jump — `running-jump-8x8`
 
-![Running jump](running-jump-8x8/running-jump-8x8.gif)
+![Running jump](player/running-jump-8x8/running-jump-8x8.gif)
 
 A leap taken mid-run. It takes off from the run cycle's frame 8 and lands on
 its frame 1, so switch back to the run at frame 2. The arms are the run's short
@@ -164,7 +168,7 @@ back hand sweeps up behind and back down.
 
 ### Cannonball jump — `cannonball-jump-8x8`
 
-![Cannonball jump](cannonball-jump-8x8/cannonball-jump-8x8.gif)
+![Cannonball jump](player/cannonball-jump-8x8/cannonball-jump-8x8.gif)
 
 A jump from standing that curls into a ball at the top, hugging the knees,
 then uncurls to land. Starts on the standing jump's crouch and spring, and
@@ -181,7 +185,7 @@ lands on its low landing pose.
 
 ### Cannonball loop — `cannonball-loop-8x8`
 
-![Cannonball loop](cannonball-loop-8x8/cannonball-loop-8x8.gif)
+![Cannonball loop](player/cannonball-loop-8x8/cannonball-loop-8x8.gif)
 
 The cannonball jump's curled-up ball rolling forward through a full turn, 45°
 a frame, centred so it spins in place. Loop it while the player is in the air,
@@ -198,7 +202,7 @@ for example in place of the cannonball jump's frames 4–6.
 
 ### Fall start — `fall-start-8x8`
 
-![Fall start](fall-start-8x8/fall-start-8x8.gif)
+![Fall start](player/fall-start-8x8/fall-start-8x8.gif)
 
 The lead-in to a fall when the player walks or runs off the edge of a
 platform. Starts on the run cycle's frame 8 and ends on the fall loop's frame 1.
@@ -214,7 +218,7 @@ platform. Starts on the run cycle's frame 8 and ends on the fall loop's frame 1.
 
 ### Fall — `fall-8x8`
 
-![Fall](fall-8x8/fall-8x8.gif)
+![Fall](player/fall-8x8/fall-8x8.gif)
 
 A smooth loop for dropping, with the body mirrored: both arms move together
 and both legs move together, and the arms are the same two-pixel length as the
@@ -227,7 +231,7 @@ on from frame 2.
 
 ### Hard landing — `hard-landing-8x8`
 
-![Hard landing](hard-landing-8x8/hard-landing-8x8.gif)
+![Hard landing](player/hard-landing-8x8/hard-landing-8x8.gif)
 
 Landing after a long fall: braces, hits the ground and splats flat out face
 down, then pushes up on one arm, gets a knee under and stands. Switch to it
@@ -247,7 +251,7 @@ the idle's frame 1.
 
 ### Wall bounce — `wall-bounce-8x8`
 
-![Wall bounce](wall-bounce-8x8/wall-bounce-8x8.gif)
+![Wall bounce](player/wall-bounce-8x8/wall-bounce-8x8.gif)
 
 Running into a wall just past the right edge and bouncing off it. Starts on
 the run cycle's frame 1 and ends on the idle's frame 1. The game should push
@@ -264,7 +268,7 @@ the sprite left, mostly over frames 3–5.
 
 ### Door opening — `door-open-8x8`
 
-![Door opening](door-open-8x8/door-open-8x8.gif)
+![Door opening](player/door-open-8x8/door-open-8x8.gif)
 
 Opening a door just past the right edge. The feet stay planted in the idle's
 stance the whole time; only the upper body moves. Only the player is
@@ -282,7 +286,7 @@ and ends on the idle's frame 1.
 
 ### Ladder climb — `climb-8x8`
 
-![Ladder climb](climb-8x8/climb-8x8.gif)
+![Ladder climb](player/climb-8x8/climb-8x8.gif)
 
 Climbing a ladder, seen from the front with the arms and legs either side of
 the body, like the fall. Made for a steady climb with no pauses: the hands and
@@ -307,7 +311,7 @@ sprite up the ladder.
 
 ### Shrink — `shrink-8x8`
 
-![Shrink](shrink-8x8/shrink-8x8.gif)
+![Shrink](player/shrink-8x8/shrink-8x8.gif)
 
 The player shrinking away, for a teleport, a vanish or a death. Starts on the
 idle's first frame, swings both arms out and up as the knees bend, crouches
@@ -333,6 +337,34 @@ frame is empty.
 13. The spark fades
 14. Gone
 
+### Disintegrate — `disintegrate-8x8`
+
+![Disintegrate](player/disintegrate-8x8/disintegrate-8x8.gif)
+
+The player turning to ash and crumbling into a pile, for a death. Starts on the
+idle's first frame. Like a cartoon, the body stays exactly where it is while it
+crumbles from the bottom up, two grains a frame: everything above keeps hanging
+in place until the ash beneath it has gone, and the head drops last. Ash falls
+a row a frame and slides outward down the pile; where there's no room it packs
+into the ash below, so it ends on a small mound 6 pixels wide on the bottom
+row. No grain moves more than one pixel a frame.
+
+1. Standing, as in the idle
+2. The feet crumble to ash
+3. The shins crumble; the rest stays standing
+4. The knees go
+5. The hips go, the body still hanging in place
+6. The arms crumble away
+7. The chest goes
+8. The neck goes
+9. The head is left hanging, then drops
+10. Falling
+11. Falling
+12. The head lands
+13. The last ash slides down
+14. Packing down
+15. Settled into a pile of ash
+
 ## Props
 
 Objects in the level, not the player. Each one is self-contained in its own
@@ -347,6 +379,7 @@ file, so it imports as a separate sprite. The folder's `<folder>.png` +
 | Saw blade | `saw-blade-8x8` | 8×8 | 4 | 50 ms (3) | Yes | `saw-blade.aseprite` (tag `saw-blade`) |
 | Large saw blade | `saw-blade-large-8x16` | 8×16, double wide | 5 | 50 ms (3) | Yes | `saw-blade-large.aseprite` (tag `saw-blade-large`) |
 | Huge saw blade | `saw-blade-huge-8x32` | 8×32, quad wide | 12 | 17–33 ms (1–2) | Yes | `saw-blade-huge.aseprite` (tag `saw-blade-huge`) |
+| Fire | `fire-8x16` | 8×16 | 24 | 33 ms (2) | Yes | `fire.aseprite` (tag `fire`) |
 
 The large and huge saw blades are drawn to be shown at double and quad width
 (NUSIZ), so they appear 16×16 and 32×32 on screen. Their frame files are still
@@ -454,3 +487,19 @@ tooth passes every third of a second.
 10. 33.75 degrees
 11. 37.5 degrees
 12. 41.25 degrees; another 3.75 is frame 1 again
+
+### Fire — `fire-8x16`
+
+![Fire](fire-8x16/fire-8x16.gif)
+
+A roaring fire 8 pixels wide and 16 tall, burning on the bottom row, looping.
+Three tongues of flame, a tall one in the middle and a shorter one either side,
+leap up and die back by several rows (the middle one from about 6 rows to the
+full 16) and whip their tips side to side, out of time with each other, with
+quicker wobbles on top, so it flickers fast but flows from frame to frame.
+Whenever a tongue peaks its tip breaks off and rises as a separate lick that
+shrinks away. The outline slopes steeply down from the middle and the
+outermost columns only flicker on the bottom row, so the fire tapers to its
+edges instead of ending in a hard edge 8 pixels across. A hollow core near the
+base keeps it reading as fire in one colour. All 24 frames are different, and
+frame 24 leads straight back into frame 1.
