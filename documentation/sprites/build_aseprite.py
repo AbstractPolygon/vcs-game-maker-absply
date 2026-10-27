@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """Compiles the player's animations in this folder into one Aseprite file,
 player-animations.aseprite, with a tag per animation, and each prop's into its
-own file (trampoline.aseprite, double-jump.aseprite). Also writes the same frames as an Aseprite-style
-sprite sheet (<name>.png + .json), which PlayerEditor.vue's "Import from
-Aseprite" turns into one animation per tag.
+own file (trampoline.aseprite, double-jump.aseprite and the saw-blade*.aseprite
+files). Also writes the same frames as an Aseprite-style sprite sheet
+(<name>.png + .json), which PlayerEditor.vue's "Import from Aseprite" turns
+into one animation per tag.
 
 Reads each animation folder's generated strip and .json, so re-run each
 folder's generate.py first after changing its frames.
 
 The .aseprite file is written directly, following
 https://github.com/aseprite/aseprite/blob/main/docs/ase-file-specs.md:
-8x8 RGBA canvas, one layer, white pixels on transparent."""
+8 pixels wide RGBA canvas as tall as the frames, one layer, white pixels on
+transparent. A double- or quad-wide sprite gets Aseprite's 2:1 or 4:1 pixel ratio, so it shows
+as it will on the VCS."""
 import json
 import os
 import struct
@@ -19,7 +22,7 @@ import zlib
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SIZE = 8
+WIDTH = 8
 ON = (255, 255, 255, 255)
 OFF = (0, 0, 0, 0)
 
@@ -44,7 +47,13 @@ FILES = {
     'player-animations': PLAYER,
     'trampoline': ['trampoline-8x8'],
     'double-jump': ['double-jump-8x8'],
+    'saw-blade': ['saw-blade-8x8'],
+    'saw-blade-large': ['saw-blade-large-8x16'],
+    'saw-blade-huge': ['saw-blade-huge-8x32'],
 }
+# Files drawn at double or quad width on the VCS (NUSIZ), and how many times
+# wider than tall their pixels are.
+PIXEL_WIDTH = {'saw-blade-large': 2, 'saw-blade-huge': 4}
 
 # Distinct tag colours so the animations stand apart on Aseprite's timeline.
 TAG_COLORS = [
@@ -66,8 +75,8 @@ def load(folders):
         for frame in sheet['frames']:
             r = frame['frame']
             tile = strip.crop((r['x'], r['y'], r['x'] + r['w'], r['y'] + r['h']))
-            assert tile.size == (SIZE, SIZE), folder
-            pixels = [[sum(tile.getpixel((x, y))) > 96 for x in range(SIZE)] for y in range(SIZE)]
+            assert tile.width == WIDTH, folder
+            pixels = [[sum(tile.getpixel((x, y))) > 96 for x in range(WIDTH)] for y in range(tile.height)]
             frames.append((pixels, frame['duration']))
         animations.append((sheet['meta']['frameTags'][0]['name'], frames))
     return animations
@@ -91,7 +100,7 @@ def cel_chunk(pixels):
     raw = b''.join(bytes(ON if on else OFF) for row in pixels for on in row)
     # layer 0 at (0, 0), opaque, compressed image cel, z-index 0
     header = struct.pack('<HhhBHh5x', 0, 0, 0, 255, 2, 0)
-    return chunk(0x2005, header + struct.pack('<HH', SIZE, SIZE) + zlib.compress(raw))
+    return chunk(0x2005, header + struct.pack('<HH', WIDTH, len(pixels)) + zlib.compress(raw))
 
 
 def color_profile_chunk():
@@ -120,7 +129,7 @@ def frame_block(chunks, duration):
     return struct.pack('<IHHH2xI', 16 + len(body), 0xF1FA, min(n, 0xFFFF), duration, n) + body
 
 
-def write_aseprite(animations, path):
+def write_aseprite(animations, path, pixel_width=1):
     tags, frames, index = [], [], 0
     for name, anim in animations:
         tags.append((name, index, index + len(anim) - 1))
@@ -131,8 +140,10 @@ def write_aseprite(animations, path):
         chunks = [color_profile_chunk(), palette_chunk(), layer_chunk('player'), tags_chunk(tags)] if i == 0 else []
         blocks.append(frame_block(chunks + [cel_chunk(pixels)], duration))
     body = b''.join(blocks)
-    header = struct.pack('<IHHHHHIHII', 128 + len(body), 0xA5E0, len(frames), SIZE, SIZE, 32, 1, 100, 0, 0)
-    header += struct.pack('<B3xHBBhhHH', 0, 2, 1, 1, 0, 0, 16, 16)
+    height = len(frames[0][0])
+    assert all(len(pixels) == height for pixels, _ in frames)
+    header = struct.pack('<IHHHHHIHII', 128 + len(body), 0xA5E0, len(frames), WIDTH, height, 32, 1, 100, 0, 0)
+    header += struct.pack('<B3xHBBhhHH', 0, 2, pixel_width, 1, 0, 0, 16, 16)
     header += bytes(128 - len(header))
     with open(path, 'wb') as f:
         f.write(header + body)
@@ -140,22 +151,23 @@ def write_aseprite(animations, path):
 
 
 def write_sheet(name, tags, frames):
-    strip = Image.new('RGB', (SIZE * len(frames), SIZE), (0, 0, 0))
+    height = len(frames[0][0])
+    strip = Image.new('RGB', (WIDTH * len(frames), height), (0, 0, 0))
     for i, (pixels, _) in enumerate(frames):
         for y, row in enumerate(pixels):
             for x, on in enumerate(row):
                 if on:
-                    strip.putpixel((i * SIZE + x, y), (255, 255, 255))
+                    strip.putpixel((i * WIDTH + x, y), (255, 255, 255))
     strip.save(os.path.join(HERE, f'{name}.png'))
     sheet = {
         'frames': [
             {
                 'filename': f'{name} {i}.aseprite',
-                'frame': {'x': i * SIZE, 'y': 0, 'w': SIZE, 'h': SIZE},
+                'frame': {'x': i * WIDTH, 'y': 0, 'w': WIDTH, 'h': height},
                 'rotated': False,
                 'trimmed': False,
-                'spriteSourceSize': {'x': 0, 'y': 0, 'w': SIZE, 'h': SIZE},
-                'sourceSize': {'w': SIZE, 'h': SIZE},
+                'spriteSourceSize': {'x': 0, 'y': 0, 'w': WIDTH, 'h': height},
+                'sourceSize': {'w': WIDTH, 'h': height},
                 'duration': duration,
             }
             for i, (_, duration) in enumerate(frames)
@@ -164,7 +176,7 @@ def write_sheet(name, tags, frames):
             'app': 'https://www.aseprite.org/',
             'image': f'{name}.png',
             'format': 'RGB888',
-            'size': {'w': SIZE * len(frames), 'h': SIZE},
+            'size': {'w': WIDTH * len(frames), 'h': height},
             'scale': '1',
             'frameTags': [
                 {'name': tag, 'from': start, 'to': end, 'direction': 'forward',
@@ -180,7 +192,8 @@ def write_sheet(name, tags, frames):
 
 if __name__ == '__main__':
     for name, folders in FILES.items():
-        tags, frames = write_aseprite(load(folders), os.path.join(HERE, f'{name}.aseprite'))
+        path = os.path.join(HERE, f'{name}.aseprite')
+        tags, frames = write_aseprite(load(folders), path, PIXEL_WIDTH.get(name, 1))
         write_sheet(name, tags, frames)
         print(f'{name}.aseprite:')
         for tag, start, end in tags:

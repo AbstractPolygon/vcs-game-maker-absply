@@ -17,29 +17,35 @@ def parse_frames(frames):
     return frames
 
 
-def frame_image(frame, scale=1):
+def frame_image(frame, scale=1, pixel_width=1):
     img = Image.new('RGB', (WIDTH, len(frame)), OFF)
     for y, row in enumerate(frame):
         for x, on in enumerate(row):
             if on:
                 img.putpixel((x, y), ON)
-    return img.resize((WIDTH * scale, len(frame) * scale), Image.NEAREST) if scale > 1 else img
+    if scale == 1 and pixel_width == 1:
+        return img
+    return img.resize((WIDTH * scale * pixel_width, len(frame) * scale), Image.NEAREST)
 
 
-def export(frames, out, sheet_name, frame_prefix, tag, frame_ms=FRAME_MS):
+def export(frames, out, sheet_name, frame_prefix, tag, frame_ms=FRAME_MS, pixel_width=1):
     """frames: list of strings of 8-character rows of '#' and '.', all the
     same height; files land in out. frame_ms is one time for every frame or a
-    list with a time per frame."""
+    list with a time per frame. pixel_width is 2 or 4 for a sprite shown at
+    double or quad width on the VCS (NUSIZ): the frame files stay 8 pixels wide
+    and only the preview and GIF are drawn with pixels that much wider than
+    they are tall."""
+    pw = pixel_width
     frames = parse_frames(frames)
     durations = frame_ms if isinstance(frame_ms, list) else [frame_ms] * len(frames)
     assert len(durations) == len(frames)
     height = len(frames[0])
     strip = Image.new('RGB', (WIDTH * len(frames), height), OFF)
-    preview = Image.new('RGB', ((WIDTH + 1) * len(frames) * 16, height * 16), (40, 40, 40))
+    preview = Image.new('RGB', ((WIDTH * pw + 1) * len(frames) * 16, height * 16), (40, 40, 40))
     for i, frame in enumerate(frames):
         img = frame_image(frame)
         strip.paste(img, (i * WIDTH, 0))
-        preview.paste(frame_image(frame, 16), (i * (WIDTH + 1) * 16, 0))
+        preview.paste(frame_image(frame, 16, pw), (i * (WIDTH * pw + 1) * 16, 0))
         img.save(os.path.join(out, f'{frame_prefix}_{i + 1}.png'))
         # parseSpriteFile (src/utils/wide-sprite.js) merges each pair of .spr rows
         # into one pixel row (bB's double-height rows), so every row is written twice.
@@ -48,7 +54,7 @@ def export(frames, out, sheet_name, frame_prefix, tag, frame_ms=FRAME_MS):
             f.write('  player0:\n' + '\n'.join(rows) + '\nend\n')
     strip.save(os.path.join(out, f'{sheet_name}.png'))
     preview.save(os.path.join(out, 'preview.png'))
-    gif = [frame_image(frame, 16) for frame in frames]
+    gif = [frame_image(frame, 16, pw) for frame in frames]
     gif[0].save(os.path.join(out, f'{sheet_name}.gif'), save_all=True, append_images=gif[1:], duration=durations, loop=0)
 
     sheet = {

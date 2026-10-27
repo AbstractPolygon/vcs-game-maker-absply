@@ -1,0 +1,111 @@
+{
+  "frames": [
+    {
+      "filename": "saw-blade 0.aseprite",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "saw-blade 1.aseprite",
+      "frame": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "saw-blade 2.aseprite",
+      "frame": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "saw-blade 3.aseprite",
+      "frame": {
+        "x": 24,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    }
+  ],
+  "meta": {
+    "app": "https://www.aseprite.org/",
+    "image": "saw-blade.png",
+    "format": "RGB888",
+    "size": {
+      "w": 32,
+      "h": 8
+    },
+    "scale": "1",
+    "frameTags": [
+      {
+        "name": "saw-blade",
+        "from": 0,
+        "to": 3,
+        "direction": "forward",
+        "color": "#4caf50ff"
+      }
+    ]
+  }
+}

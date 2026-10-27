@@ -25,7 +25,8 @@ any animation, re-run its `generate.py` and then `build_aseprite.py` to
 rebuild all three.
 
 Props are not in the player's file. Each has its own Aseprite file and sprite
-sheet (`trampoline.aseprite`, `double-jump.aseprite`, each with a `.png` +
+sheet (`trampoline.aseprite`, `double-jump.aseprite`, `saw-blade.aseprite`,
+`saw-blade-large.aseprite`, `saw-blade-huge.aseprite`, each with a `.png` +
 `.json`), built by the same `build_aseprite.py`. See [Props](#props).
 
 ## Overview
@@ -342,6 +343,14 @@ Aseprite file, so it imports as a separate sprite.
 | --- | --- | --- | --- | --- | --- | --- |
 | Trampoline | `trampoline-8x8` | 8×8 | 12 | 50 ms (3) | No | `trampoline.aseprite` (tag `trampoline`) |
 | Double jump power-up | `double-jump-8x8` | 8×8 | 12 | 33–100 ms (2–6) | Yes | `double-jump.aseprite` (tag `double-jump`) |
+| Saw blade | `saw-blade-8x8` | 8×8 | 4 | 50 ms (3) | Yes | `saw-blade.aseprite` (tag `saw-blade`) |
+| Large saw blade | `saw-blade-large-8x16` | 8×16, double wide | 5 | 50 ms (3) | Yes | `saw-blade-large.aseprite` (tag `saw-blade-large`) |
+| Huge saw blade | `saw-blade-huge-8x32` | 8×32, quad wide | 12 | 17–33 ms (1–2) | Yes | `saw-blade-huge.aseprite` (tag `saw-blade-huge`) |
+
+The large and huge saw blades are drawn to be shown at double and quad width
+(NUSIZ), so they appear 16×16 and 32×32 on screen. Their frame files are still
+8 pixels wide; their GIFs and Aseprite files (with a 2:1 or 4:1 pixel ratio)
+show them as they will look on the VCS.
 
 ### Trampoline — `trampoline-8x8`
 
@@ -391,3 +400,56 @@ edge on; each frame's time is listed below in ms (NTSC frames).
 10. 5 wide: 33 (2)
 11. 6 wide: 50 (3)
 12. 7 wide: 67 (4)
+
+### Saw blade — `saw-blade-8x8`
+
+![Saw blade](saw-blade-8x8/saw-blade-8x8.gif)
+
+A circular saw blade spinning clockwise: a round blade with a hole at the hub
+and 5 single-pixel teeth sticking out of the rim. The rim has 20 pixel
+positions around it and the teeth sit every 4th one, so each frame moves every
+tooth one position clockwise and after 4 frames it looks the same again.
+
+1. 5 teeth around the rim
+2. Teeth one step clockwise
+3. Two steps
+4. Three steps; the next step is frame 1 again
+
+### Large saw blade — `saw-blade-large-8x16`
+
+![Large saw blade](saw-blade-large-8x16/saw-blade-large-8x16.gif)
+
+The same idea at double width and 16 rows tall: a round blade with a hole at
+the hub and 8 single-pixel teeth on a rim of 40 positions, every 5th one. Each
+frame moves every tooth one position clockwise, so after 5 frames it looks the
+same again.
+
+1. 8 teeth around the rim
+2. Teeth one step clockwise
+3. Two steps
+4. Three steps
+5. Four steps; the next step is frame 1 again
+
+### Huge saw blade — `saw-blade-huge-8x32`
+
+![Huge saw blade](saw-blade-huge-8x32/saw-blade-huge-8x32.gif)
+
+The biggest blade, at quad width and 32 rows tall, with 8 hooked teeth that
+ramp out and drop sharply, cutting edge first in the direction of the spin.
+Each frame turns it 3.75 degrees clockwise, which moves the teeth on the sides
+about one row, so after 12 frames (45 degrees, one tooth) it looks the same
+again. The frames run 33, 33 and 17 ms (2, 2, 1 NTSC frames) in turn, so a
+tooth passes every third of a second.
+
+1. 8 hooked teeth
+2. Turned 3.75 degrees clockwise
+3. 7.5 degrees
+4. 11.25 degrees
+5. 15 degrees
+6. 18.75 degrees
+7. 22.5 degrees
+8. 26.25 degrees
+9. 30 degrees
+10. 33.75 degrees
+11. 37.5 degrees
+12. 41.25 degrees; another 3.75 is frame 1 again
