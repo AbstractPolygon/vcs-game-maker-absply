@@ -8,99 +8,98 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from export_sprite import export  # noqa: E402
 
-# A speed boost: a wing seen from the side, joined at the right edge, its
-# feathers fanning out to the left with their tips drawn as a row of points.
-# It flaps: from level it lifts to raised high, sweeps back down through level
-# to all the way down and lifts again, a step a frame, so the loop beats
-# steadily. The wing always stays inside the 8x8.
+# A speed boost: a stopwatch, a round face with the button on top, its hand
+# sweeping round fast, an eighth of a turn a frame, so it goes all the way
+# round in under half a second. Drawn in the 7 columns around the hand's pivot
+# so the face is round (the last column stays empty). Loops.
 FRAMES = [
-    # 1 spread level
+    # 1 the hand at 12 o'clock
     """
-    ........
-    ........
-    #.#.#.#.
-    ########
-    .#######
-    ...#####
-    ......##
-    ........
-    """,
-    # 2 lifting
-    """
-    ........
-    #.#.#...
-    .#######
-    ..######
-    ....####
-    ......##
-    ........
-    ........
-    """,
-    # 3 raised high
-    """
-    #.#.....
+    ...#....
+    ..###...
     .#.#.#..
-    ..######
-    ...#####
-    ....####
-    ......##
-    ........
-    ........
+    #..#..#.
+    #..#..#.
+    #.....#.
+    .#...#..
+    ..###...
     """,
-    # 4 coming down
+    # 2 the hand at half past 1
     """
-    ........
-    #.#.#...
-    .#######
-    ..######
-    ....####
-    ......##
-    ........
-    ........
+    ...#....
+    ..###...
+    .#...#..
+    #...#.#.
+    #..#..#.
+    #.....#.
+    .#...#..
+    ..###...
     """,
-    # 5 level
+    # 3 the hand at 3 o'clock
     """
-    ........
-    ........
-    #.#.#.#.
-    ########
-    .#######
-    ...#####
-    ......##
-    ........
+    ...#....
+    ..###...
+    .#...#..
+    #.....#.
+    #..####.
+    #.....#.
+    .#...#..
+    ..###...
     """,
-    # 6 beating down
+    # 4 the hand at half past 4
     """
-    ........
-    ........
-    ........
-    ..######
-    ########
-    #.#.#.##
-    ......##
-    ........
+    ...#....
+    ..###...
+    .#...#..
+    #.....#.
+    #..#..#.
+    #...#.#.
+    .#...#..
+    ..###...
     """,
-    # 7 all the way down
+    # 5 the hand at 6 o'clock
     """
-    ........
-    ........
-    ........
-    ....####
-    ..######
-    .#######
-    #.#.#.##
-    ........
+    ...#....
+    ..###...
+    .#...#..
+    #.....#.
+    #..#..#.
+    #..#..#.
+    .#.#.#..
+    ..###...
     """,
-    # 8 lifting again; loops back to frame 1
+    # 6 the hand at half past 7
     """
-    ........
-    ........
-    ........
-    ..######
-    ########
-    #.#.#.##
-    ......##
-    ........
+    ...#....
+    ..###...
+    .#...#..
+    #.....#.
+    #..#..#.
+    #.#...#.
+    .#...#..
+    ..###...
+    """,
+    # 7 the hand at 9 o'clock
+    """
+    ...#....
+    ..###...
+    .#...#..
+    #.....#.
+    ####..#.
+    #.....#.
+    .#...#..
+    ..###...
+    """,
+    # 8 the hand at half past 10
+    """
+    ...#....
+    ..###...
+    .#...#..
+    #.#...#.
+    #..#..#.
+    #.....#.
+    .#...#..
+    ..###...
     """,
 ]
 

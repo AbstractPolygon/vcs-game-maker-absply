@@ -19,7 +19,7 @@ file there. The shared export code is in `export_sprite.py`, next to
 ## All animations in one file
 
 `player/player-animations.aseprite` holds every player animation below in one
-Aseprite file: 177 frames on one layer, with a coloured tag per animation,
+Aseprite file: 181 frames on one layer, with a coloured tag per animation,
 named as in the "Aseprite name" column. `player/player-animations.png` +
 `.json` beside it is the same thing as an Aseprite sprite sheet: pick both with
 **Import from Aseprite** to bring in every animation at once, one per tag. After changing
@@ -50,6 +50,7 @@ own Aseprite file next to its sprite sheet, built by the same
 | Disintegrate | `player/disintegrate-8x8` | 8×8 | 15 | 33 ms (2) | No | `disintegrate` |
 | Pikes | `player/pikes-hit-8x8` | 8×8 | 21 | 33–300 ms (2–18) | No | `pikes-hit` |
 | Blow up | `player/blow-up-8x8` | 8×8 | 17 | 33–67 ms (2–4) | No | `blow-up` |
+| Crouch | `player/crouch-8x8` | 8×8 | 4 | 50 ms (3) | No | `crouch` |
 
 ## Lining the animations up
 
@@ -72,6 +73,7 @@ own Aseprite file next to its sprite sheet, built by the same
 | Idle frame 1 | Shrink frame 1 | Standing |
 | Idle frame 1 | Disintegrate frame 1 | Standing |
 | Idle frame 1 | Blow up frame 1 | Standing |
+| Idle frames 1 and 7 | Crouch frames 1 and 2 | Standing, knees bent |
 | Fall frame 1 | Pikes frame 1 | Arms up, feet out |
 | Standing jump frame 10 | Idle frame 1 | Rises into the standing pose |
 | Standing jump frames 3, 4 and 9 | Cannonball jump frames 1, 2 and 8 | Crouch, spring, landing |
@@ -393,6 +395,22 @@ sides, each under a pixel a frame and falling as it goes, while a puff of smoke
 in the middle shrinks away. The pieces arc off the edges one by one and it ends
 empty.
 
+### Crouch — `crouch-8x8`
+
+![Crouch](player/crouch-8x8/crouch-8x8.gif)
+
+The player crouching down to duck, a row lower each frame: from the idle's first
+frame through its lowest pose (frame 7), sinking with the arms out for balance,
+to a duck two rows shorter than standing. Ducked, the head and neck still sit
+clear of the hunched shoulders and the two bent legs stay apart, so it still
+reads as the player. Play it once and hold the last frame while ducking; play
+it backwards to stand up.
+
+1. Standing, as in the idle
+2. Knees bend, as in the idle's low point
+3. Sinking lower, arms out for balance, knees out
+4. Ducked: hunched over, arms in, knees bent right up
+
 ## Props
 
 Objects in the level, not the player. Each one is self-contained in its own
@@ -594,9 +612,9 @@ behind, so the 10 frames are half a turn, at the double jump power-up's speed.
 
 ![Speed](speed-8x8/speed-8x8.gif)
 
-A speed boost: a wing seen from the side, joined at the right edge, its
-feathers fanning out to the left. It flaps from level up to raised high, down
-through level to all the way down and back, a step a frame, inside the 8×8.
+A speed boost: a stopwatch, a round face with the button on top, its hand
+sweeping round fast, an eighth of a turn a frame, so it goes all the way round
+in 0.4 s.
 
 ### Pikes — `pikes-8x8`
 
