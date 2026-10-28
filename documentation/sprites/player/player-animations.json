@@ -3981,6 +3981,94 @@
         "h": 8
       },
       "duration": 50
+    },
+    {
+      "filename": "player-animations 181.aseprite",
+      "frame": {
+        "x": 1448,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 182.aseprite",
+      "frame": {
+        "x": 1456,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 50
+    },
+    {
+      "filename": "player-animations 183.aseprite",
+      "frame": {
+        "x": 1464,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
+    },
+    {
+      "filename": "player-animations 184.aseprite",
+      "frame": {
+        "x": 1472,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sourceSize": {
+        "w": 8,
+        "h": 8
+      },
+      "duration": 100
     }
   ],
   "meta": {
@@ -3988,7 +4076,7 @@
     "image": "player-animations.png",
     "format": "RGB888",
     "size": {
-      "w": 1448,
+      "w": 1480,
       "h": 8
     },
     "scale": "1",
@@ -4111,6 +4199,13 @@
         "to": 180,
         "direction": "forward",
         "color": "#009688ff"
+      },
+      {
+        "name": "slide",
+        "from": 181,
+        "to": 184,
+        "direction": "forward",
+        "color": "#3f51b5ff"
       }
     ]
   }

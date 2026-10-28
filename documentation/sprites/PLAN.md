@@ -19,7 +19,7 @@ file there. The shared export code is in `export_sprite.py`, next to
 ## All animations in one file
 
 `player/player-animations.aseprite` holds every player animation below in one
-Aseprite file: 181 frames on one layer, with a coloured tag per animation,
+Aseprite file: 185 frames on one layer, with a coloured tag per animation,
 named as in the "Aseprite name" column. `player/player-animations.png` +
 `.json` beside it is the same thing as an Aseprite sprite sheet: pick both with
 **Import from Aseprite** to bring in every animation at once, one per tag. After changing
@@ -51,6 +51,7 @@ own Aseprite file next to its sprite sheet, built by the same
 | Pikes | `player/pikes-hit-8x8` | 8×8 | 21 | 33–300 ms (2–18) | No | `pikes-hit` |
 | Blow up | `player/blow-up-8x8` | 8×8 | 17 | 33–67 ms (2–4) | No | `blow-up` |
 | Crouch | `player/crouch-8x8` | 8×8 | 4 | 50 ms (3) | No | `crouch` |
+| Slide | `player/slide-8x8` | 8×8 | 4 | 50–100 ms (3–6) | Frames 3–4 | `slide` |
 
 ## Lining the animations up
 
@@ -78,6 +79,7 @@ own Aseprite file next to its sprite sheet, built by the same
 | Standing jump frame 10 | Idle frame 1 | Rises into the standing pose |
 | Standing jump frames 3, 4 and 9 | Cannonball jump frames 1, 2 and 8 | Crouch, spring, landing |
 | Run frame 8 | Fall start frame 1 | Toe-off |
+| Run frame 1 | Slide frame 1 | Running in |
 | Fall start frame 8 | Fall frame 1 (carry on from frame 2) | Both arms up, legs apart |
 | Hard landing frame 10 | Idle frame 1 | Standing |
 | Idle frame 1 | Door opening frame 1 | Standing |
@@ -410,6 +412,22 @@ it backwards to stand up.
 2. Knees bend, as in the idle's low point
 3. Sinking lower, arms out for balance, knees out
 4. Ducked: hunched over, arms in, knees bent right up
+
+### Slide — `slide-8x8`
+
+![Slide](player/slide-8x8/slide-8x8.gif)
+
+The player dropping into a slide along the ground, like Mega Man's slide.
+Starts on the run's first frame, drops with the legs kicking apart, then slides
+two rows shorter than standing: low, the arms out for balance, both legs
+splayed and visible, the back one stretched out behind and the front one out in
+front. Loop frames 3 and 4 for as long as the player slides, and move the
+sprite in game code.
+
+1. Running in, as in the run's frame 1 (3 NTSC frames)
+2. Dropping: legs kicking apart (3)
+3. Sliding: low, arms out, back leg behind, front leg in front (6)
+4. Sliding: the back leg stretches further out, the foot dragging on the ground (6)
 
 ## Props
 
