@@ -675,7 +675,7 @@ Aseprite file like the props.
 | Small explosion | `explosion-small-8x8` | 8×8 | 11 | 50–67 ms (3–4) | No | `explosion-small.aseprite` (tag `explosion-small`) |
 | Explosion | `explosion-8x16` | 8×16, double wide | 14 | 50–67 ms (3–4) | No | `explosion.aseprite` (tag `explosion`) |
 | Large explosion | `explosion-large-8x32` | 8×32, quad wide | 23 | 50–67 ms (3–4) | No | `explosion-large.aseprite` (tag `explosion-large`) |
-| Spark | `spark-8x8` | 8×8 | 15 | 33 ms (2) | No | `spark.aseprite` (tag `spark`) |
+| Spark | `spark-8x8` | 8×8 | 15 | 17–33 ms (1–2) | No | `spark.aseprite` (tag `spark`) |
 
 ### Explosions
 
@@ -698,4 +698,5 @@ A spark: a hot point a little off the middle crackles out into six uneven rays,
 each at its own angle and speed, so it never looks regular. Gravity pulls on
 them: the rays droop at their far ends as they grow, and once they break off
 from the middle they fall faster and faster as they fly, the short ones burning
-out first, ending empty. 15 frames at 33 ms, moving about half a pixel a frame.
+out first, ending empty. 15 frames of 17 and 33 ms in turn (about 0.37 s in
+all), moving about half a pixel a frame.

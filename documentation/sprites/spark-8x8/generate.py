@@ -15,7 +15,7 @@ from export_sprite import export  # noqa: E402
 # short ones burning out first, ending empty. Gravity pulls on them: the rays
 # droop at their far ends as they grow, and once they break off they fall
 # faster and faster as they fly. The rays move half a pixel or
-# so a frame at 2 NTSC frames each, so it's smooth and quick. Play it once,
+# so a frame at 1 or 2 NTSC frames each, so it's smooth and quick. Play it once,
 # or loop it for a crackle.
 FRAMES = [
     # 1 a hot point
@@ -185,4 +185,7 @@ FRAMES = [
     """,
 ]
 
-export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'spark-8x8', 'spark', 'spark', frame_ms=33)
+# 1 and 2 NTSC frames in turn: between the two speeds, about 0.37 s in all
+FRAME_MS = [17, 33] * 7 + [17]
+
+export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'spark-8x8', 'spark', 'spark', frame_ms=FRAME_MS)
