@@ -19,7 +19,7 @@ file there. The shared export code is in `export_sprite.py`, next to
 ## All animations in one file
 
 `player/player-animations.aseprite` holds every player animation below in one
-Aseprite file: 185 frames on one layer, with a coloured tag per animation,
+Aseprite file: 204 frames on one layer, with a coloured tag per animation,
 named as in the "Aseprite name" column. `player/player-animations.png` +
 `.json` beside it is the same thing as an Aseprite sprite sheet: pick both with
 **Import from Aseprite** to bring in every animation at once, one per tag. After changing
@@ -52,6 +52,8 @@ own Aseprite file next to its sprite sheet, built by the same
 | Blow up | `player/blow-up-8x8` | 8×8 | 17 | 33–67 ms (2–4) | No | `blow-up` |
 | Crouch | `player/crouch-8x8` | 8×8 | 4 | 50 ms (3) | No | `crouch` |
 | Slide | `player/slide-8x8` | 8×8 | 4 | 50–100 ms (3–6) | Frames 3–4 | `slide` |
+| Ledge climb | `player/ledge-climb-8x8` | 8×8 | 10 | 50–100 ms (3–6) | No | `ledge-climb` |
+| Fist pump | `player/fist-pump-8x8` | 8×8 | 9 | 67–300 ms (4–18) | No | `fist-pump` |
 
 ## Lining the animations up
 
@@ -80,6 +82,9 @@ own Aseprite file next to its sprite sheet, built by the same
 | Standing jump frames 3, 4 and 9 | Cannonball jump frames 1, 2 and 8 | Crouch, spring, landing |
 | Run frame 8 | Fall start frame 1 | Toe-off |
 | Run frame 1 | Slide frame 1 | Running in |
+| Ledge climb frame 10 | Idle frame 1 | Standing |
+| Idle frame 1 | Fist pump frame 1 | Standing |
+| Fist pump frame 9 | Idle frame 1 | Rises into the standing pose |
 | Fall start frame 8 | Fall frame 1 (carry on from frame 2) | Both arms up, legs apart |
 | Hard landing frame 10 | Idle frame 1 | Standing |
 | Idle frame 1 | Door opening frame 1 | Standing |
@@ -428,6 +433,51 @@ sprite in game code.
 2. Dropping: legs kicking apart (3)
 3. Sliding: low, arms out, back leg behind, front leg in front (6)
 4. Sliding: the back leg stretches further out, the foot dragging on the ground (6)
+
+### Ledge climb — `ledge-climb-8x8`
+
+![Ledge climb](player/ledge-climb-8x8/ledge-climb-8x8.gif)
+
+The player climbing up over a ledge, all inside one 8x8 block: the sprite sits
+on top of the ledge and never moves, with the ledge's top corner 2 pixels in
+from the left of its bottom edge. The player starts hanging below the sprite
+with only the hands showing on top, pulls up into view head first, pushes the
+chest over the edge, gets the front knee up and swings the back leg over, then
+stands up through the crouch played backwards, ending on the idle's first
+frame. Play it once.
+
+1. Hands grab the top of the ledge; the rest of the player is below the sprite
+2. Pulls up, the head comes into view beside the hands
+3. Chin over the edge, forearms flat on top
+4. Chest over the edge, arms straight, pushing down
+5. Front knee up onto the ledge, back leg still over the edge
+6. Crouched on top, the back leg swinging up
+7. Ducked, as in the crouch's frame 4
+8. Rising, as in the crouch's frame 3
+9. Knees bent, as in the crouch's frame 2
+10. Standing, as in the idle
+
+### Fist pump — `fist-pump-8x8`
+
+![Fist pump](player/fist-pump-8x8/fist-pump-8x8.gif)
+
+The player celebrating like Mario: a hop with one fist punched up in the air.
+Starts on the idle's first frame, crouches, springs up swinging the front fist
+up past the head, and hangs at the top (0.3 s) with the fist high, the other
+fist in at the chest and the back knee raised. Comes down with the fist still
+up, lands low, drops the arm and rises with the knees bent into the idle's first
+frame. Play it once; the pose is drawn in place, and the game can move the
+sprite up and down for the hop.
+
+1. Standing, as in the idle
+2. Knees bend
+3. Crouches low
+4. Springs up, the front fist swinging up past the head
+5. Top of the hop: fist high, other fist at the chest, back knee up (held)
+6. Coming down, fist still up
+7. Lands low, fist still up
+8. The arm drops
+9. Rising with the knees bent
 
 ## Props
 
