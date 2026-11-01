@@ -36,7 +36,7 @@ own Aseprite file next to its sprite sheet, built by the same
 | --- | --- | --- | --- | --- | --- | --- |
 | Idle | `player/idle-8x8` | 8×8 | 10 | 67 ms (4) | Yes | `idle` |
 | Run | `player/run-cycle-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `run` |
-| Standing jump | `player/standing-jump-8x8` | 8×8 | 10 | 100 ms (6) | No | `standing-jump` |
+| Standing jump | `player/standing-jump-8x8` | 8×8 | 10 | 50–100 ms (3–6) | No | `standing-jump` |
 | Running jump | `player/running-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `running-jump` |
 | Cannonball jump | `player/cannonball-jump-8x8` | 8×8 | 8 | 100 ms (6) | No | `cannonball-jump` |
 | Cannonball loop | `player/cannonball-loop-8x8` | 8×8 | 8 | 67 ms (4) | Yes | `cannonball-loop` |

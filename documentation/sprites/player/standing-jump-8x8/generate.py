@@ -128,4 +128,7 @@ FRAMES = [
     ..#...#.
     """,
 ]
-export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'standing-jump-8x8', 'standing_jump', 'standing-jump')
+# NTSC frames: 3, 3, 3 for a quick wind-up, then 6 each
+FRAME_MS = [50, 50, 50] + [100] * 7
+
+export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'standing-jump-8x8', 'standing_jump', 'standing-jump', frame_ms=FRAME_MS)
