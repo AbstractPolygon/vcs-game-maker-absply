@@ -549,94 +549,6 @@
         "h": 16
       },
       "duration": 100
-    },
-    {
-      "filename": "saw-chop 25.aseprite",
-      "frame": {
-        "x": 200,
-        "y": 0,
-        "w": 8,
-        "h": 16
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 16
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 16
-      },
-      "duration": 100
-    },
-    {
-      "filename": "saw-chop 26.aseprite",
-      "frame": {
-        "x": 208,
-        "y": 0,
-        "w": 8,
-        "h": 16
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 16
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 16
-      },
-      "duration": 150
-    },
-    {
-      "filename": "saw-chop 27.aseprite",
-      "frame": {
-        "x": 216,
-        "y": 0,
-        "w": 8,
-        "h": 16
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 16
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 16
-      },
-      "duration": 50
-    },
-    {
-      "filename": "saw-chop 28.aseprite",
-      "frame": {
-        "x": 224,
-        "y": 0,
-        "w": 8,
-        "h": 16
-      },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 16
-      },
-      "sourceSize": {
-        "w": 8,
-        "h": 16
-      },
-      "duration": 50
     }
   ],
   "meta": {
@@ -644,7 +556,7 @@
     "image": "saw-chop-8x16.png",
     "format": "RGB888",
     "size": {
-      "w": 232,
+      "w": 200,
       "h": 16
     },
     "scale": "1",
@@ -652,7 +564,7 @@
       {
         "name": "saw-chop",
         "from": 0,
-        "to": 28,
+        "to": 24,
         "direction": "forward"
       }
     ]

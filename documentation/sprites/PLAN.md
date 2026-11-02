@@ -63,7 +63,7 @@ own Aseprite file next to its sprite sheet, built by the same
 | Melt | `player/melt-8x8` | 8×8 | 11 | 100–150 ms (6–9) | No | `melt` |
 | Head chop | `player/head-chop-8x16` | 8×16 | 19 | 50–150 ms (3–9) | No | `head-chop.aseprite` |
 | Burst | `player/burst-8x16` | 8×16 | 26 | 50–100 ms (3–6) | No | `burst.aseprite` |
-| Saw chop | `player/saw-chop-8x16` | 8×16 | 29 | 50–200 ms (3–12) | No | `saw-chop.aseprite` |
+| Saw chop | `player/saw-chop-8x16` | 8×16 | 25 | 50–200 ms (3–12) | No | `saw-chop.aseprite` |
 
 ## Lining the animations up
 
@@ -554,7 +554,7 @@ pixels a frame, from just off the right edge on frame 1 (positions in
 flung out, then comes apart into six pieces - head, body, both arms and both
 legs - flung up and apart with bits spraying from the cut. They fall and land
 in a heap on the bottom row, while the head, thrown highest, lands last,
-bounces twice, smaller each time, and finishes lying on the ground. 29 frames;
+bounces once and finishes lying on the ground. 25 frames;
 play it once and hold the last frame.
 
 ## Props
