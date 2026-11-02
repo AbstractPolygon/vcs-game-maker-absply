@@ -52,7 +52,15 @@ PLAYER = [
     'slide-8x8',
     'ledge-climb-8x8',
     'fist-pump-8x8',
+    'melt-8x8',
 ]
+# Player animations taller than the player, so kept out of its file: each one's
+# Aseprite file name and folder in player/.
+PLAYER_SOLO = {
+    'head-chop': 'head-chop-8x16',
+    'burst': 'burst-8x16',
+    'saw-chop': 'saw-chop-8x16',
+}
 # Each prop's Aseprite file name and folder.
 PROPS = {
     'trampoline': 'trampoline-8x8',
@@ -62,6 +70,7 @@ PROPS = {
     'saw-blade-huge': 'saw-blade-huge-8x32',
     'fire': 'fire-8x16',
     'fire-large': 'fire-large-8x24',
+    'fire-huge': 'fire-huge-8x32',
     'key': 'key-8x6',
     'life': 'life-8x8',
     'coin': 'coin-8x8',
@@ -83,7 +92,7 @@ MULTI = {
 }
 # Props drawn at double or quad width on the VCS (NUSIZ), and how many times
 # wider than tall their pixels are.
-PIXEL_WIDTH = {'saw-blade-large': 2, 'saw-blade-huge': 4, 'fire-large': 2, 'flamethrower': 4, 'explosion': 2, 'explosion-large': 4, 'vortex-large': 2}
+PIXEL_WIDTH = {'saw-blade-large': 2, 'saw-blade-huge': 4, 'fire-large': 2, 'fire-huge': 4, 'flamethrower': 4, 'explosion': 2, 'explosion-large': 4, 'vortex-large': 2}
 
 # Distinct tag colours so the animations stand apart on Aseprite's timeline.
 TAG_COLORS = [
@@ -91,7 +100,7 @@ TAG_COLORS = [
     (0xf4, 0x43, 0x36), (0x00, 0xbc, 0xd4), (0x79, 0x55, 0x48), (0x3f, 0x51, 0xb5),
     (0xe9, 0x1e, 0x63), (0x8b, 0xc3, 0x4a), (0xff, 0xc1, 0x07), (0x60, 0x7d, 0x8b),
     (0xcd, 0xdc, 0x39), (0x9e, 0x9e, 0x9e), (0x7c, 0x4d, 0xff), (0xff, 0x57, 0x22), (0x00, 0x96, 0x88), (0x3f, 0x51, 0xb5),
-    (0x26, 0xa6, 0x9a), (0xff, 0xeb, 0x3b),
+    (0x26, 0xa6, 0x9a), (0xff, 0xeb, 0x3b), (0x8d, 0x6e, 0x63),
 ]
 
 
@@ -233,6 +242,10 @@ if __name__ == '__main__':
     tags, frames = write_aseprite(load(PLAYER, PLAYER_DIR), path)
     write_sheet(PLAYER_DIR, 'player-animations', tags, frames)
     report(path, tags)
+    for name, folder in PLAYER_SOLO.items():
+        path = os.path.join(PLAYER_DIR, folder, f'{name}.aseprite')
+        tags, _ = write_aseprite(load([folder], PLAYER_DIR), path)
+        report(path, tags)
     for name, folder in PROPS.items():
         path = os.path.join(HERE, folder, f'{name}.aseprite')
         tags, _ = write_aseprite(load([folder]), path, PIXEL_WIDTH.get(name, 1))

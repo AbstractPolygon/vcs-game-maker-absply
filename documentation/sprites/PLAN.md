@@ -19,12 +19,18 @@ file there. The shared export code is in `export_sprite.py`, next to
 ## All animations in one file
 
 `player/player-animations.aseprite` holds every player animation below in one
-Aseprite file: 205 frames on one layer, with a coloured tag per animation,
+Aseprite file: 216 frames on one layer, with a coloured tag per animation,
 named as in the "Aseprite name" column. `player/player-animations.png` +
 `.json` beside it is the same thing as an Aseprite sprite sheet: pick both with
 **Import from Aseprite** to bring in every animation at once, one per tag. After changing
 any animation, re-run its `generate.py` and then `build_aseprite.py` to
 rebuild all three.
+
+Three player deaths are twice the player's height, so the head and pieces have
+room to fly, and don't fit the player's 8-row file: the head chop, the burst
+and the saw chop. Each has its own Aseprite file in its folder, also built by
+`build_aseprite.py` (its `PLAYER_SOLO` list). In the game, swap the player
+sprite for one of these with its bottom 8 rows where the player stands.
 
 Props are not in the player's file. Each lives in its own folder, with its
 own Aseprite file next to its sprite sheet, built by the same
@@ -54,6 +60,10 @@ own Aseprite file next to its sprite sheet, built by the same
 | Slide | `player/slide-8x8` | 8×8 | 4 | 50–100 ms (3–6) | Frames 3–4 | `slide` |
 | Ledge climb | `player/ledge-climb-8x8` | 8×8 | 10 | 50–100 ms (3–6) | No | `ledge-climb` |
 | Fist pump | `player/fist-pump-8x8` | 8×8 | 9 | 67–300 ms (4–18) | No | `fist-pump` |
+| Melt | `player/melt-8x8` | 8×8 | 11 | 100–150 ms (6–9) | No | `melt` |
+| Head chop | `player/head-chop-8x16` | 8×16 | 19 | 50–150 ms (3–9) | No | `head-chop.aseprite` |
+| Burst | `player/burst-8x16` | 8×16 | 26 | 50–100 ms (3–6) | No | `burst.aseprite` |
+| Saw chop | `player/saw-chop-8x16` | 8×16 | 29 | 50–200 ms (3–12) | No | `saw-chop.aseprite` |
 
 ## Lining the animations up
 
@@ -85,6 +95,8 @@ own Aseprite file next to its sprite sheet, built by the same
 | Ledge climb frame 10 | Idle frame 1 | Standing |
 | Idle frame 1 | Fist pump frame 1 | Standing |
 | Fist pump frame 9 | Idle frame 1 | Rises into the standing pose |
+| Idle frame 1 | Melt frame 1 | Standing |
+| Idle frame 1 | Head chop, burst and saw chop frame 1 (bottom 8 rows) | Standing |
 | Fall start frame 8 | Fall frame 1 (carry on from frame 2) | Both arms up, legs apart |
 | Hard landing frame 10 | Idle frame 1 | Standing |
 | Idle frame 1 | Door opening frame 1 | Standing |
@@ -482,6 +494,69 @@ sprite up and down for the hop.
 8. The arm drops
 9. Rising with the knees bent
 
+### Melt — `melt-8x8`
+
+![Melt](player/melt-8x8/melt-8x8.gif)
+
+The player melting into a puddle with one arm raised. Starts on the idle's
+first frame and melts steadily from there, the body sinking a row every frame
+and spreading out sideways, while one arm droops and the other swings out,
+comes up and reaches straight up, then sinks with the body, going under last,
+until only a puddle is left across the bottom row. Play it once and hold the
+last frame.
+
+1. Standing, as in the idle
+2. Head drops, knees give, one arm droops and the other swings out sideways
+3. Shoulders sag, the arm comes up past the head
+4. Head sinks into the shoulders, the arm reaches straight up
+5. A lumpy blob spreading at the base, the arm sinking with it
+6. Lower and wider, the arm still up
+7. A low mound, the arm sticking up out of it
+8. The last of the head, the forearm going down
+9. One bubble left, the hand still up
+10. The hand going under (held a moment)
+11. A flat puddle
+
+### Head chop — `head-chop-8x16`
+
+![Head chop](player/head-chop-8x16/head-chop-8x16.gif)
+
+The player's head chopped off, in its own 8x16 file (`head-chop.aseprite`):
+the body stands on the bottom 8 rows, exactly as in the idle, with air above.
+The neck is cut so the head sits loose, then the head shoots up, hangs at the
+top drifting back, drops faster and faster behind the body, bounces twice and
+comes to rest. The headless body stands perfectly still, arms at its sides,
+until the head is nearly down; only then do its knees give and it slumps down
+to sit. 19 frames; play it once and hold the last frame.
+
+### Burst — `burst-8x16`
+
+![Burst](player/burst-8x16/burst-8x16.gif)
+
+The player's body swelling up and bursting, the head blown into the air, in its
+own 8x16 file (`burst.aseprite`). From the idle's first frame the body swells
+rounder over eight frames, pushing the head up two rows, while the arms flap up
+and down on every frame, pushed further out as it grows. Then it bursts: pieces
+fly out of a puff of smoke and fall, the ones that land staying on the bottom
+row either side, while the head flies up, hangs at the top, drops into the
+middle, bounces twice and comes to rest among the pieces. 26 frames; play it
+once and hold the last frame.
+
+### Saw chop — `saw-chop-8x16`
+
+![Saw chop](player/saw-chop-8x16/saw-chop-8x16.gif)
+
+The player chopped to pieces by a saw blade rolling through them, in its own
+8x16 file (`saw-chop.aseprite`). Only the player is drawn: the game draws the
+saw blade (`saw-blade-8x8`), rolling in from the right along the ground 2
+pixels a frame, from just off the right edge on frame 1 (positions in
+`SAW_X` in its `generate.py`). As it hits, the player jolts with the limbs
+flung out, then comes apart into six pieces - head, body, both arms and both
+legs - flung up and apart with bits spraying from the cut. They fall and land
+in a heap on the bottom row, while the head, thrown highest, lands last,
+bounces twice, smaller each time, and finishes lying on the ground. 29 frames;
+play it once and hold the last frame.
+
 ## Props
 
 Objects in the level, not the player. Each one is self-contained in its own
@@ -498,6 +573,7 @@ file, so it imports as a separate sprite. The folder's `<folder>.png` +
 | Huge saw blade | `saw-blade-huge-8x32` | 8×32, quad wide | 12 | 17–33 ms (1–2) | Yes | `saw-blade-huge.aseprite` (tag `saw-blade-huge`) |
 | Fire | `fire-8x16` | 8×16 | 24 | 33 ms (2) | Yes | `fire.aseprite` (tag `fire`) |
 | Large fire | `fire-large-8x24` | 8×24, double wide | 24 | 33 ms (2) | Yes | `fire-large.aseprite` (tag `fire-large`) |
+| Huge fire | `fire-huge-8x32` | 8×32, quad wide | 24 | 33 ms (2) | Yes | `fire-huge.aseprite` (tag `fire-huge`) |
 | Key | `key-8x6` | 8×6 | 28 | 17–100 ms (1–6) | Yes | `key.aseprite` (tag `key`) |
 | Extra life | `life-8x8` | 8×8 | 14 | 17–83 ms (1–5) | Yes | `life.aseprite` (tag `life`) |
 | Spinning circle | `coin-8x8` | 8×8 | 10 | 33–133 ms (2–8) | Yes | `coin.aseprite` (tag `coin`) |
@@ -646,6 +722,16 @@ sides, steady base and hollow core. Its six sparks rise a row a frame and step
 just once to the side on the way up (the pixels are double wide, so more drift
 than that looks jittery), each burning out at its own height. 24 frames, all
 different, looping.
+
+### Huge fire — `fire-huge-8x32`
+
+![Huge fire](fire-huge-8x32/fire-huge-8x32.gif)
+
+The same fire again, stretched to 32 rows and shown at quad width, so on screen
+it's 32 wide and 32 tall. Its six sparks rise a row a frame straight up (a step
+to the side would jump 4 pixels on screen); each is 3 rows tall so it shows
+nearly square with the wide pixels, and shrinks as it burns out at its own
+height. 24 frames, all different, looping.
 
 ### Key — `key-8x6`
 
