@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates the 8x16, 24-frame looping fireball in this folder (see
+"""Generates the 8x16, 24-frame looping torch in this folder (see
 ../export_sprite.py for the formats). A hazard, not the player."""
 import os
 import sys
@@ -8,7 +8,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from export_sprite import export  # noqa: E402
 
-# A fireball burning like a torch: a round, simmering ball of fire in the
+# A torch: a round, simmering ball of fire in the
 # bottom half with flames rising straight up off it. Three tongues of flame, a
 # tall one in the middle and a shorter one either side, rise and fall and sway
 # their tips, out of time with each other, and when one peaks a spark flies
@@ -474,4 +474,4 @@ FRAMES = [
     """,
 ]
 
-export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'fireball-8x16', 'fireball', 'fireball', frame_ms=33)
+export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'torch-8x16', 'torch', 'torch', frame_ms=33)

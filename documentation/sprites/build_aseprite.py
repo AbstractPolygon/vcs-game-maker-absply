@@ -82,7 +82,8 @@ PROPS = {
     'explosion-large': 'explosion-large-8x32',
     'explosion-small': 'explosion-small-8x8',
     'spark': 'spark-8x8',
-    'fireball': 'fireball-8x16',
+    'torch': 'torch-8x16',
+    'fireball': 'fireball-8x8',
 }
 # Props made of several animations: one Aseprite file in the prop's folder,
 # with a tag per animation, from the animation folders inside it.
@@ -92,7 +93,7 @@ MULTI = {
 }
 # Props drawn at double or quad width on the VCS (NUSIZ), and how many times
 # wider than tall their pixels are.
-PIXEL_WIDTH = {'saw-blade-large': 2, 'saw-blade-huge': 4, 'fire-large': 2, 'fire-huge': 4, 'flamethrower': 4, 'explosion': 2, 'explosion-large': 4, 'vortex-large': 2}
+PIXEL_WIDTH = {'saw-blade-large': 2, 'saw-blade-huge': 4, 'fire-large': 2, 'fire-huge': 4, 'fireball': 2, 'flamethrower': 4, 'explosion': 2, 'explosion-large': 4, 'vortex-large': 2}
 
 # Distinct tag colours so the animations stand apart on Aseprite's timeline.
 TAG_COLORS = [

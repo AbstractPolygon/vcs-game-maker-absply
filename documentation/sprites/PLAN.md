@@ -580,7 +580,8 @@ file, so it imports as a separate sprite. The folder's `<folder>.png` +
 | Speed | `speed-8x8` | 8×8 | 8 | 50 ms (3) | Yes | `speed.aseprite` (tag `speed`) |
 | Pikes | `pikes-8x8` | 8×8 | 5 | 33–500 ms (2–30) | No | `pikes.aseprite` (tag `pikes`) |
 | Vortex | `vortex-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `vortex.aseprite` (tag `vortex`) |
-| Fireball | `fireball-8x16` | 8×16 | 24 | 33 ms (2) | Yes | `fireball.aseprite` (tag `fireball`) |
+| Torch | `torch-8x16` | 8×16 | 24 | 33 ms (2) | Yes | `torch.aseprite` (tag `torch`) |
+| Fireball | `fireball-8x8` | 8×8, double wide | 8 | 50 ms (3) | Yes | `fireball.aseprite` (tag `fireball`) |
 | Large vortex | `vortex-large-8x16` | 8×16, double wide | 12 | 50 ms (3) | Yes | `vortex-large.aseprite` (tag `vortex-large`) |
 | Flamethrower | `flamethrower/` | 8×12, quad wide | 12 + 4 + 8 + 10 | 33–67 ms (2–4) | Idle and loop | `flamethrower.aseprite` (tags `flamethrower-idle`, `-start`, `-loop`, `-end`) |
 
@@ -792,16 +793,30 @@ round area, turning a little each frame so it draws everything in. Two arms look
 the same every half turn, so each is 12 frames of half a turn, looping. The
 large one is double wide, 16×16 on screen, and its arms wind further round.
 
-### Fireball — `fireball-8x16`
+### Torch — `torch-8x16`
 
-![Fireball](fireball-8x16/fireball-8x16.gif)
+![Torch](torch-8x16/torch-8x16.gif)
 
-A fireball burning like a torch: a round, simmering ball of fire in the bottom
+A torch: a round, simmering ball of fire in the bottom
 half with flames rising straight up off it. Three tongues of flame, the middle
 one tallest, rise and fall and sway out of time with each other, and when one
 peaks a spark flies off its tip and drifts straight up, lit on every frame of
 its life so it doesn't flicker. Everything
 moves a pixel or less a frame, so it flows: 24 frames at 33 ms, looping.
+
+### Fireball — `fireball-8x8`
+
+![Fireball](fireball-8x8/fireball-8x8.gif)
+
+A fireball flying to the right with a flame trail streaming out behind it,
+shown at double width, so on screen it's 16 wide and 8 tall. The ball at the
+front pulses, swelling from 4 pixels wide and 6 tall (round on screen) to 5
+wide and the full 8 tall, back, and shrinking to 4 tall before swelling again;
+while it's at its biggest a hot spot flickers in its middle. The trail is
+thinner than the ball and tapers to the back, its middle line waving and
+breaking up into licks towards its end, streaming back half a pixel a frame so
+the ball looks like it's rushing forward, with two embers dropping off behind.
+The game moves the sprite; flip it to fly left. 8 frames at 50 ms, looping.
 
 ### Flamethrower — `flamethrower/`
 
