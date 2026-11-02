@@ -8,10 +8,12 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from export_sprite import export  # noqa: E402
 
-# Facing right, opening a door just past the right edge. The feet stay planted
-# in the idle's stance the whole time; only the upper body moves. Only
-# the player is drawn: the game draws the door and swaps it to open around
-# frames 6-7. Starts and ends on the idle's first frame.
+# Facing right, dramatically throwing open a door just past the right edge.
+# Reaches out quickly and grabs the handle, leans right back to wind up, then
+# lunges forward and flings the door away, the arm following through up high,
+# and holds a wide-legged ta-da pose before settling back into the idle. Only
+# the player is drawn: the game draws the door and swaps it to open on frame 5.
+# Starts and ends on the idle's first frame.
 FRAMES = [
     # 1 standing, as in the idle
     """
@@ -24,18 +26,7 @@ FRAMES = [
     ..#..#..
     ..#...#.
     """,
-    # 2 turns side-on to the door, arms down
-    """
-    ....##..
-    ....##..
-    ....#...
-    ....##..
-    ....#...
-    ...#.#..
-    ..#..#..
-    ..#...#.
-    """,
-    # 3 reaches out for the handle
+    # 2 turns side-on and reaches for the handle
     """
     ....##..
     ....##..
@@ -46,7 +37,7 @@ FRAMES = [
     ..#..#..
     ..#...#.
     """,
-    # 4 grips the handle at the door's edge
+    # 3 grabs the handle at the door's edge
     """
     ....##..
     ....##..
@@ -57,40 +48,62 @@ FRAMES = [
     ..#..#..
     ..#...#.
     """,
-    # 5 turns the handle
+    # 4 winds up: leans right back on the back foot, arm stretched to the handle
+    """
+    ...##...
+    ...##...
+    ...#....
+    ...#####
+    ...#....
+    ...#.#..
+    ..#..#..
+    ..#...#.
+    """,
+    # 5 throws it: lunges forward, the front arm shoves the door away (the door opens)
+    """
+    .....##.
+    .....##.
+    ....#...
+    ..######
+    ...#....
+    ...###..
+    ..#...#.
+    .#....#.
+    """,
+    # 6 follows through: the front arm flung up high after the door, the back arm swung back
+    """
+    ....##.#
+    ....##.#
+    ....#.#.
+    ..####..
+    .#..#...
+    ...#.#..
+    ..#...#.
+    .#.....#
+    """,
+    # 7 ta-da: arms flung out wide, wide-legged stance, held
+    """
+    ....##..
+    ....##..
+    .#..#..#
+    ..#####.
+    ....#...
+    ...#.#..
+    ..#...#.
+    .#.....#
+    """,
+    # 8 settles: arms drop, feet come back in
     """
     ....##..
     ....##..
     ....#...
-    ....###.
-    ....#..#
+    ...###..
+    ..#.#.#.
     ...#.#..
-    ..#..#..
+    ..#...#.
     ..#...#.
     """,
-    # 6 leans in and pushes the door
-    """
-    .....##.
-    .....##.
-    ....#...
-    ....####
-    ....#...
-    ...#.#..
-    ..#..#..
-    ..#...#.
-    """,
-    # 7 door swings away, hand follows it up
-    """
-    .....##.
-    .....##.
-    ....#..#
-    ....###.
-    ....#...
-    ...#.#..
-    ..#..#..
-    ..#...#.
-    """,
-    # 8 lets go, standing again, as in the idle
+    # 9 standing again, as in the idle
     """
     ....##..
     ....##..
@@ -102,4 +115,8 @@ FRAMES = [
     ..#...#.
     """,
 ]
-export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'door-open-8x8', 'door_open', 'door-open')
+
+# NTSC frames: 4, 3, 3, 9 (wind-up), 2 (the throw), 4, 24 (held), 6, 6
+FRAME_MS = [67, 50, 50, 150, 33, 67, 400, 100, 100]
+
+export(FRAMES, os.path.dirname(os.path.abspath(__file__)), 'door-open-8x8', 'door_open', 'door-open', frame_ms=FRAME_MS)

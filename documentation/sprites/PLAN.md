@@ -19,7 +19,7 @@ file there. The shared export code is in `export_sprite.py`, next to
 ## All animations in one file
 
 `player/player-animations.aseprite` holds every player animation below in one
-Aseprite file: 204 frames on one layer, with a coloured tag per animation,
+Aseprite file: 205 frames on one layer, with a coloured tag per animation,
 named as in the "Aseprite name" column. `player/player-animations.png` +
 `.json` beside it is the same thing as an Aseprite sprite sheet: pick both with
 **Import from Aseprite** to bring in every animation at once, one per tag. After changing
@@ -44,7 +44,7 @@ own Aseprite file next to its sprite sheet, built by the same
 | Fall | `player/fall-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `fall` |
 | Hard landing | `player/hard-landing-8x8` | 8×8 | 10 | 100 ms (6) | No | `hard-landing` |
 | Wall bounce | `player/wall-bounce-8x8` | 8×8 | 8 | 100 ms (6) | No | `wall-bounce` |
-| Door opening | `player/door-open-8x8` | 8×8 | 8 | 100 ms (6) | No | `door-open` |
+| Door opening | `player/door-open-8x8` | 8×8 | 9 | 33–400 ms (2–24) | No | `door-open` |
 | Climb | `player/climb-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `climb` |
 | Shrink | `player/shrink-8x8` | 8×8 | 14 | 67 ms (4) | No | `shrink` |
 | Disintegrate | `player/disintegrate-8x8` | 8×8 | 15 | 33 ms (2) | No | `disintegrate` |
@@ -88,7 +88,7 @@ own Aseprite file next to its sprite sheet, built by the same
 | Fall start frame 8 | Fall frame 1 (carry on from frame 2) | Both arms up, legs apart |
 | Hard landing frame 10 | Idle frame 1 | Standing |
 | Idle frame 1 | Door opening frame 1 | Standing |
-| Door opening frame 8 | Idle frame 1 | Standing |
+| Door opening frame 9 | Idle frame 1 | Standing |
 
 ## Animations
 
@@ -283,19 +283,22 @@ the sprite left, mostly over frames 3–5.
 
 ![Door opening](player/door-open-8x8/door-open-8x8.gif)
 
-Opening a door just past the right edge. The feet stay planted in the idle's
-stance the whole time; only the upper body moves. Only the player is
-drawn: the game draws the door and swaps it to open around frames 6–7. Starts
-and ends on the idle's frame 1.
+Dramatically throwing open a door just past the right edge. Reaches out
+quickly and grabs the handle, leans right back to wind up, then lunges forward
+and flings the door away, the arm following through up high, and holds a
+wide-legged ta-da pose before settling back into the idle. Only the player is
+drawn: the game draws the door and swaps it to open on frame 5, the throw.
+Starts and ends on the idle's frame 1.
 
 1. Standing, as in the idle
-2. Turns side-on to the door, arms down
-3. Reaches out for the handle
-4. Grips the handle at the door's edge
-5. Turns the handle
-6. Leans in and pushes the door
-7. Door swings away, hand follows it up
-8. Lets go, standing again, as in the idle
+2. Turns side-on and reaches for the handle
+3. Grabs the handle at the door's edge
+4. Winds up: leans right back on the back foot, arm stretched to the handle (150 ms)
+5. Throws it: lunges forward, shoving the door away (33 ms; the door opens)
+6. Follows through: the front arm flung up high, the back arm swung back
+7. Ta-da: arms flung out wide, wide-legged stance (held 400 ms)
+8. Settles: arms drop, feet come back in
+9. Standing again, as in the idle
 
 ### Climb — `climb-8x8`
 
