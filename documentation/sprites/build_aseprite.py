@@ -29,8 +29,8 @@ WIDTH = 8
 ON = (255, 255, 255, 255)
 OFF = (0, 0, 0, 0)
 
-# Folders in player/, in tag order. Props are kept out of the player's file so
-# they import as their own sprites.
+# Folders in player/, in tag order, the deaths last. Props are kept out of the
+# player's file so they import as their own sprites.
 PLAYER = [
     'idle-8x8',
     'run-cycle-8x8',
@@ -45,13 +45,14 @@ PLAYER = [
     'door-open-8x8',
     'climb-8x8',
     'shrink-8x8',
-    'disintegrate-8x8',
-    'pikes-hit-8x8',
-    'blow-up-8x8',
     'crouch-8x8',
     'slide-8x8',
     'ledge-climb-8x8',
     'fist-pump-8x8',
+    # deaths, last
+    'disintegrate-8x8',
+    'pikes-hit-8x8',
+    'blow-up-8x8',
     'melt-8x8',
 ]
 # Player animations taller than the player, so kept out of its file: each one's

@@ -18,9 +18,9 @@ file there. The shared export code is in `export_sprite.py`, next to
 
 ## All animations in one file
 
-`player/player-animations.aseprite` holds every player animation below in one
-Aseprite file: 216 frames on one layer, with a coloured tag per animation,
-named as in the "Aseprite name" column. `player/player-animations.png` +
+`player/player-animations.aseprite` holds every 8x8 player animation below in
+one Aseprite file, with the deaths last: 216 frames on one layer, with a
+coloured tag per animation, named as in the "Aseprite name" column. `player/player-animations.png` +
 `.json` beside it is the same thing as an Aseprite sprite sheet: pick both with
 **Import from Aseprite** to bring in every animation at once, one per tag. After changing
 any animation, re-run its `generate.py` and then `build_aseprite.py` to
@@ -53,13 +53,13 @@ own Aseprite file next to its sprite sheet, built by the same
 | Door opening | `player/door-open-8x8` | 8×8 | 9 | 33–400 ms (2–24) | No | `door-open` |
 | Climb | `player/climb-8x8` | 8×8 | 12 | 50 ms (3) | Yes | `climb` |
 | Shrink | `player/shrink-8x8` | 8×8 | 14 | 67 ms (4) | No | `shrink` |
-| Disintegrate | `player/disintegrate-8x8` | 8×8 | 15 | 33 ms (2) | No | `disintegrate` |
-| Pikes | `player/pikes-hit-8x8` | 8×8 | 21 | 33–300 ms (2–18) | No | `pikes-hit` |
-| Blow up | `player/blow-up-8x8` | 8×8 | 17 | 33–67 ms (2–4) | No | `blow-up` |
 | Crouch | `player/crouch-8x8` | 8×8 | 4 | 50 ms (3) | No | `crouch` |
 | Slide | `player/slide-8x8` | 8×8 | 4 | 50–100 ms (3–6) | Frames 3–4 | `slide` |
 | Ledge climb | `player/ledge-climb-8x8` | 8×8 | 10 | 50–100 ms (3–6) | No | `ledge-climb` |
 | Fist pump | `player/fist-pump-8x8` | 8×8 | 9 | 67–300 ms (4–18) | No | `fist-pump` |
+| Disintegrate | `player/disintegrate-8x8` | 8×8 | 15 | 33 ms (2) | No | `disintegrate` |
+| Pikes | `player/pikes-hit-8x8` | 8×8 | 21 | 33–300 ms (2–18) | No | `pikes-hit` |
+| Blow up | `player/blow-up-8x8` | 8×8 | 17 | 33–67 ms (2–4) | No | `blow-up` |
 | Melt | `player/melt-8x8` | 8×8 | 11 | 100–150 ms (6–9) | No | `melt` |
 | Head chop | `player/head-chop-8x16` | 8×16 | 19 | 50–150 ms (3–9) | No | `head-chop.aseprite` |
 | Burst | `player/burst-8x16` | 8×16 | 26 | 50–100 ms (3–6) | No | `burst.aseprite` |
@@ -365,58 +365,6 @@ frame is empty.
 13. The spark fades
 14. Gone
 
-### Disintegrate — `disintegrate-8x8`
-
-![Disintegrate](player/disintegrate-8x8/disintegrate-8x8.gif)
-
-The player turning to ash and crumbling into a pile, for a death. Starts on the
-idle's first frame. Like a cartoon, the body stays exactly where it is while it
-crumbles from the bottom up, two grains a frame: everything above keeps hanging
-in place until the ash beneath it has gone, and the head drops last. Ash falls
-a row a frame and slides outward down the pile; where there's no room it packs
-into the ash below, so it ends on a small mound 6 pixels wide on the bottom
-row. No grain moves more than one pixel a frame.
-
-1. Standing, as in the idle
-2. The feet crumble to ash
-3. The shins crumble; the rest stays standing
-4. The knees go
-5. The hips go, the body still hanging in place
-6. The arms crumble away
-7. The chest goes
-8. The neck goes
-9. The head is left hanging, then drops
-10. Falling
-11. Falling
-12. The head lands
-13. The last ash slides down
-14. Packing down
-15. Settled into a pile of ash
-
-### Pikes — `pikes-hit-8x8`
-
-![Pikes](player/pikes-hit-8x8/pikes-hit-8x8.gif)
-
-The player falling onto pikes and getting stuck on them, for a death. Starts on
-the fall loop's first frame. On impact the body folds over the pikes at the
-hips, head and feet flung up, bounces once off the tips and drops back, then
-sags and hangs limp, draped face down across them with an arm and the legs
-dangling. The arm swings like a pendulum, right forward and right back, then in
-smaller swings dying away; the legs twitch, a foot flicks, and it goes still.
-It's the player sprite only: draw it over the pikes sprite, which shows
-through where they cross.
-
-### Blow up — `blow-up-8x8`
-
-![Blow up](player/blow-up-8x8/blow-up-8x8.gif)
-
-The player blowing up, for a death. Starts on the idle's first frame. A jolt
-flings the arms and legs out, then the body bursts into a round blast. Ten
-pieces fly out of it, the top ones thrown up and out and the rest out to the
-sides, each under a pixel a frame and falling as it goes, while a puff of smoke
-in the middle shrinks away. The pieces arc off the edges one by one and it ends
-empty.
-
 ### Crouch — `crouch-8x8`
 
 ![Crouch](player/crouch-8x8/crouch-8x8.gif)
@@ -493,6 +441,58 @@ sprite up and down for the hop.
 7. Lands low, fist still up
 8. The arm drops
 9. Rising with the knees bent
+
+### Disintegrate — `disintegrate-8x8`
+
+![Disintegrate](player/disintegrate-8x8/disintegrate-8x8.gif)
+
+The player turning to ash and crumbling into a pile, for a death. Starts on the
+idle's first frame. Like a cartoon, the body stays exactly where it is while it
+crumbles from the bottom up, two grains a frame: everything above keeps hanging
+in place until the ash beneath it has gone, and the head drops last. Ash falls
+a row a frame and slides outward down the pile; where there's no room it packs
+into the ash below, so it ends on a small mound 6 pixels wide on the bottom
+row. No grain moves more than one pixel a frame.
+
+1. Standing, as in the idle
+2. The feet crumble to ash
+3. The shins crumble; the rest stays standing
+4. The knees go
+5. The hips go, the body still hanging in place
+6. The arms crumble away
+7. The chest goes
+8. The neck goes
+9. The head is left hanging, then drops
+10. Falling
+11. Falling
+12. The head lands
+13. The last ash slides down
+14. Packing down
+15. Settled into a pile of ash
+
+### Pikes — `pikes-hit-8x8`
+
+![Pikes](player/pikes-hit-8x8/pikes-hit-8x8.gif)
+
+The player falling onto pikes and getting stuck on them, for a death. Starts on
+the fall loop's first frame. On impact the body folds over the pikes at the
+hips, head and feet flung up, bounces once off the tips and drops back, then
+sags and hangs limp, draped face down across them with an arm and the legs
+dangling. The arm swings like a pendulum, right forward and right back, then in
+smaller swings dying away; the legs twitch, a foot flicks, and it goes still.
+It's the player sprite only: draw it over the pikes sprite, which shows
+through where they cross.
+
+### Blow up — `blow-up-8x8`
+
+![Blow up](player/blow-up-8x8/blow-up-8x8.gif)
+
+The player blowing up, for a death. Starts on the idle's first frame. A jolt
+flings the arms and legs out, then the body bursts into a round blast. Ten
+pieces fly out of it, the top ones thrown up and out and the rest out to the
+sides, each under a pixel a frame and falling as it goes, while a puff of smoke
+in the middle shrinks away. The pieces arc off the edges one by one and it ends
+empty.
 
 ### Melt — `melt-8x8`
 
