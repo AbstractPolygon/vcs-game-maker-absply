@@ -58,7 +58,7 @@ own Aseprite file next to its sprite sheet, built by the same
 | Ledge climb | `player/ledge-climb-8x8` | 8×8 | 10 | 50–100 ms (3–6) | No | `ledge-climb` |
 | Fist pump | `player/fist-pump-8x8` | 8×8 | 9 | 67–300 ms (4–18) | No | `fist-pump` |
 | Disintegrate | `player/disintegrate-8x8` | 8×8 | 15 | 33 ms (2) | No | `disintegrate` |
-| Pikes | `player/pikes-hit-8x8` | 8×8 | 21 | 33–300 ms (2–18) | No | `pikes-hit` |
+| Pikes | `player/pikes-hit-8x8` | 8×8 | 21 | 50–300 ms (3–18) | No | `pikes-hit` |
 | Blow up | `player/blow-up-8x8` | 8×8 | 17 | 33–67 ms (2–4) | No | `blow-up` |
 | Melt | `player/melt-8x8` | 8×8 | 11 | 100–150 ms (6–9) | No | `melt` |
 | Head chop | `player/head-chop-8x16` | 8×16 | 19 | 50–150 ms (3–9) | No | `head-chop.aseprite` |
@@ -474,14 +474,19 @@ row. No grain moves more than one pixel a frame.
 
 ![Pikes](player/pikes-hit-8x8/pikes-hit-8x8.gif)
 
-The player falling onto pikes and getting stuck on them, for a death. Starts on
-the fall loop's first frame. On impact the body folds over the pikes at the
-hips, head and feet flung up, bounces once off the tips and drops back, then
-sags and hangs limp, draped face down across them with an arm and the legs
-dangling. The arm swings like a pendulum, right forward and right back, then in
-smaller swings dying away; the legs twitch, a foot flicks, and it goes still.
-It's the player sprite only: draw it over the pikes sprite, which shows
-through where they cross.
+The player falling onto pikes and getting stuck on them, for a death, lined up
+with the pikes sprite (`pikes-8x8`) all the way out: draw the player at the
+same place as the pikes. Starts on the fall loop's first frame. On impact the
+player is speared through the hips by the tall middle pike, folded over it with
+head and feet flung up, bounces up the pike and drops back, then sags: the legs
+come to rest on the left pike's tip, the shoulders and head on the right one's,
+and the body hangs between them on the middle pike, which sticks up through it.
+An arm hangs down between the pikes and swings right back, then right forward,
+the hand out past the right pike, then a smaller swing back before it
+settles. Overlapping the arm as it slows, one leg slips off the left pike's tip
+and swings down between the pikes, settling just after the arm; then the other
+leg twitches, a foot flicks, and it goes still. It's the player sprite
+only; the pikes sprite shows through where they cross.
 
 ### Blow up — `blow-up-8x8`
 

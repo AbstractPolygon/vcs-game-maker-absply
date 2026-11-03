@@ -108,7 +108,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 67
+      "duration": 50
     },
     {
       "filename": "pikes-hit 5.aseprite",
@@ -196,7 +196,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 33
+      "duration": 50
     },
     {
       "filename": "pikes-hit 9.aseprite",
@@ -240,7 +240,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 67
+      "duration": 83
     },
     {
       "filename": "pikes-hit 11.aseprite",
@@ -328,7 +328,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "pikes-hit 15.aseprite",
@@ -350,7 +350,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 67
+      "duration": 100
     },
     {
       "filename": "pikes-hit 16.aseprite",

@@ -3782,7 +3782,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 67
+      "duration": 50
     },
     {
       "filename": "player-animations 172.aseprite",
@@ -3870,7 +3870,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 33
+      "duration": 50
     },
     {
       "filename": "player-animations 176.aseprite",
@@ -3914,7 +3914,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 67
+      "duration": 83
     },
     {
       "filename": "player-animations 178.aseprite",
@@ -4002,7 +4002,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 50
+      "duration": 67
     },
     {
       "filename": "player-animations 182.aseprite",
@@ -4024,7 +4024,7 @@
         "w": 8,
         "h": 8
       },
-      "duration": 67
+      "duration": 100
     },
     {
       "filename": "player-animations 183.aseprite",
