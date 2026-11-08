@@ -572,6 +572,7 @@ file, so it imports as a separate sprite. The folder's `<folder>.png` +
 | Prop | Folder | Size | Frames | Per frame | Loops | Aseprite file (in the folder) |
 | --- | --- | --- | --- | --- | --- | --- |
 | Trampoline | `trampoline-8x8` | 8×8 | 12 | 50 ms (3) | No | `trampoline.aseprite` (tag `trampoline`) |
+| Trap door | `trapdoor-8x8` | 8×8, double wide | 7 | 33–100 ms (2–6) | No | `trapdoor.aseprite` (tag `trapdoor`) |
 | Double jump power-up | `double-jump-8x8` | 8×8 | 12 | 33–100 ms (2–6) | Yes | `double-jump.aseprite` (tag `double-jump`) |
 | Saw blade | `saw-blade-8x8` | 8×8 | 4 | 50 ms (3) | Yes | `saw-blade.aseprite` (tag `saw-blade`) |
 | Large saw blade | `saw-blade-large-8x16` | 8×16, double wide | 5 | 50 ms (3) | Yes | `saw-blade-large.aseprite` (tag `saw-blade-large`) |
@@ -618,6 +619,18 @@ eases back down and settles with a smaller dip and a last flick.
 10. Flat
 11. A last small flick up
 12. Settled at rest
+
+### Trap door — `trapdoor-8x8`
+
+![Trap door](trapdoor-8x8/trapdoor-8x8.gif)
+
+A trap door in the floor that opens in the middle, shown at double width, so on
+screen it's 16 wide and 8 tall. Two leaves, each half the width, are hinged at
+the outer edges and meet in the middle along the top row. When it fires they
+swing down, faster as they go, until they hang straight down from their hinges
+either side of the hole, bounce back up a little and drop again. Each leaf is
+the same length closed and open. Play it once and hold the last frame; play it
+backwards to close it.
 
 ### Double jump power-up — `double-jump-8x8`
 
