@@ -1,14 +1,15 @@
 // usage: node scrollreset.cjs rom.bin [plan] -> runs a ROM made from tests/projects/mkscroll.cjs's projects with joystick input: the frame
-// before any scroll, then for each step of the plan ("d37" = Down held 37 frames, "u20" = Up held 20, "f" = Fire 4 frames, each followed by
+// before any scroll, then for each step of the plan ("d37" = Down held 37 frames, "u20" = Up held 20, "l13" = Left held 13, "r5" = Right held 5, "f" = Fire 4 frames, each followed by
 // 30 quiet frames) whether the picture moved and, after each Fire, whether it is the same as before the scroll (the lines that differ).
-// Default plan: d37 f d200 f u23 f d5 u9 f. WAIT: the frames before the first (90; a PXE ROM takes longer to start).
+// Default plan: d37 f d200 f u23 f d5 u9 f; for a ROM named *h.bin (the sideways projects) l13 f r40 f l70 r5 d9 l3 f d30 r20 f. WAIT: the frames before the first (90; a PXE ROM takes longer to start).
 const fs = require('fs');
 const P = require('../lib/paths.cjs');
 const Board = require(P.REPO + 'node_modules/6502.ts/lib/machine/stella/Board').default;
 const Config = require(P.REPO + 'node_modules/6502.ts/lib/machine/stella/Config').default;
 const makeCart = require('../lib/cart.cjs');
 (async () => {
-  const [, , rom, planText = 'd37 f d200 f u23 f d5 u9 f'] = process.argv;
+  const [, , rom, planArg] = process.argv;
+  const planText = planArg || (/h.bin$/.test(rom) ? 'l13 f r40 f l70 r5 d9 l3 f d30 r20 f' : 'd37 f d200 f u23 f d5 u9 f');
   const cart = await makeCart(new Uint8Array(fs.readFileSync(rom)));
   const board = new Board(Config.create({tvMode: 0, enableAudio: false, randomSeed: 1}), cart);
   if (cart.setCpuTimeProvider) cart.setCpuTimeProvider(() => board.getCpuTime());
@@ -34,7 +35,7 @@ const makeCart = require('../lib/cart.cjs');
       out.push(`reset: ${left.length ? 'NOT back, lines that differ from the start ' + show(left) : 'back to the start'}`);
     } else {
       const n = +step.slice(1);
-      press(step[0] === 'd' ? joy.getDown() : joy.getUp(), n);
+      press({d: joy.getDown(), u: joy.getUp(), l: joy.getLeft(), r: joy.getRight()}[step[0]], n);
       out.push(`${step}: moved ${show(diff(before, last))}`);
     }
   }
