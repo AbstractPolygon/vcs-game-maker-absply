@@ -1,0 +1,12 @@
+const P = require('../lib/paths.cjs');
+const fs = require('fs');
+const p = P.REPO + 'src/hooks/bb-compiler.js';
+let s = fs.readFileSync(p, 'utf8');
+const crlf = s.includes('\r\n');
+if (crlf) s = s.replace(/\r\n/g, '\n');
+const a = '  const symbolmap = parseSymbolmap(symText);\n';
+if (!s.includes(a)) throw new Error('anchor');
+s = s.replace(a, () => '  window.__vcsSymText = symText; // TEMP-DEBUG remove\n' + a);
+if (crlf) s = s.replace(/\n/g, '\r\n');
+fs.writeFileSync(p, s);
+console.log('symtext hook on');
