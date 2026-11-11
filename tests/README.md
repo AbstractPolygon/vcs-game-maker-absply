@@ -1,6 +1,6 @@
 # Tests
 
-Scripts used to check changes in the emulator and in the editor, with the test projects and the ROMs last built from them. They use Node
+Scripts used to check changes in the emulator and in the editor, with the test projects and the ROMs last built from them. PXE ROMs run with the app's PXE cartridge for 6502.ts (`tools/stellerator/pxe`, through `tests/lib/cart.cjs`). They use Node
 (22 or later: `fetch` and `WebSocket` are built in) and the packages in `node_modules`. What they write goes to `tests/out` (ignored by git;
 `TEST_OUT` sets another folder). Paths come from `tests/lib/paths.cjs`.
 
@@ -16,6 +16,8 @@ These files stay on the absply repo: leave the `tests` folder out of pushes to o
 - `fcmp.cjs a.json b.json`: the lines that differ between two frame dumps.
 - `framelines.cjs rom.bin`: the scanlines between VSYNCs for frames 95 to 109 (in thirds: 786 = 262 lines).
 - `ramwatch.cjs rom.bin addr,addr from to`: RAM bytes (hex addresses) after each frame.
+- `scrollreset.cjs rom.bin [plan]`: Reset playfield scroll (a project of `tests/projects/mkscroll.cjs`): the joystick scrolls, Fire resets, each
+  frame after Fire compared with the one before any scroll. `sh tests/emulator/scrollreset_all.sh` builds and runs all 12 (the dev server running).
 - `framecmp.cjs`, `linewrites.cjs`, `labelline.cjs`, `setupcycles.cjs`, `pcwatch.cjs`, `pooltrace2.cjs`: see the usage line at the top of
   each (DPC+ ROMs and their symbols mostly).
 
@@ -62,4 +64,6 @@ symbols in the page (for `loadsym.cjs`); `tests/hooks/unhook.cjs` takes them out
   visible row colors, one and two frames. `mkball2.cjs` made `ball2` from the demo.
 - `projects/p6_ball2.vcsgm`, `p6_ball3.vcsgm`: Bricks of Olympus (DPC+) with a ball on the logo (screen 1, card 3, top line 45), row colors
   and single color.
+- `projects/scroll_*.vcsgm` (made by `mkscroll.cjs`): Reset playfield scroll on the standard kernel, DPC+ and PXE (see the list at the top of
+  `mkscroll.cjs`).
 - `roms/`: the ROMs and symbols last built from them (`resbl.bin` from `tests/tia/mkresbl.cjs`).
