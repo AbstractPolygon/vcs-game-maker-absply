@@ -24,6 +24,9 @@ These files stay on the absply repo: leave the `tests` folder out of pushes to o
   the 18 it can read.
 - `scrolldir.cjs rom.bin [frames]`: which way the playfield moves on the screen for Down and for Up.
 - `pxepeek.cjs rom.bin name,name [plan]`: variables of a PXE program after each joystick step (read from its memory in the ARM, pRAM).
+- `scoredigits.cjs rom.bin [frame]`: the score of a frame as text (`roms/score_dpc.bin`, from `projects/mkscore.cjs`: 123456 on DPC+). Check it after
+  rebuilding the DPC+ coprocessor programs (custom2*.bin) or changing the kernel ahead of the score loop: the loop draws the digits wrong when it
+  crosses a page.
 - `framecmp.cjs`, `linewrites.cjs`, `labelline.cjs`, `setupcycles.cjs`, `pcwatch.cjs`, `pooltrace2.cjs`: see the usage line at the top of
   each (DPC+ ROMs and their symbols mostly).
 
