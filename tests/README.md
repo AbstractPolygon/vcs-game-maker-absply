@@ -55,6 +55,9 @@ node tests/tia/balllines.cjs tests/out/resbl.bin
 app's dev server first) and runs a steps file (`STEPS`), which gets `send` (DevTools protocol), `evaluate` and `sleep`. Steps files:
 
 - `loadsym.cjs`: loads `VCSGM_PATH` (an absolute path: Chrome takes the file from it), builds the ROM and writes it to `ROMOUT` (with the symbols when the hooks below are on).
+- `titlepreview.cjs`: loads `VCSGM_PATH`, clicks the Play button of Title tab page `TITLE_PAGE` (1 = the first shown) and prints whether the
+  preview built and its error lines; with `ROMOUT` saves the preview ROM (and the assembly with `hook_asm.cjs` on, also when it fails).
+- `buildlog.cjs`: loads `VCSGM_PATH`, builds it and prints the result and the error lines of the build log.
 - `balldraw.cjs`, `exactprev.cjs`: the Title tab's Ball mode (painting speed, valid widths, undo, the picture over the ball).
 - `dragtest.cjs`, `stripmenu2.cjs`, `striptest4.cjs`, `profrow.cjs`, `profdraw.cjs`: the row color strip and drawing speed.
 
@@ -64,7 +67,8 @@ VCSGM_PATH="$(cd ../projects && pwd -W 2>/dev/null || pwd)/ball2.vcsgm" ROMOUT=.
 ```
 
 `tests/hooks/hook_bb.cjs` and `hook_symtext.cjs` add TEMP-DEBUG lines to `src/hooks/bb-compiler.js` so a build leaves its bB text and
-symbols in the page (for `loadsym.cjs`); `tests/hooks/unhook.cjs` takes them out again. Never commit with them in.
+symbols in the page (for `loadsym.cjs`), `hook_asm.cjs` one to `src/hooks/rom.js` that leaves the assembly before it is assembled (game
+builds and previews); `tests/hooks/unhook.cjs` takes them all out again. Never commit with them in.
 
 ## Projects and ROMs
 
