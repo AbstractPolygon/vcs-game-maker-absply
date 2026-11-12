@@ -7,15 +7,29 @@ const path = require('path');
 const CHROME = P.CHROME;
 const APP = process.env.APP || 'http://localhost:8086/';
 const OUT = process.env.OUT || P.OUT + '/shots';
-const PROFILE = process.env.PROFILE || P.OUT + '/chrome-profile';
+// (A profile for each run: on Windows the browser's helper processes can keep the last one's files open for a while.)
+const PROFILE = process.env.PROFILE || P.OUT + '/chrome-profile-' + process.pid;
 const PORT = 9334;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 global.__chunks = [];
+// Closes the browser with its helper processes (on Windows every chrome.exe started with this run's profile: the one started may hand over to
+// another and leave), however the run ends, so the next run finds the port and the profile free; then removes the profile.
+let chromeRef = null;
+const closeChrome = () => {
+  if (!chromeRef) return;
+  if (process.platform === 'win32') {
+    const script = path.join(__dirname, '..', 'lib', 'killchrome.ps1');
+    try { require('child_process').execSync(`powershell -NoProfile -ExecutionPolicy Bypass -File "${script}" "${path.basename(PROFILE)}"`, {stdio: 'ignore'}); } catch (e) { /* none left */ }
+  } else chromeRef.kill();
+  chromeRef = null;
+  try { fs.rmSync(PROFILE, {recursive: true, force: true}); } catch (e) { /* still in use */ }
+};
+process.on('exit', closeChrome);
 (async () => {
-  fs.rmSync(PROFILE, {recursive: true, force: true});
+  try { fs.rmSync(PROFILE, {recursive: true, force: true}); } catch (e) { /* in use */ }
   fs.mkdirSync(OUT, {recursive: true});
-  const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${PROFILE}`, '--hide-scrollbars', '--mute-audio',
+  const chrome = chromeRef = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${PROFILE}`, '--hide-scrollbars', '--mute-audio',
     '--no-first-run', '--disable-gpu', '--window-size=1280,720', ...(process.platform === 'linux' ? ['--no-sandbox'] : []), 'about:blank'], {stdio: 'ignore'});
   let targets;
   for (let i = 0; i < 60; i++) {
@@ -57,7 +71,7 @@ global.__chunks = [];
   const steps = require(process.env.STEPS || './steps.cjs');
   await steps({send, evaluate, sleep, OUT, fs, path, APP});
   ws.close();
-  chrome.kill();
+  closeChrome();
   process.exit(0);
 })().catch((e) => {
   console.error(e);

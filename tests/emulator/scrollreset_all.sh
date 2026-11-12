@@ -3,7 +3,7 @@
 # usage (from the repo): sh tests/emulator/scrollreset_all.sh [name ...]
 cd "$(dirname "$0")/.." || exit 1
 names="$*"
-[ -z "$names" ] && names="std_fit std_tall std_fit2 std_fitc std_tallc dpc_fit dpc_tall dpc_plain dpc_tallc pxe_fit pxe_tall pxe_plain std_fith std_tallh pxe_wideh"
+[ -z "$names" ] && names="std_fit std_tall std_fit2 std_fitc std_tallc dpc_fit dpc_tall dpc_plain dpc_tallc pxe_fit pxe_tall pxe_plain std_fith std_tallh pxe_wideh std_fite std_talle dpc_talle pxe_talle"
 projects="$(cd projects && (pwd -W 2>/dev/null || pwd))"
 for n in $names; do
   (cd browser && VCSGM_PATH="$projects/scroll_$n.vcsgm" ROMOUT="../out/scroll_$n.bin" STEPS=./loadsym.cjs node cdp2c.cjs 2>&1 | grep -i "saved\|PAGE EXCEPTION" | head -2)

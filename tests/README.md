@@ -17,7 +17,13 @@ These files stay on the absply repo: leave the `tests` folder out of pushes to o
 - `framelines.cjs rom.bin`: the scanlines between VSYNCs for frames 95 to 109 (in thirds: 786 = 262 lines).
 - `ramwatch.cjs rom.bin addr,addr from to`: RAM bytes (hex addresses) after each frame.
 - `scrollreset.cjs rom.bin [plan]`: Reset playfield scroll (a project of `tests/projects/mkscroll.cjs`): the joystick scrolls, Fire resets, each
-  frame after Fire compared with the one before any scroll. `sh tests/emulator/scrollreset_all.sh` builds and runs all 12 (the dev server running).
+  frame after Fire compared with the one before any scroll (Player 1, which follows the scroll, left out). `sh tests/emulator/scrollreset_all.sh`
+  builds and runs all 19 (the dev server running).
+- `scrollpos.cjs rom.bin project.vcsgm [plan]`: the Playfield scroll position block (the projects put it into missile0x) against the background
+  row at the top of the playfield read from the frame, and Player 1 against the picture; `sh tests/emulator/scrollpos_all.sh` builds and runs
+  the 18 it can read.
+- `scrolldir.cjs rom.bin [frames]`: which way the playfield moves on the screen for Down and for Up.
+- `pxepeek.cjs rom.bin name,name [plan]`: variables of a PXE program after each joystick step (read from its memory in the ARM, pRAM).
 - `framecmp.cjs`, `linewrites.cjs`, `labelline.cjs`, `setupcycles.cjs`, `pcwatch.cjs`, `pooltrace2.cjs`: see the usage line at the top of
   each (DPC+ ROMs and their symbols mostly).
 

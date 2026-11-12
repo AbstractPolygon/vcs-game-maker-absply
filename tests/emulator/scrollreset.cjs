@@ -22,10 +22,28 @@ const makeCart = require('../lib/cart.cjs');
   board.boot();
   const runFrames = (n) => { const end = frame + n; let g = 0; while (frame < end && g++ < 1e8) board.tick(500); };
   const press = (button, frames) => { button.toggle(true); runFrames(frames); button.toggle(false); runFrames(30); };
-  const diff = (a, b) => { const lines = []; for (let y = 0; y < 400; y++) { for (let x = 0; x < 160; x++) if (a[y * 160 + x] !== b[y * 160 + x]) { lines.push(y); break; } } return lines; };
+  // Player 1 is left out: it follows the scroll in the projects of mkscroll.cjs and Reset playfield scroll does not move it back. Pixels
+  // 90 to 139 (where it is drawn, x 100) are not compared, nor a pixel with one of its colors in either frame (with its y gone round it
+  // can be drawn at the left edge on DPC+): the colors the start frame has at pixels 100 to 107 and nowhere left of 90 or right of 139
+  // (on PXE there can be none).
+  let sprite = new Set();
+  const diff = (a, b) => {
+    const lines = [];
+    for (let y = 0; y < 400; y++) {
+      for (let x = 0; x < 160; x++) {
+        if (!(x >= 90 && x < 140) && a[y * 160 + x] !== b[y * 160 + x] && !sprite.has(a[y * 160 + x]) && !sprite.has(b[y * 160 + x])) { lines.push(y); break; }
+      }
+    }
+    return lines;
+  };
   const show = (lines) => (lines.length ? `${lines.length} lines (${lines.slice(0, 8).join(',')}${lines.length > 8 ? '...' : ''})` : 'none');
   runFrames(+(process.env.WAIT || 90));
   const start = last;
+  const inside = new Set(); const outside = new Set();
+  for (let y = 0; y < 400; y++) {
+    for (let x = 0; x < 160; x++) (x >= 100 && x < 108 ? inside : x < 90 || x >= 140 ? outside : new Set()).add(start[y * 160 + x]);
+  }
+  sprite = new Set([...inside].filter((c) => !outside.has(c)));
   const out = [];
   for (const step of planText.split(/\s+/)) {
     const before = last;

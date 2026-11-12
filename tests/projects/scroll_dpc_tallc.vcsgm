@@ -36,7 +36,7 @@ configuration:
   dpcPlusRowScanlines: 8
   dpcPlusPfres: 24
   enableDpcPlusPfColors: true
-blockly-workspace: '<xml xmlns="https://developers.google.com/blockly/xml"><block type="event_block" id="ev1" x="20" y="20"><field name="EVENT">gameplay_update</field><statement name="DO"><block type="controls_if" id="if1"><value name="IF0"><block type="input_joystick_get" id="if1j"><field name="JOYSTICK">0</field><field name="VAR">joy0down</field></block></value><statement name="DO0"><block type="background_scroll" id="sc1"><field name="DIRECTION">down</field><field name="STOPATEDGE">FALSE</field><field name="COLORS">TRUE</field></block></statement><next><block type="controls_if" id="if2"><value name="IF0"><block type="input_joystick_get" id="if2j"><field name="JOYSTICK">0</field><field name="VAR">joy0up</field></block></value><statement name="DO0"><block type="background_scroll" id="sc2"><field name="DIRECTION">up</field><field name="STOPATEDGE">FALSE</field><field name="COLORS">TRUE</field></block></statement><next><block type="controls_if" id="if3"><value name="IF0"><block type="input_joystick_get" id="if3j"><field name="JOYSTICK">0</field><field name="VAR">joy0fire</field></block></value><statement name="DO0"><block type="background_scroll_reset" id="rs1"></block></statement></block></next></block></next></block></statement></block></xml>'
+blockly-workspace: '<xml xmlns="https://developers.google.com/blockly/xml"><block type="event_block" id="ev0" x="20" y="400"><field name="EVENT">gameplay_start</field><statement name="DO"><block type="sprite_scroll_with_playfield_set" id="ssp"><field name="OBJECT">player1</field><value name="VALUE"><block type="logic_boolean" id="lbt"><field name="BOOL">TRUE</field></block></value><next><block type="sprite_player_set" id="p1x"><field name="PLAYER">1</field><field name="VAR">player1x</field><field name="LOOP">FALSE</field><value name="VALUE"><block type="math_number" id="n1"><field name="NUM">100</field></block></value><next><block type="sprite_player_set" id="p1y"><field name="PLAYER">1</field><field name="VAR">player1y</field><field name="LOOP">FALSE</field><value name="VALUE"><block type="math_number" id="n2"><field name="NUM">60</field></block></value><next><block type="sprite_player_set" id="p0y"><field name="PLAYER">0</field><field name="VAR">player0y</field><field name="LOOP">FALSE</field><value name="VALUE"><block type="math_number" id="n3"><field name="NUM">240</field></block></value><next><block type="sprite_missile_set" id="m0y"><field name="MISSILE">0</field><field name="VAR">missile0y</field><value name="VALUE"><block type="math_number" id="n4"><field name="NUM">240</field></block></value></block></next></block></next></block></next></block></next></block></statement></block><block type="event_block" id="ev1" x="20" y="20"><field name="EVENT">gameplay_update</field><statement name="DO"><block type="sprite_missile_set" id="spx"><field name="MISSILE">0</field><field name="VAR">missile0x</field><value name="VALUE"><block type="background_scroll_position" id="gpos"></block></value><next><block type="controls_if" id="if1"><value name="IF0"><block type="input_joystick_get" id="if1j"><field name="JOYSTICK">0</field><field name="VAR">joy0down</field></block></value><statement name="DO0"><block type="background_scroll" id="sc1"><field name="DIRECTION">down</field><field name="STOPATEDGE">FALSE</field><field name="COLORS">TRUE</field></block></statement><next><block type="controls_if" id="if2"><value name="IF0"><block type="input_joystick_get" id="if2j"><field name="JOYSTICK">0</field><field name="VAR">joy0up</field></block></value><statement name="DO0"><block type="background_scroll" id="sc2"><field name="DIRECTION">up</field><field name="STOPATEDGE">FALSE</field><field name="COLORS">TRUE</field></block></statement><next><block type="controls_if" id="if3"><value name="IF0"><block type="input_joystick_get" id="if3j"><field name="JOYSTICK">0</field><field name="VAR">joy0fire</field></block></value><statement name="DO0"><block type="background_scroll_reset" id="rs1"></block></statement></block></next></block></next></block></next></block></statement></block></xml>'
 player-animations:
   animations:
     - id: 0
@@ -45,14 +45,14 @@ player-animations:
         - id: 1
           duration: 2
           pixels: |-
-            ........
-            ........
-            ........
-            ........
-            ........
-            ........
-            ........
-            ........
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
       previewWidthScale: 1
 backgrounds:
   backgrounds:
