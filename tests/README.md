@@ -27,6 +27,8 @@ These files stay on the absply repo: leave the `tests` folder out of pushes to o
 - `scoredigits.cjs rom.bin [frame]`: the score of a frame as text (`roms/score_dpc.bin`, from `projects/mkscore.cjs`: 123456 on DPC+). Check it after
   rebuilding the DPC+ coprocessor programs (custom2*.bin) or changing the kernel ahead of the score loop: the loop draws the digits wrong when it
   crosses a page.
+- `rollcheck.cjs rom.bin [frames] [seed]`: the scanlines of every frame with joystick input (framecmp's pattern); a frame of another length rolls the
+  picture. With `projects/mkdpcstress.cjs` (DPC+ at 48, 96 and 192 rows: platformer, playfield collision, Fire, Bounce, Gravity).
 - `framecmp.cjs`, `linewrites.cjs`, `labelline.cjs`, `setupcycles.cjs`, `pcwatch.cjs`, `pooltrace2.cjs`: see the usage line at the top of
   each (DPC+ ROMs and their symbols mostly).
 
@@ -68,7 +70,8 @@ VCSGM_PATH="$(cd ../projects && pwd -W 2>/dev/null || pwd)/ball2.vcsgm" ROMOUT=.
 
 `tests/hooks/hook_bb.cjs` and `hook_symtext.cjs` add TEMP-DEBUG lines to `src/hooks/bb-compiler.js` so a build leaves its bB text and
 symbols in the page (for `loadsym.cjs`), `hook_asm.cjs` one to `src/hooks/rom.js` that leaves the assembly before it is assembled (game
-builds and previews); `tests/hooks/unhook.cjs` takes them all out again. Never commit with them in.
+builds and previews); `tests/hooks/unhook.cjs` takes them all out again. Never commit with them in. `tests/hooks/hook_narrow.cjs on|off` makes the standard build
+use 4-pixel tiles for a project with `tileSet.forceNarrow` (`projects/mknarrow.cjs`); turn it off with `off` (unhook.cjs does not).
 
 ## Projects and ROMs
 

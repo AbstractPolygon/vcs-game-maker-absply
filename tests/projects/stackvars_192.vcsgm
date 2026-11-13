@@ -1,0 +1,1060 @@
+type: VCS Game Maker Project
+format-version: 1
+app-version: 0.51.38
+generation-time: '2026-10-09T20:03:54.032Z'
+configuration:
+  projectTitle: Stack variables 192 rows
+  projectVersion: 1.0.0
+  projectWebsite: 'https://abstractpolygon.com/'
+  projectDeveloper: AbstractPolygon
+  projectDescription: |-
+    This is a demonstration of using the Title Screen Kernel.
+
+    Use the "End Title Screen" block to switch back to gameplay kernel.
+  showScore: true
+  enableScoreFade: false
+  showBlankLines: true
+  enablePlayer0SpriteColors: false
+  enablePlayer1SpriteColors: false
+  enablePfColors: false
+  enableSuperchip: false
+  enableOptimizationSpeed: false
+  enableInlineRand: true
+  enableRand16: true
+  enableCycleScore: false
+  enableScanlinesDebug: false
+  pfres: 24
+  enablePfRowHeight: false
+  pfrowheight: 8
+  tvStandard: ntsc
+  romSize: 32k
+  scoreFont: ''
+  secondaryScoreFont: ''
+  muteAllAudio: false
+  showVariableComments: true
+  kernel: dpcplus
+  dpcPlusRowScanlines: 1
+  dpcPlusPfres: 192
+  enableFireCoprocessor: false
+  dpcPlusTilemap: false
+  dpcPlusRuns: false
+blockly-workspace: '<xml xmlns="https://developers.google.com/blockly/xml"><variables><variable id="sv0">v0</variable><variable id="sv1">v1</variable><variable id="sv2">v2</variable><variable id="sv3">v3</variable><variable id="sv4">v4</variable><variable id="sv5">v5</variable><variable id="sv6">v6</variable><variable id="sv7">v7</variable><variable id="sv8">v8</variable><variable id="sv9">v9</variable><variable id="sv10">v10</variable><variable id="sv11">v11</variable><variable id="sv12">v12</variable><variable id="sv13">v13</variable><variable id="sv14">v14</variable><variable id="sv15">v15</variable><variable id="sv16">v16</variable><variable id="sv17">v17</variable><variable id="sv18">v18</variable><variable id="sv19">v19</variable><variable id="sv20">v20</variable><variable id="sv21">v21</variable><variable id="sv22">v22</variable><variable id="sv23">v23</variable><variable id="sv24">v24</variable><variable id="sv25">v25</variable><variable id="sv26">v26</variable><variable id="sv27">v27</variable><variable id="sv28">v28</variable><variable id="sv29">v29</variable><variable id="sv30">v30</variable><variable id="sv31">v31</variable><variable id="sv32">v32</variable><variable id="sv33">v33</variable><variable id="sv34">v34</variable><variable id="sv35">v35</variable><variable id="sv36">v36</variable><variable id="sv37">v37</variable><variable id="sv38">v38</variable><variable id="sv39">v39</variable><variable id="sv40">v40</variable><variable id="sv41">v41</variable><variable id="sv42">v42</variable><variable id="sv43">v43</variable><variable id="sv44">v44</variable><variable id="sv45">v45</variable><variable id="sv46">v46</variable><variable id="sv47">v47</variable><variable id="sv48">v48</variable><variable id="sv49">v49</variable><variable id="sv50">v50</variable><variable id="sv51">v51</variable><variable id="sv52">v52</variable><variable id="sv53">v53</variable><variable id="sv54">v54</variable><variable id="sv55">v55</variable><variable id="sv56">v56</variable><variable id="sv57">v57</variable><variable id="sv58">v58</variable><variable id="sv59">v59</variable><variable id="sv60">v60</variable><variable id="sv61">v61</variable><variable id="sv62">v62</variable><variable id="sv63">v63</variable><variable id="sv64">v64</variable><variable id="sv65">v65</variable><variable id="sv66">v66</variable><variable id="sv67">v67</variable><variable id="sv68">v68</variable><variable id="sv69">v69</variable><variable id="sv70">v70</variable><variable id="sv71">v71</variable><variable id="sv72">v72</variable><variable id="sv73">v73</variable><variable id="sv74">v74</variable><variable id="sv75">v75</variable><variable id="sv76">v76</variable><variable id="sv77">v77</variable><variable id="sv78">v78</variable><variable id="sv79">v79</variable><variable id="sverr">err</variable></variables><block type="event_block" id="ev0" x="20" y="20"><field name="EVENT">gameplay_start</field><statement name="DO"><block type="background_set_select"><field name="VAR">1</field><next><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value><next><block type="variables_set"><field name="VAR" id="sv0">v0</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value><next><block type="variables_set"><field name="VAR" id="sv1">v1</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value><next><block type="variables_set"><field name="VAR" id="sv2">v2</field><value name="VALUE"><block type="math_number"><field name="NUM">2</field></block></value><next><block type="variables_set"><field name="VAR" id="sv3">v3</field><value name="VALUE"><block type="math_number"><field name="NUM">3</field></block></value><next><block type="variables_set"><field name="VAR" id="sv4">v4</field><value name="VALUE"><block type="math_number"><field name="NUM">4</field></block></value><next><block type="variables_set"><field name="VAR" id="sv5">v5</field><value name="VALUE"><block type="math_number"><field name="NUM">5</field></block></value><next><block type="variables_set"><field name="VAR" id="sv6">v6</field><value name="VALUE"><block type="math_number"><field name="NUM">6</field></block></value><next><block type="variables_set"><field name="VAR" id="sv7">v7</field><value name="VALUE"><block type="math_number"><field name="NUM">7</field></block></value><next><block type="variables_set"><field name="VAR" id="sv8">v8</field><value name="VALUE"><block type="math_number"><field name="NUM">8</field></block></value><next><block type="variables_set"><field name="VAR" id="sv9">v9</field><value name="VALUE"><block type="math_number"><field name="NUM">9</field></block></value><next><block type="variables_set"><field name="VAR" id="sv10">v10</field><value name="VALUE"><block type="math_number"><field name="NUM">10</field></block></value><next><block type="variables_set"><field name="VAR" id="sv11">v11</field><value name="VALUE"><block type="math_number"><field name="NUM">11</field></block></value><next><block type="variables_set"><field name="VAR" id="sv12">v12</field><value name="VALUE"><block type="math_number"><field name="NUM">12</field></block></value><next><block type="variables_set"><field name="VAR" id="sv13">v13</field><value name="VALUE"><block type="math_number"><field name="NUM">13</field></block></value><next><block type="variables_set"><field name="VAR" id="sv14">v14</field><value name="VALUE"><block type="math_number"><field name="NUM">14</field></block></value><next><block type="variables_set"><field name="VAR" id="sv15">v15</field><value name="VALUE"><block type="math_number"><field name="NUM">15</field></block></value><next><block type="variables_set"><field name="VAR" id="sv16">v16</field><value name="VALUE"><block type="math_number"><field name="NUM">16</field></block></value><next><block type="variables_set"><field name="VAR" id="sv17">v17</field><value name="VALUE"><block type="math_number"><field name="NUM">17</field></block></value><next><block type="variables_set"><field name="VAR" id="sv18">v18</field><value name="VALUE"><block type="math_number"><field name="NUM">18</field></block></value><next><block type="variables_set"><field name="VAR" id="sv19">v19</field><value name="VALUE"><block type="math_number"><field name="NUM">19</field></block></value><next><block type="variables_set"><field name="VAR" id="sv20">v20</field><value name="VALUE"><block type="math_number"><field name="NUM">20</field></block></value><next><block type="variables_set"><field name="VAR" id="sv21">v21</field><value name="VALUE"><block type="math_number"><field name="NUM">21</field></block></value><next><block type="variables_set"><field name="VAR" id="sv22">v22</field><value name="VALUE"><block type="math_number"><field name="NUM">22</field></block></value><next><block type="variables_set"><field name="VAR" id="sv23">v23</field><value name="VALUE"><block type="math_number"><field name="NUM">23</field></block></value><next><block type="variables_set"><field name="VAR" id="sv24">v24</field><value name="VALUE"><block type="math_number"><field name="NUM">24</field></block></value><next><block type="variables_set"><field name="VAR" id="sv25">v25</field><value name="VALUE"><block type="math_number"><field name="NUM">25</field></block></value><next><block type="variables_set"><field name="VAR" id="sv26">v26</field><value name="VALUE"><block type="math_number"><field name="NUM">26</field></block></value><next><block type="variables_set"><field name="VAR" id="sv27">v27</field><value name="VALUE"><block type="math_number"><field name="NUM">27</field></block></value><next><block type="variables_set"><field name="VAR" id="sv28">v28</field><value name="VALUE"><block type="math_number"><field name="NUM">28</field></block></value><next><block type="variables_set"><field name="VAR" id="sv29">v29</field><value name="VALUE"><block type="math_number"><field name="NUM">29</field></block></value><next><block type="variables_set"><field name="VAR" id="sv30">v30</field><value name="VALUE"><block type="math_number"><field name="NUM">30</field></block></value><next><block type="variables_set"><field name="VAR" id="sv31">v31</field><value name="VALUE"><block type="math_number"><field name="NUM">31</field></block></value><next><block type="variables_set"><field name="VAR" id="sv32">v32</field><value name="VALUE"><block type="math_number"><field name="NUM">32</field></block></value><next><block type="variables_set"><field name="VAR" id="sv33">v33</field><value name="VALUE"><block type="math_number"><field name="NUM">33</field></block></value><next><block type="variables_set"><field name="VAR" id="sv34">v34</field><value name="VALUE"><block type="math_number"><field name="NUM">34</field></block></value><next><block type="variables_set"><field name="VAR" id="sv35">v35</field><value name="VALUE"><block type="math_number"><field name="NUM">35</field></block></value><next><block type="variables_set"><field name="VAR" id="sv36">v36</field><value name="VALUE"><block type="math_number"><field name="NUM">36</field></block></value><next><block type="variables_set"><field name="VAR" id="sv37">v37</field><value name="VALUE"><block type="math_number"><field name="NUM">37</field></block></value><next><block type="variables_set"><field name="VAR" id="sv38">v38</field><value name="VALUE"><block type="math_number"><field name="NUM">38</field></block></value><next><block type="variables_set"><field name="VAR" id="sv39">v39</field><value name="VALUE"><block type="math_number"><field name="NUM">39</field></block></value><next><block type="variables_set"><field name="VAR" id="sv40">v40</field><value name="VALUE"><block type="math_number"><field name="NUM">40</field></block></value><next><block type="variables_set"><field name="VAR" id="sv41">v41</field><value name="VALUE"><block type="math_number"><field name="NUM">41</field></block></value><next><block type="variables_set"><field name="VAR" id="sv42">v42</field><value name="VALUE"><block type="math_number"><field name="NUM">42</field></block></value><next><block type="variables_set"><field name="VAR" id="sv43">v43</field><value name="VALUE"><block type="math_number"><field name="NUM">43</field></block></value><next><block type="variables_set"><field name="VAR" id="sv44">v44</field><value name="VALUE"><block type="math_number"><field name="NUM">44</field></block></value><next><block type="variables_set"><field name="VAR" id="sv45">v45</field><value name="VALUE"><block type="math_number"><field name="NUM">45</field></block></value><next><block type="variables_set"><field name="VAR" id="sv46">v46</field><value name="VALUE"><block type="math_number"><field name="NUM">46</field></block></value><next><block type="variables_set"><field name="VAR" id="sv47">v47</field><value name="VALUE"><block type="math_number"><field name="NUM">47</field></block></value><next><block type="variables_set"><field name="VAR" id="sv48">v48</field><value name="VALUE"><block type="math_number"><field name="NUM">48</field></block></value><next><block type="variables_set"><field name="VAR" id="sv49">v49</field><value name="VALUE"><block type="math_number"><field name="NUM">49</field></block></value><next><block type="variables_set"><field name="VAR" id="sv50">v50</field><value name="VALUE"><block type="math_number"><field name="NUM">50</field></block></value><next><block type="variables_set"><field name="VAR" id="sv51">v51</field><value name="VALUE"><block type="math_number"><field name="NUM">51</field></block></value><next><block type="variables_set"><field name="VAR" id="sv52">v52</field><value name="VALUE"><block type="math_number"><field name="NUM">52</field></block></value><next><block type="variables_set"><field name="VAR" id="sv53">v53</field><value name="VALUE"><block type="math_number"><field name="NUM">53</field></block></value><next><block type="variables_set"><field name="VAR" id="sv54">v54</field><value name="VALUE"><block type="math_number"><field name="NUM">54</field></block></value><next><block type="variables_set"><field name="VAR" id="sv55">v55</field><value name="VALUE"><block type="math_number"><field name="NUM">55</field></block></value><next><block type="variables_set"><field name="VAR" id="sv56">v56</field><value name="VALUE"><block type="math_number"><field name="NUM">56</field></block></value><next><block type="variables_set"><field name="VAR" id="sv57">v57</field><value name="VALUE"><block type="math_number"><field name="NUM">57</field></block></value><next><block type="variables_set"><field name="VAR" id="sv58">v58</field><value name="VALUE"><block type="math_number"><field name="NUM">58</field></block></value><next><block type="variables_set"><field name="VAR" id="sv59">v59</field><value name="VALUE"><block type="math_number"><field name="NUM">59</field></block></value><next><block type="variables_set"><field name="VAR" id="sv60">v60</field><value name="VALUE"><block type="math_number"><field name="NUM">60</field></block></value><next><block type="variables_set"><field name="VAR" id="sv61">v61</field><value name="VALUE"><block type="math_number"><field name="NUM">61</field></block></value><next><block type="variables_set"><field name="VAR" id="sv62">v62</field><value name="VALUE"><block type="math_number"><field name="NUM">62</field></block></value><next><block type="variables_set"><field name="VAR" id="sv63">v63</field><value name="VALUE"><block type="math_number"><field name="NUM">63</field></block></value><next><block type="variables_set"><field name="VAR" id="sv64">v64</field><value name="VALUE"><block type="math_number"><field name="NUM">64</field></block></value><next><block type="variables_set"><field name="VAR" id="sv65">v65</field><value name="VALUE"><block type="math_number"><field name="NUM">65</field></block></value><next><block type="variables_set"><field name="VAR" id="sv66">v66</field><value name="VALUE"><block type="math_number"><field name="NUM">66</field></block></value><next><block type="variables_set"><field name="VAR" id="sv67">v67</field><value name="VALUE"><block type="math_number"><field name="NUM">67</field></block></value><next><block type="variables_set"><field name="VAR" id="sv68">v68</field><value name="VALUE"><block type="math_number"><field name="NUM">68</field></block></value><next><block type="variables_set"><field name="VAR" id="sv69">v69</field><value name="VALUE"><block type="math_number"><field name="NUM">69</field></block></value><next><block type="variables_set"><field name="VAR" id="sv70">v70</field><value name="VALUE"><block type="math_number"><field name="NUM">70</field></block></value><next><block type="variables_set"><field name="VAR" id="sv71">v71</field><value name="VALUE"><block type="math_number"><field name="NUM">71</field></block></value><next><block type="variables_set"><field name="VAR" id="sv72">v72</field><value name="VALUE"><block type="math_number"><field name="NUM">72</field></block></value><next><block type="variables_set"><field name="VAR" id="sv73">v73</field><value name="VALUE"><block type="math_number"><field name="NUM">73</field></block></value><next><block type="variables_set"><field name="VAR" id="sv74">v74</field><value name="VALUE"><block type="math_number"><field name="NUM">74</field></block></value><next><block type="variables_set"><field name="VAR" id="sv75">v75</field><value name="VALUE"><block type="math_number"><field name="NUM">75</field></block></value><next><block type="variables_set"><field name="VAR" id="sv76">v76</field><value name="VALUE"><block type="math_number"><field name="NUM">76</field></block></value><next><block type="variables_set"><field name="VAR" id="sv77">v77</field><value name="VALUE"><block type="math_number"><field name="NUM">77</field></block></value><next><block type="variables_set"><field name="VAR" id="sv78">v78</field><value name="VALUE"><block type="math_number"><field name="NUM">78</field></block></value><next><block type="variables_set"><field name="VAR" id="sv79">v79</field><value name="VALUE"><block type="math_number"><field name="NUM">79</field></block></value></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></statement></block><block type="event_block" id="ev1" x="20" y="400"><field name="EVENT">gameplay_update</field><statement name="DO"><block type="subroutine_call"><field name="NAME">incAll</field><next><block type="subroutine_call"><field name="NAME">checkA</field><next><block type="subroutine_call"><field name="NAME">checkB</field><next><block type="controls_if"><mutation else="1"></mutation><value name="IF0"><block type="logic_compare"><field name="OP">EQ</field><value name="A"><block type="variables_get"><field name="VAR" id="sverr">err</field></block></value><value name="B"><block type="math_number"><field name="NUM">0</field></block></value></block></value><statement name="DO0"><block type="score_set"><value name="VALUE"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></statement><statement name="ELSE"><block type="score_set"><value name="VALUE"><block type="math_number"><field name="NUM">999999</field></block></value></block></statement></block></next></block></next></block></next></block></statement></block><block type="subroutine_define" x="600" y="20"><field name="NAME">incAll</field><statement name="DO"><block type="variables_set"><field name="VAR" id="sv0">v0</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv1">v1</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv1">v1</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv2">v2</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv2">v2</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv3">v3</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv3">v3</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv4">v4</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv4">v4</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv5">v5</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv5">v5</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv6">v6</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv6">v6</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv7">v7</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv7">v7</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv8">v8</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv8">v8</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv9">v9</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv9">v9</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv10">v10</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv10">v10</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv11">v11</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv11">v11</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv12">v12</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv12">v12</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv13">v13</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv13">v13</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv14">v14</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv14">v14</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv15">v15</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv15">v15</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv16">v16</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv16">v16</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv17">v17</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv17">v17</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv18">v18</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv18">v18</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv19">v19</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv19">v19</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv20">v20</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv20">v20</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv21">v21</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv21">v21</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv22">v22</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv22">v22</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv23">v23</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv23">v23</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv24">v24</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv24">v24</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv25">v25</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv25">v25</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv26">v26</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv26">v26</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv27">v27</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv27">v27</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv28">v28</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv28">v28</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv29">v29</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv29">v29</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv30">v30</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv30">v30</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv31">v31</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv31">v31</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv32">v32</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv32">v32</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv33">v33</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv33">v33</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv34">v34</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv34">v34</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv35">v35</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv35">v35</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv36">v36</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv36">v36</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv37">v37</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv37">v37</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv38">v38</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv38">v38</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv39">v39</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv39">v39</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv40">v40</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv40">v40</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv41">v41</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv41">v41</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv42">v42</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv42">v42</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv43">v43</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv43">v43</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv44">v44</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv44">v44</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv45">v45</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv45">v45</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv46">v46</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv46">v46</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv47">v47</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv47">v47</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv48">v48</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv48">v48</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv49">v49</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv49">v49</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv50">v50</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv50">v50</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv51">v51</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv51">v51</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv52">v52</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv52">v52</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv53">v53</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv53">v53</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv54">v54</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv54">v54</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv55">v55</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv55">v55</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv56">v56</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv56">v56</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv57">v57</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv57">v57</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv58">v58</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv58">v58</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv59">v59</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv59">v59</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv60">v60</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv60">v60</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv61">v61</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv61">v61</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv62">v62</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv62">v62</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv63">v63</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv63">v63</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv64">v64</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv64">v64</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv65">v65</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv65">v65</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv66">v66</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv66">v66</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv67">v67</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv67">v67</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv68">v68</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv68">v68</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv69">v69</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv69">v69</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv70">v70</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv70">v70</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv71">v71</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv71">v71</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv72">v72</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv72">v72</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv73">v73</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv73">v73</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv74">v74</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv74">v74</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv75">v75</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv75">v75</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv76">v76</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv76">v76</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv77">v77</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv77">v77</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv78">v78</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv78">v78</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><next><block type="variables_set"><field name="VAR" id="sv79">v79</field><value name="VALUE"><block type="math_arithmetic"><field name="OP">ADD</field><value name="A"><block type="variables_get"><field name="VAR" id="sv79">v79</field></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></statement></block><block type="subroutine_define" x="600" y="800"><field name="NAME">checkA</field><statement name="DO"><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv1">v1</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">1</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv2">v2</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">2</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv3">v3</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">3</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv4">v4</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">4</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv5">v5</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">5</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv6">v6</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">6</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv7">v7</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">7</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv8">v8</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">8</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv9">v9</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">9</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv10">v10</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">10</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv11">v11</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">11</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv12">v12</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">12</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv13">v13</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">13</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv14">v14</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">14</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv15">v15</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">15</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv16">v16</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">16</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv17">v17</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">17</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv18">v18</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">18</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv19">v19</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">19</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv20">v20</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">20</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv21">v21</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">21</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv22">v22</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">22</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv23">v23</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">23</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv24">v24</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">24</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv25">v25</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">25</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv26">v26</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">26</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv27">v27</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">27</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv28">v28</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">28</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv29">v29</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">29</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv30">v30</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">30</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv31">v31</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">31</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv32">v32</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">32</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv33">v33</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">33</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv34">v34</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">34</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv35">v35</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">35</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv36">v36</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">36</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv37">v37</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">37</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv38">v38</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">38</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv39">v39</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">39</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv40">v40</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">40</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></statement></block><block type="subroutine_define" x="600" y="1200"><field name="NAME">checkB</field><statement name="DO"><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv41">v41</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">41</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv42">v42</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">42</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv43">v43</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">43</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv44">v44</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">44</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv45">v45</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">45</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv46">v46</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">46</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv47">v47</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">47</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv48">v48</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">48</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv49">v49</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">49</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv50">v50</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">50</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv51">v51</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">51</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv52">v52</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">52</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv53">v53</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">53</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv54">v54</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">54</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv55">v55</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">55</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv56">v56</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">56</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv57">v57</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">57</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv58">v58</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">58</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv59">v59</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">59</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv60">v60</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">60</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv61">v61</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">61</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv62">v62</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">62</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv63">v63</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">63</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv64">v64</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">64</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv65">v65</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">65</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv66">v66</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">66</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv67">v67</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">67</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv68">v68</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">68</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv69">v69</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">69</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv70">v70</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">70</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv71">v71</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">71</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv72">v72</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">72</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv73">v73</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">73</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv74">v74</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">74</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv75">v75</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">75</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv76">v76</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">76</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv77">v77</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">77</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv78">v78</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">78</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement><next><block type="controls_if"><value name="IF0"><block type="logic_compare"><field name="OP">NEQ</field><value name="A"><block type="math_arithmetic"><field name="OP">MINUS</field><value name="A"><block type="variables_get"><field name="VAR" id="sv79">v79</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="sv0">v0</field></block></value></block></value><value name="B"><block type="math_number"><field name="NUM">79</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="sverr">err</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></next></block></statement></block></xml>'
+player-animations:
+  animations:
+    - id: 0
+      name: Example1
+      frames:
+        - id: 1
+          duration: 2
+          pixels: |-
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+      previewWidthScale: 1
+backgrounds:
+  backgrounds:
+    - id: 1
+      name: Background 1
+      pixels: |-
+        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+        X..............................X
+      customHeight: false
+title-screen:
+  screens: []
+score-font:
+  digits:
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      .X......
+      .XX.....
+      ..XX....
+      ...XX...
+      ....XX..
+      .....XX.
+      ........
+    - |-
+      ..XXXX..
+      .XXX..X.
+      .XXX..X.
+      .XXX..X.
+      .XXX..X.
+      ..XX.X..
+      ..XX.X..
+      ...XX...
+    - |-
+      ...X....
+      ...XX...
+      ...XX...
+      ...XX...
+      ...XX...
+      ..XXXX..
+      ...XX...
+      ...XX...
+    - |-
+      ........
+      .XXXXX..
+      .XXXX.X.
+      .XX.X.X.
+      ..X.X.X.
+      ....X.X.
+      .....X..
+      ........
+    - |-
+      ...XX...
+      .XXXXXX.
+      ..X..X..
+      ..X..X..
+      ..X..X..
+      ..X..X..
+      ..X..X..
+      .XXXXXX.
+    - |-
+      ....X...
+      ...X....
+      ...XX...
+      ..XXXX..
+      ..XXXX..
+      ..XXXX..
+      ..XXXX..
+      ...XX...
+    - |-
+      ...XX...
+      ..X..X..
+      .X....X.
+      .X.XX.X.
+      .X.XX.X.
+      .X....X.
+      ..X..X..
+      ...XX...
+    - |-
+      ..XXXX..
+      .X....X.
+      .X....X.
+      ..X..X..
+      .X....X.
+      .X.XX.X.
+      .X....X.
+      ..XXXX..
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+squish-custom-score-font:
+  digits:
+    - |-
+      ..XXXX..
+      .XX..XX.
+      .XX..XX.
+      .XX..XX.
+      ..XXXX..
+    - |-
+      ...XX...
+      ..XXX...
+      ...XX...
+      ...XX...
+      .XXXXXX.
+    - |-
+      .XXXXX..
+      .....XX.
+      ..XXXX..
+      .XX.....
+      .XXXXXX.
+    - |-
+      .XXXXX..
+      .....XX.
+      ...XXX..
+      .....XX.
+      .XXXXX..
+    - |-
+      ...XXX..
+      ..X.XX..
+      .X..XX..
+      .XXXXXX.
+      ....XX..
+    - |-
+      .XXXXXX.
+      .XX.....
+      ..XXXX..
+      .....XX.
+      .XXXXX..
+    - |-
+      ..XXXX..
+      .XX.....
+      .XXXXX..
+      .XX..XX.
+      ..XXXX..
+    - |-
+      .XXXXXX.
+      .....XX.
+      ....XX..
+      ...XX...
+      ..XX....
+    - |-
+      ..XXXX..
+      .XX..XX.
+      ..XXXX..
+      .XX..XX.
+      ..XXXX..
+    - |-
+      ..XXXX..
+      .XX..XX.
+      ..XXXXX.
+      .....XX.
+      ..XXXX..
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+score-font-edits:
+  fonts: {}
+data-tables:
+  dataTables:
+    - id: 1
+      name: BG1
+      values:
+        - 1
+        - 7
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+      columns: 2
+      valueFormats: null
+      valueNotes: null
+    - id: 2
+      name: BG2
+      values:
+        - 1
+        - 8
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+      columns: 4
+      valueFormats: null
+      valueNotes: null
+    - id: 3
+      name: BG3
+      values:
+        - 2
+        - 6
+        - 0
+        - 0
+      columns: 2
+    - id: 4
+      name: BG4
+      values:
+        - 2
+        - 9
+        - 0
+        - 0
+      columns: 2
+    - id: 5
+      name: Stage Names
+      values:
+        - 7
+        - 8
+        - 9
+        - 10
+      columns: 4
+      valueFormats:
+        - text
+        - text
+        - text
+        - text
+text-strings:
+  textStrings:
+    - id: 1
+      name: Example message
+      text: |-
+        HELLO WORLD!
+        Line 2
+      justify: center
+      wrapToLine2: true
+text-font:
+  glyphs:
+    - |-
+      ..X.
+      .X.X
+      .XXX
+      .X.X
+      .X.X
+    - |-
+      ..X.
+      .X.X
+      .XX.
+      .X.X
+      .XX.
+    - |-
+      ..XX
+      .X..
+      .X..
+      .X..
+      ..XX
+    - |-
+      .XX.
+      .X.X
+      .X.X
+      .X.X
+      .XX.
+    - |-
+      ..XX
+      .X..
+      .XX.
+      .X..
+      .XXX
+    - |-
+      ..XX
+      .X..
+      .XX.
+      .X..
+      .X..
+    - |-
+      ..XX
+      .X..
+      .X.X
+      .X.X
+      ..X.
+    - |-
+      .X.X
+      .X.X
+      .XXX
+      .X.X
+      .X.X
+    - |-
+      .XXX
+      ..X.
+      ..X.
+      ..X.
+      .XXX
+    - |-
+      ...X
+      ...X
+      ...X
+      .X.X
+      ..X.
+    - |-
+      .X.X
+      .X.X
+      .XX.
+      .X.X
+      .X.X
+    - |-
+      .X..
+      .X..
+      .X..
+      .X..
+      .XXX
+    - |-
+      .X.X
+      .XXX
+      .XXX
+      .X.X
+      .X.X
+    - |-
+      ..X.
+      .X.X
+      .X.X
+      .X.X
+      .X.X
+    - |-
+      ..X.
+      .X.X
+      .X.X
+      .X.X
+      ..X.
+    - |-
+      ..X.
+      .X.X
+      .XX.
+      .X..
+      .X..
+    - |-
+      ..X.
+      .X.X
+      .X.X
+      .X.X
+      ..XX
+    - |-
+      ..X.
+      .X.X
+      .XX.
+      .X.X
+      .X.X
+    - |-
+      ..XX
+      .X..
+      ..X.
+      ...X
+      .XX.
+    - |-
+      .XXX
+      ..X.
+      ..X.
+      ..X.
+      ..X.
+    - |-
+      .X.X
+      .X.X
+      .X.X
+      .X.X
+      ..X.
+    - |-
+      .X.X
+      .X.X
+      .X.X
+      .X.X
+      .XX.
+    - |-
+      .X.X
+      .X.X
+      .XXX
+      .XXX
+      .X.X
+    - |-
+      .X.X
+      .X.X
+      ..X.
+      .X.X
+      .X.X
+    - |-
+      .X.X
+      .X.X
+      ..X.
+      ..X.
+      ..X.
+    - |-
+      .XX.
+      ...X
+      ..X.
+      .X..
+      .XXX
+    - |-
+      .XXX
+      .X.X
+      .X.X
+      .X.X
+      .XXX
+    - |-
+      ..X.
+      .XX.
+      ..X.
+      ..X.
+      .XXX
+    - |-
+      .XX.
+      ...X
+      ..X.
+      .X..
+      .XXX
+    - |-
+      .XX.
+      ...X
+      ..X.
+      ...X
+      .XX.
+    - |-
+      .X.X
+      .X.X
+      .XXX
+      ...X
+      ...X
+    - |-
+      ..XX
+      .X..
+      .XX.
+      ...X
+      .XX.
+    - |-
+      ..XX
+      .X..
+      .XX.
+      .X.X
+      ..X.
+    - |-
+      .XXX
+      ...X
+      ..X.
+      .X..
+      .X..
+    - |-
+      ..X.
+      .X.X
+      ..X.
+      .X.X
+      ..X.
+    - |-
+      ..X.
+      .X.X
+      ..XX
+      ...X
+      .XX.
+    - |-
+      ....
+      ....
+      ....
+      ....
+      ....
+    - |-
+      ....
+      ....
+      ....
+      ....
+      ..X.
+    - |-
+      .XX.
+      ...X
+      ..X.
+      ....
+      ..X.
+    - |-
+      ..X.
+      ..X.
+      ..X.
+      ....
+      ..X.
+    - |-
+      ....
+      ....
+      ....
+      ..X.
+      .X..
+    - |-
+      ....
+      ....
+      .XXX
+      ....
+      ....
+    - |-
+      ..X.
+      ..X.
+      .XXX
+      ..X.
+      ..X.
+    - |-
+      ..X.
+      .X..
+      ....
+      ....
+      ....
+    - |-
+      ..X.
+      .X..
+      .X..
+      .X..
+      ..X.
+    - |-
+      ..X.
+      ...X
+      ...X
+      ...X
+      ..X.
+    - |-
+      ....
+      .X..
+      ....
+      .X..
+      ....
+    - |-
+      ...X
+      ...X
+      ..X.
+      .X..
+      .X..
+    - |-
+      ....
+      .XXX
+      ....
+      .XXX
+      ....
+    - |-
+      .X.X
+      .X.X
+      ....
+      ....
+      ....
+    - |-
+      .X.X
+      XXXX
+      .X.X
+      XXXX
+      .X.X
+  cursor: |-
+    X..X
+    .XX.
+sound-effects:
+  soundEffects:
+    - id: 1
+      name: Example blip
+      audc: '4'
+      audf: 16
+      audv: 15
+      duration: 5
+      envelope: false
+      envelopeAttack: 0
+      envelopeDecay: 0
+      envelopeDecayEnd: 100
+      envelopeReleaseStart: 100
+      envelopeSustainLength: 32
+      envelopeRelease: 4
+      arpeggio: false
+      arpeggioDivision: 8
+      arpeggioInterval: 3
+      arpeggioRange: 0
+      priority: 1
+      color: null
+      isInstrument: true
+songs:
+  songs:
+    - id: 1
+      name: Title Screen
+      tempo: 140
+      loop: false
+      patternPreviewLoop: true
+      patterns:
+        - id: 1
+          name: Pattern 1
+          tempo: 140
+          useOwnTempo: false
+          stepCount: 8
+          tracks:
+            - id: 1
+              soundEffectId: 3
+              channel: 0
+              notes:
+                - step: 0
+                  midi: hit
+                  audf: null
+                  length: 16
+                - step: 32
+                  midi: hit
+                  audf: null
+                  length: 16
+                - step: 96
+                  midi: hit
+                  audf: null
+                  length: 16
+                - step: 128
+                  midi: hit
+                  audf: null
+                  length: 16
+                - step: 160
+                  midi: hit
+                  audf: null
+                  length: 16
+            - id: 2
+              soundEffectId: 4
+              channel: 0
+              notes:
+                - step: 64
+                  midi: hit
+                  audf: null
+                  length: 16
+                - step: 192
+                  midi: hit
+                  audf: null
+                  length: 16
+            - id: 3
+              soundEffectId: 5
+              channel: 0
+              notes: []
+            - id: 4
+              soundEffectId: 1
+              channel: 0
+              notes:
+                - step: 8
+                  midi: 100
+                  audf: 1
+                  length: 8
+                - step: 0
+                  midi: 66
+                  audf: 13
+                  length: 8
+                - step: 40
+                  midi: 52
+                  audf: 31
+                  length: 8
+      sequence:
+        - id: 1
+          patternId: 1
+          count: 1
+  instrumentColors: {}
+  subdivision: 8
+  noteLengthUnitsMigrated: true
+quick-colors:
+  - 150
+  - 154
+  - 170
+  - 174
+  - 14
+  - 26
+  - 216
+  - 202
+  - 58
+  - 70
+  - 86
+  - 100
+  - 186
+  - 8
+  - 4
+  - 240
+  - 32
+  - 36
+  - 40
+  - 46
+debug-variables:
+  chosen: []
+  list:
+    - name: flagPool1
+      address: 212
+      owner: block
+    - name: flagPool0
+      address: 213
+      owner: block
+    - name: rand16
+      address: 214
+      owner: block
+    - name: gameState
+      address: 215
+      owner: user
+    - name: titleCardFrame_3_3
+      address: 216
+      owner: block
+    - name: titleCardFrame_3_6
+      address: 217
+      owner: block
+    - name: titleCardIndex_3_3
+      address: 218
+      owner: block
+    - name: titleCardIndex_3_6
+      address: 219
+      owner: block
+    - name: titleCardColorIndex_3_3
+      address: 220
+      owner: block
+    - name: titleCardColorIndex_3_6
+      address: 221
+      owner: block
+    - name: backgroundrealcolor
+      address: 223
+      owner: system
+    - name: player1size
+      address: 230
+      owner: system
+    - name: player0size
+      address: 231
+      owner: system
+    - name: player0frame
+      address: 235
+      owner: system
+    - name: player1frame
+      address: 236
+      owner: system
+    - name: newbackground
+      address: 237
+      owner: system
