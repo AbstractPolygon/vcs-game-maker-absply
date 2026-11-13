@@ -9,7 +9,8 @@ const APP = process.env.APP || 'http://localhost:8086/';
 const OUT = process.env.OUT || P.OUT + '/shots';
 // (A profile for each run: on Windows the browser's helper processes can keep the last one's files open for a while.)
 const PROFILE = process.env.PROFILE || P.OUT + '/chrome-profile-' + process.pid;
-const PORT = 9334;
+// (Runs at the same time need ports of their own: one port shared made them wait on each other and get nothing.)
+const PORT = +(process.env.CDP_PORT || 9334);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 global.__chunks = [];

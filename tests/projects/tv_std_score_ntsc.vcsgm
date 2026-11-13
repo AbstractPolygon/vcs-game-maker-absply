@@ -1,0 +1,874 @@
+type: VCS Game Maker Project
+format-version: 1
+app-version: 0.51.38
+generation-time: '2026-10-09T20:03:54.032Z'
+configuration:
+  projectTitle: TV std score ntsc
+  projectVersion: 1.0.0
+  projectWebsite: 'https://abstractpolygon.com/'
+  projectDeveloper: AbstractPolygon
+  projectDescription: |-
+    This is a demonstration of using the Title Screen Kernel.
+
+    Use the "End Title Screen" block to switch back to gameplay kernel.
+  showScore: true
+  enableScoreFade: false
+  showBlankLines: true
+  enablePlayer0SpriteColors: false
+  enablePlayer1SpriteColors: false
+  enablePfColors: false
+  enableSuperchip: false
+  enableOptimizationSpeed: false
+  enableInlineRand: true
+  enableRand16: true
+  enableCycleScore: false
+  enableScanlinesDebug: false
+  pfres: 24
+  enablePfRowHeight: false
+  pfrowheight: 8
+  tvStandard: ntsc
+  romSize: 8k
+  scoreFont: ''
+  secondaryScoreFont: ''
+  muteAllAudio: false
+  showVariableComments: true
+blockly-workspace: '<xml xmlns="https://developers.google.com/blockly/xml"><block type="event_block" id="ev0" x="20" y="20"><field name="EVENT">gameplay_start</field><statement name="DO"><block type="score_set" id="s0"><value name="VALUE"><block type="math_number" id="s0n"><field name="NUM">123456</field></block></value></block></statement></block></xml>'
+player-animations:
+  animations:
+    - id: 0
+      name: Example1
+      frames:
+        - id: 1
+          duration: 2
+          pixels: |-
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+            XXXXXXXX
+      previewWidthScale: 1
+backgrounds:
+  backgrounds:
+    - id: 1
+      name: Background 1
+      pixels: |-
+        X.X.............................
+        XXX..X..........................
+        X..XX...X.......................
+        XXXXX......X....................
+        X....XX.......X.................
+        XXX..XX..........X..............
+        X..XXXX.............X...........
+        XXXXXXX................X........
+        X......XX.................X.....
+        XXX....XX....................X..
+        X..XX..XX.......................
+        XXXXX..XX.......................
+      customHeight: true
+title-screen:
+  screens: []
+score-font:
+  digits:
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      .X......
+      .XX.....
+      ..XX....
+      ...XX...
+      ....XX..
+      .....XX.
+      ........
+    - |-
+      ..XXXX..
+      .XXX..X.
+      .XXX..X.
+      .XXX..X.
+      .XXX..X.
+      ..XX.X..
+      ..XX.X..
+      ...XX...
+    - |-
+      ...X....
+      ...XX...
+      ...XX...
+      ...XX...
+      ...XX...
+      ..XXXX..
+      ...XX...
+      ...XX...
+    - |-
+      ........
+      .XXXXX..
+      .XXXX.X.
+      .XX.X.X.
+      ..X.X.X.
+      ....X.X.
+      .....X..
+      ........
+    - |-
+      ...XX...
+      .XXXXXX.
+      ..X..X..
+      ..X..X..
+      ..X..X..
+      ..X..X..
+      ..X..X..
+      .XXXXXX.
+    - |-
+      ....X...
+      ...X....
+      ...XX...
+      ..XXXX..
+      ..XXXX..
+      ..XXXX..
+      ..XXXX..
+      ...XX...
+    - |-
+      ...XX...
+      ..X..X..
+      .X....X.
+      .X.XX.X.
+      .X.XX.X.
+      .X....X.
+      ..X..X..
+      ...XX...
+    - |-
+      ..XXXX..
+      .X....X.
+      .X....X.
+      ..X..X..
+      .X....X.
+      .X.XX.X.
+      .X....X.
+      ..XXXX..
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+      ........
+squish-custom-score-font:
+  digits:
+    - |-
+      ..XXXX..
+      .XX..XX.
+      .XX..XX.
+      .XX..XX.
+      ..XXXX..
+    - |-
+      ...XX...
+      ..XXX...
+      ...XX...
+      ...XX...
+      .XXXXXX.
+    - |-
+      .XXXXX..
+      .....XX.
+      ..XXXX..
+      .XX.....
+      .XXXXXX.
+    - |-
+      .XXXXX..
+      .....XX.
+      ...XXX..
+      .....XX.
+      .XXXXX..
+    - |-
+      ...XXX..
+      ..X.XX..
+      .X..XX..
+      .XXXXXX.
+      ....XX..
+    - |-
+      .XXXXXX.
+      .XX.....
+      ..XXXX..
+      .....XX.
+      .XXXXX..
+    - |-
+      ..XXXX..
+      .XX.....
+      .XXXXX..
+      .XX..XX.
+      ..XXXX..
+    - |-
+      .XXXXXX.
+      .....XX.
+      ....XX..
+      ...XX...
+      ..XX....
+    - |-
+      ..XXXX..
+      .XX..XX.
+      ..XXXX..
+      .XX..XX.
+      ..XXXX..
+    - |-
+      ..XXXX..
+      .XX..XX.
+      ..XXXXX.
+      .....XX.
+      ..XXXX..
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+    - |-
+      ........
+      ........
+      ........
+      ........
+      ........
+score-font-edits:
+  fonts: {}
+data-tables:
+  dataTables:
+    - id: 1
+      name: BG1
+      values:
+        - 1
+        - 7
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+      columns: 2
+      valueFormats: null
+      valueNotes: null
+    - id: 2
+      name: BG2
+      values:
+        - 1
+        - 8
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+        - 0
+      columns: 4
+      valueFormats: null
+      valueNotes: null
+    - id: 3
+      name: BG3
+      values:
+        - 2
+        - 6
+        - 0
+        - 0
+      columns: 2
+    - id: 4
+      name: BG4
+      values:
+        - 2
+        - 9
+        - 0
+        - 0
+      columns: 2
+    - id: 5
+      name: Stage Names
+      values:
+        - 7
+        - 8
+        - 9
+        - 10
+      columns: 4
+      valueFormats:
+        - text
+        - text
+        - text
+        - text
+text-strings:
+  textStrings:
+    - id: 1
+      name: Example message
+      text: |-
+        HELLO WORLD!
+        Line 2
+      justify: center
+      wrapToLine2: true
+text-font:
+  glyphs:
+    - |-
+      ..X.
+      .X.X
+      .XXX
+      .X.X
+      .X.X
+    - |-
+      ..X.
+      .X.X
+      .XX.
+      .X.X
+      .XX.
+    - |-
+      ..XX
+      .X..
+      .X..
+      .X..
+      ..XX
+    - |-
+      .XX.
+      .X.X
+      .X.X
+      .X.X
+      .XX.
+    - |-
+      ..XX
+      .X..
+      .XX.
+      .X..
+      .XXX
+    - |-
+      ..XX
+      .X..
+      .XX.
+      .X..
+      .X..
+    - |-
+      ..XX
+      .X..
+      .X.X
+      .X.X
+      ..X.
+    - |-
+      .X.X
+      .X.X
+      .XXX
+      .X.X
+      .X.X
+    - |-
+      .XXX
+      ..X.
+      ..X.
+      ..X.
+      .XXX
+    - |-
+      ...X
+      ...X
+      ...X
+      .X.X
+      ..X.
+    - |-
+      .X.X
+      .X.X
+      .XX.
+      .X.X
+      .X.X
+    - |-
+      .X..
+      .X..
+      .X..
+      .X..
+      .XXX
+    - |-
+      .X.X
+      .XXX
+      .XXX
+      .X.X
+      .X.X
+    - |-
+      ..X.
+      .X.X
+      .X.X
+      .X.X
+      .X.X
+    - |-
+      ..X.
+      .X.X
+      .X.X
+      .X.X
+      ..X.
+    - |-
+      ..X.
+      .X.X
+      .XX.
+      .X..
+      .X..
+    - |-
+      ..X.
+      .X.X
+      .X.X
+      .X.X
+      ..XX
+    - |-
+      ..X.
+      .X.X
+      .XX.
+      .X.X
+      .X.X
+    - |-
+      ..XX
+      .X..
+      ..X.
+      ...X
+      .XX.
+    - |-
+      .XXX
+      ..X.
+      ..X.
+      ..X.
+      ..X.
+    - |-
+      .X.X
+      .X.X
+      .X.X
+      .X.X
+      ..X.
+    - |-
+      .X.X
+      .X.X
+      .X.X
+      .X.X
+      .XX.
+    - |-
+      .X.X
+      .X.X
+      .XXX
+      .XXX
+      .X.X
+    - |-
+      .X.X
+      .X.X
+      ..X.
+      .X.X
+      .X.X
+    - |-
+      .X.X
+      .X.X
+      ..X.
+      ..X.
+      ..X.
+    - |-
+      .XX.
+      ...X
+      ..X.
+      .X..
+      .XXX
+    - |-
+      .XXX
+      .X.X
+      .X.X
+      .X.X
+      .XXX
+    - |-
+      ..X.
+      .XX.
+      ..X.
+      ..X.
+      .XXX
+    - |-
+      .XX.
+      ...X
+      ..X.
+      .X..
+      .XXX
+    - |-
+      .XX.
+      ...X
+      ..X.
+      ...X
+      .XX.
+    - |-
+      .X.X
+      .X.X
+      .XXX
+      ...X
+      ...X
+    - |-
+      ..XX
+      .X..
+      .XX.
+      ...X
+      .XX.
+    - |-
+      ..XX
+      .X..
+      .XX.
+      .X.X
+      ..X.
+    - |-
+      .XXX
+      ...X
+      ..X.
+      .X..
+      .X..
+    - |-
+      ..X.
+      .X.X
+      ..X.
+      .X.X
+      ..X.
+    - |-
+      ..X.
+      .X.X
+      ..XX
+      ...X
+      .XX.
+    - |-
+      ....
+      ....
+      ....
+      ....
+      ....
+    - |-
+      ....
+      ....
+      ....
+      ....
+      ..X.
+    - |-
+      .XX.
+      ...X
+      ..X.
+      ....
+      ..X.
+    - |-
+      ..X.
+      ..X.
+      ..X.
+      ....
+      ..X.
+    - |-
+      ....
+      ....
+      ....
+      ..X.
+      .X..
+    - |-
+      ....
+      ....
+      .XXX
+      ....
+      ....
+    - |-
+      ..X.
+      ..X.
+      .XXX
+      ..X.
+      ..X.
+    - |-
+      ..X.
+      .X..
+      ....
+      ....
+      ....
+    - |-
+      ..X.
+      .X..
+      .X..
+      .X..
+      ..X.
+    - |-
+      ..X.
+      ...X
+      ...X
+      ...X
+      ..X.
+    - |-
+      ....
+      .X..
+      ....
+      .X..
+      ....
+    - |-
+      ...X
+      ...X
+      ..X.
+      .X..
+      .X..
+    - |-
+      ....
+      .XXX
+      ....
+      .XXX
+      ....
+    - |-
+      .X.X
+      .X.X
+      ....
+      ....
+      ....
+    - |-
+      .X.X
+      XXXX
+      .X.X
+      XXXX
+      .X.X
+  cursor: |-
+    X..X
+    .XX.
+sound-effects:
+  soundEffects:
+    - id: 1
+      name: Example blip
+      audc: '4'
+      audf: 16
+      audv: 15
+      duration: 5
+      envelope: false
+      envelopeAttack: 0
+      envelopeDecay: 0
+      envelopeDecayEnd: 100
+      envelopeReleaseStart: 100
+      envelopeSustainLength: 32
+      envelopeRelease: 4
+      arpeggio: false
+      arpeggioDivision: 8
+      arpeggioInterval: 3
+      arpeggioRange: 0
+      priority: 1
+      color: null
+      isInstrument: true
+songs:
+  songs:
+    - id: 1
+      name: Title Screen
+      tempo: 140
+      loop: false
+      patternPreviewLoop: true
+      patterns:
+        - id: 1
+          name: Pattern 1
+          tempo: 140
+          useOwnTempo: false
+          stepCount: 8
+          tracks:
+            - id: 1
+              soundEffectId: 3
+              channel: 0
+              notes:
+                - step: 0
+                  midi: hit
+                  audf: null
+                  length: 16
+                - step: 32
+                  midi: hit
+                  audf: null
+                  length: 16
+                - step: 96
+                  midi: hit
+                  audf: null
+                  length: 16
+                - step: 128
+                  midi: hit
+                  audf: null
+                  length: 16
+                - step: 160
+                  midi: hit
+                  audf: null
+                  length: 16
+            - id: 2
+              soundEffectId: 4
+              channel: 0
+              notes:
+                - step: 64
+                  midi: hit
+                  audf: null
+                  length: 16
+                - step: 192
+                  midi: hit
+                  audf: null
+                  length: 16
+            - id: 3
+              soundEffectId: 5
+              channel: 0
+              notes: []
+            - id: 4
+              soundEffectId: 1
+              channel: 0
+              notes:
+                - step: 8
+                  midi: 100
+                  audf: 1
+                  length: 8
+                - step: 0
+                  midi: 66
+                  audf: 13
+                  length: 8
+                - step: 40
+                  midi: 52
+                  audf: 31
+                  length: 8
+      sequence:
+        - id: 1
+          patternId: 1
+          count: 1
+  instrumentColors: {}
+  subdivision: 8
+  noteLengthUnitsMigrated: true
+quick-colors:
+  - 150
+  - 154
+  - 170
+  - 174
+  - 14
+  - 26
+  - 216
+  - 202
+  - 58
+  - 70
+  - 86
+  - 100
+  - 186
+  - 8
+  - 4
+  - 240
+  - 32
+  - 36
+  - 40
+  - 46
+debug-variables:
+  chosen: []
+  list:
+    - name: flagPool1
+      address: 212
+      owner: block
+    - name: flagPool0
+      address: 213
+      owner: block
+    - name: rand16
+      address: 214
+      owner: block
+    - name: gameState
+      address: 215
+      owner: user
+    - name: titleCardFrame_3_3
+      address: 216
+      owner: block
+    - name: titleCardFrame_3_6
+      address: 217
+      owner: block
+    - name: titleCardIndex_3_3
+      address: 218
+      owner: block
+    - name: titleCardIndex_3_6
+      address: 219
+      owner: block
+    - name: titleCardColorIndex_3_3
+      address: 220
+      owner: block
+    - name: titleCardColorIndex_3_6
+      address: 221
+      owner: block
+    - name: backgroundrealcolor
+      address: 223
+      owner: system
+    - name: player1size
+      address: 230
+      owner: system
+    - name: player0size
+      address: 231
+      owner: system
+    - name: player0frame
+      address: 235
+      owner: system
+    - name: player1frame
+      address: 236
+      owner: system
+    - name: newbackground
+      address: 237
+      owner: system
