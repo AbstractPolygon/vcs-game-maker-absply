@@ -8,8 +8,11 @@ summary: Make Atari 2600 games with blocks
 description: |
   A no-code environment for creating Atari 2600 games using Blockly and batari Basic: blocks for the game logic, editors for sprites,
   playfields, title screens, text, sound and music, and an emulator to play the result.
-license: PolyForm-Shield-1.0.0
+# The store takes SPDX names it knows, and PolyForm Shield is not one of them: the license is stated as proprietary here (the text is in LICENSE).
+license: Proprietary
 website: https://github.com/haroldo-ok/vcs-game-maker
+source-code: https://github.com/haroldo-ok/vcs-game-maker
+issues: https://github.com/haroldo-ok/vcs-game-maker/issues
 grade: stable
 confinement: strict
 platforms:
