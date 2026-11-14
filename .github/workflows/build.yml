@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # ubuntu-24.04, not ubuntu-latest: GitHub is moving the latest label to 26.04, where the rpm maker finds nothing to package.
+        # ubuntu-24.04, not ubuntu-latest: GitHub is moving the latest label to 26.04, which the Linux builds were not checked on.
         os: [windows-latest, windows-11-arm, macos-latest, ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
     steps:
@@ -38,7 +38,7 @@ jobs:
           cache: npm
       - name: Install the packages the Linux makers need
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y rpm fakeroot dpkg squashfs-tools
+        run: sudo apt-get update && sudo apt-get install -y squashfs-tools
       - run: npm ci --legacy-peer-deps
       # The Windows installer is an .msi, which the WiX Toolset (candle.exe and light.exe on the PATH) builds. The runner image has
       # had it; this installs it when it is missing.
@@ -82,6 +82,40 @@ jobs:
           # A tar.gz keeps the executable bits that a zip downloaded from a release would lose.
           tar -czf "out/make/portable/$folder.tar.gz" -C out/make/portable "$folder"
           rm -rf "out/make/portable/$folder"
+      # The Flatpak and the snap (for the stores): the same packaged program as the folders above, built on both Linux runners.
+      - name: Make the Flatpak
+        if: runner.os == 'Linux'
+        run: |
+          arch=$(uname -m | sed 's/x86_64/x64/; s/aarch64/arm64/')
+          app=$(find "$PWD/out" -maxdepth 1 -type d -name '*-linux-*' | head -1)
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          mkdir flatpak-work
+          cp -a build/flatpak/. flatpak-work/
+          sed -i "s#APP_DIR#$app#" flatpak-work/io.github.haroldo_ok.VCSGameMaker.yml
+          mkdir -p out/make/flatpak
+          (cd flatpak-work && flatpak-builder --user --install-deps-from=flathub --force-clean --repo=repo build-dir io.github.haroldo_ok.VCSGameMaker.yml && flatpak build-bundle repo "$OLDPWD/out/make/flatpak/VCS-Game-Maker-Linux-$arch.flatpak" io.github.haroldo_ok.VCSGameMaker)
+      - name: Put the snap files together
+        if: runner.os == 'Linux'
+        run: |
+          app=$(find "$PWD/out" -maxdepth 1 -type d -name '*-linux-*' | head -1)
+          mkdir -p snap-work/snap
+          cp -a "$app" snap-work/app
+          cp -a build/snap/snapcraft.yaml snap-work/snap/
+          cp -a build/snap/gui snap-work/snap/gui
+          sed -i "s#'VERSION'#'${{ needs.version.outputs.version }}'#" snap-work/snap/snapcraft.yaml
+      - name: Make the snap
+        if: runner.os == 'Linux'
+        id: snap
+        uses: snapcore/action-build@v1
+        with:
+          path: snap-work
+      - name: Keep the snap under a clear name
+        if: runner.os == 'Linux'
+        run: |
+          arch=$(uname -m | sed 's/x86_64/x64/; s/aarch64/arm64/')
+          mkdir -p out/make/snap
+          cp "${{ steps.snap.outputs.snap }}" "out/make/snap/VCS-Game-Maker-Linux-$arch.snap"
       # The macOS runner is Apple Silicon; this adds the Intel build next to it.
       - name: Make the Intel macOS installers
         if: runner.os == 'macOS'
@@ -126,7 +160,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: installers
-      # Only the files a person downloads (the Windows Setup, the macOS dmg and zip, the Linux deb, rpm and AppImage, the web zip).
+      # Only the files a person downloads (the Windows Setup, the macOS dmg and zip, the Linux AppImage, Flatpak, snap and VCS portable, the web zip).
       - name: Create or update the release
         run: |
           # Each file gets a name that says which system it is for.
@@ -136,9 +170,9 @@ jobs:
             case "$name" in
               *.msi) case "$file" in */arm64/*) new="VCS-Game-Maker-$TAG-Windows-arm64-Setup.msi" ;; *) new="VCS-Game-Maker-$TAG-Windows-Setup.msi" ;; esac ;;
               *VCS-portable.tar.gz) new="VCS-Game-Maker-$TAG-Linux-x64-VCS-portable.tar.gz" ;;
-              *.deb) case "$name" in *arm64*) arch=arm64 ;; *) arch=amd64 ;; esac; new="VCS-Game-Maker-$TAG-Linux-$arch.deb" ;;
+              *.flatpak) case "$name" in *arm64*) arch=arm64 ;; *) arch=x64 ;; esac; new="VCS-Game-Maker-$TAG-Linux-$arch.flatpak" ;;
+              *.snap) case "$name" in *arm64*) arch=arm64 ;; *) arch=x64 ;; esac; new="VCS-Game-Maker-$TAG-Linux-$arch.snap" ;;
               *.AppImage) case "$name" in *arm64*) arch=arm64 ;; *) arch=x64 ;; esac; new="VCS-Game-Maker-$TAG-Linux-$arch.AppImage" ;;
-              *.rpm) case "$name" in *aarch64*) arch=aarch64 ;; *) arch=x86_64 ;; esac; new="VCS-Game-Maker-$TAG-Linux-$arch.rpm" ;;
               VCS-Game-Maker-web-*.zip) new="VCS-Game-Maker-$TAG-Web.zip" ;;
               *.dmg) case "$name" in *arm64*) arch=arm64 ;; *) arch=x64 ;; esac; new="VCS-Game-Maker-$TAG-macOS-$arch.dmg" ;;
               *.zip) case "$name" in *arm64*) arch=arm64 ;; *) arch=x64 ;; esac; new="VCS-Game-Maker-$TAG-macOS-$arch.zip" ;;
@@ -153,7 +187,7 @@ jobs:
                 tar -czf "release-files/$new.tar.gz" -C release-files "$new"
                 rm "release-files/$new" ;;
             esac
-          done < <(find installers -type f \( -name '*.msi' -o -name '*.zip' -o -name '*.dmg' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*VCS-portable.tar.gz' \))
+          done < <(find installers -type f \( -name '*.msi' -o -name '*.zip' -o -name '*.dmg' -o -name '*.AppImage' -o -name '*.flatpak' -o -name '*.snap' -o -name '*VCS-portable.tar.gz' \))
           mapfile -t files < <(find release-files -type f)
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${files[@]}" --clobber

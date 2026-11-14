@@ -5,11 +5,11 @@ const path = require('path');
 module.exports = {
   packagerConfig: {
     asar: true,
-    // The deb and rpm makers look for the program under the package name, but the packager names it after the product
-    // name (with spaces) unless told otherwise. Only Linux needs this; Windows and macOS keep the product name.
+    // The AppImage maker and the VCS portable build look for the program under the package name, but the packager names it after the
+    // product name (with spaces) unless told otherwise. Only Linux needs this; Windows and macOS keep the product name.
     ...(process.platform === 'linux' ? {executableName: 'vcs-game-maker'} : {}),
     // Without the extension: the packager adds .ico on Windows and .icns on
-    // macOS (Linux packages get theirs from the makers below).
+    // macOS (the AppImage gets its icon from its maker below).
     icon: 'build/icons/icon',
   },
   rebuildConfig: {},
@@ -85,33 +85,12 @@ module.exports = {
       },
     },
     {
-      name: '@electron-forge/maker-deb',
-      config: {
-        // The menu entry (a .desktop file) the package installs: its name, icon and the menu section it goes in.
-        options: {
-          icon: 'build/icons/512x512.png',
-          genericName: 'Atari 2600 Game Maker',
-          categories: ['Development', 'Game'],
-        },
-      },
-    },
-    {
       // One file that runs on any Linux distribution, with no install (needs mksquashfs when it is made).
       name: '@reforged/maker-appimage',
       platforms: ['linux'],
       config: {
         options: {
           icon: 'build/icons/512x512.png',
-          categories: ['Development', 'Game'],
-        },
-      },
-    },
-    {
-      name: '@electron-forge/maker-rpm',
-      config: {
-        options: {
-          icon: 'build/icons/512x512.png',
-          genericName: 'Atari 2600 Game Maker',
           categories: ['Development', 'Game'],
         },
       },
