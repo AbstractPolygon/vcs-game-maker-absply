@@ -1,0 +1,52 @@
+name: Flatpak (test build)
+
+# Builds the Flatpak of the Linux app for Intel/AMD and ARM and keeps it as a download of the run (no release is touched): a way to try
+# build/flatpak out on GitHub, as flatpak-builder only runs on Linux. Run it from the Actions tab.
+on:
+  workflow_dispatch:
+
+jobs:
+  flatpak:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: x64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npm run build
+      # The program as the packager makes it (a folder), which the Flatpak puts in /app.
+      - run: npm run electron:package
+      - name: Install flatpak-builder and the runtime
+        run: |
+          sudo apt-get update && sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+      - name: Build the Flatpak
+        run: |
+          app=$(find "$PWD/out" -maxdepth 1 -type d -name '*-linux-*' | head -1)
+          echo "Packaged program: $app"
+          mkdir flatpak-work
+          cp -a build/flatpak/. flatpak-work/
+          sed -i "s#APP_DIR#$app#" flatpak-work/io.github.haroldo_ok.VCSGameMaker.yml
+          cd flatpak-work
+          flatpak-builder --user --install-deps-from=flathub --force-clean --repo=repo build-dir io.github.haroldo_ok.VCSGameMaker.yml
+          flatpak build-bundle repo "../VCS-Game-Maker-Linux-${{ matrix.arch }}.flatpak" io.github.haroldo_ok.VCSGameMaker
+      # The program has to be in the installed Flatpak (the window itself needs a display, so it is not started here).
+      - name: Install the bundle and look for the program
+        run: |
+          flatpak install --user -y --bundle "VCS-Game-Maker-Linux-${{ matrix.arch }}.flatpak"
+          flatpak run --command=ls io.github.haroldo_ok.VCSGameMaker -l /app/vcs-game-maker/vcs-game-maker
+      - uses: actions/upload-artifact@v7
+        with:
+          name: flatpak-${{ matrix.arch }}
+          path: VCS-Game-Maker-Linux-*.flatpak
+          if-no-files-found: error

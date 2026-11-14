@@ -1,0 +1,43 @@
+# The Flatpak of VCS Game Maker: the Electron program the packager built (out/*-linux-*), with the Electron base app of Flathub
+# (zypak-wrapper starts it inside the Flatpak sandbox). .github/workflows/flatpak.yml copies this folder next to the built program and
+# fills in APP_DIR (the packaged program) before it runs flatpak-builder.
+app-id: io.github.haroldo_ok.VCSGameMaker
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '24.08'
+command: vcs-game-maker
+separate-locales: false
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=dri
+  # Projects and ROMs are saved wherever the user picks, so the home folder is open.
+  - --filesystem=home
+  - --talk-name=org.freedesktop.Notifications
+modules:
+  - name: vcs-game-maker
+    buildsystem: simple
+    build-commands:
+      - install -d /app/vcs-game-maker
+      - cp -a app/. /app/vcs-game-maker/
+      - install -Dm755 vcs-game-maker.sh /app/bin/vcs-game-maker
+      - install -Dm644 io.github.haroldo_ok.VCSGameMaker.desktop /app/share/applications/io.github.haroldo_ok.VCSGameMaker.desktop
+      - install -Dm644 io.github.haroldo_ok.VCSGameMaker.metainfo.xml /app/share/metainfo/io.github.haroldo_ok.VCSGameMaker.metainfo.xml
+      - install -Dm644 icon-512.png /app/share/icons/hicolor/512x512/apps/io.github.haroldo_ok.VCSGameMaker.png
+    sources:
+      - type: dir
+        path: APP_DIR
+        dest: app
+      - type: file
+        path: vcs-game-maker.sh
+      - type: file
+        path: io.github.haroldo_ok.VCSGameMaker.desktop
+      - type: file
+        path: io.github.haroldo_ok.VCSGameMaker.metainfo.xml
+      - type: file
+        path: icon-512.png

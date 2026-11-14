@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=VCS Game Maker
+GenericName=Atari 2600 Game Maker
+Comment=Make Atari 2600 games with blocks
+Exec=vcs-game-maker %U
+Icon=io.github.haroldo_ok.VCSGameMaker
+Terminal=false
+Type=Application
+Categories=Development;Game;

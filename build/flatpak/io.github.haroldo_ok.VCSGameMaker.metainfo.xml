@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.haroldo_ok.VCSGameMaker</id>
+  <name>VCS Game Maker</name>
+  <summary>Make Atari 2600 games with blocks</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>PolyForm-Shield-1.0.0</project_license>
+  <description>
+    <p>A no-code environment for creating Atari 2600 games using Blockly and batari Basic: blocks for the game logic, editors for sprites, playfields, title screens, text, sound and music, and an emulator to play the result.</p>
+  </description>
+  <url type="homepage">https://github.com/haroldo-ok/vcs-game-maker</url>
+  <launchable type="desktop-id">io.github.haroldo_ok.VCSGameMaker.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+  <categories>
+    <category>Development</category>
+    <category>Game</category>
+  </categories>
+</component>
