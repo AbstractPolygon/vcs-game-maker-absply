@@ -249,6 +249,48 @@ if (!Blockly.ToolboxCategory.prototype.parseColour_.isDesaturationPatch) {
   Blockly.ToolboxCategory.prototype.parseColour_.isDesaturationPatch = true;
 }
 
+// A drawer that has drawers inside it (Playfield has Behaviors, Tiles and others; Behaviors has Scroll) is opened and folded
+// by a double-click on it. A single click only shows its own blocks, so moving between a parent and its drawers (or from any
+// other drawer) never folds one by accident. (The original createDom_ is kept on the class, so this is also put in place
+// again when the module is hot reloaded in development.)
+if (!Blockly.CollapsibleToolboxCategory.originalCreateDom) {
+  Blockly.CollapsibleToolboxCategory.originalCreateDom = Blockly.CollapsibleToolboxCategory.prototype.createDom_;
+}
+Blockly.CollapsibleToolboxCategory.prototype.onClick = function() {};
+Blockly.CollapsibleToolboxCategory.prototype.createDom_ = function() {
+  const dom = Blockly.CollapsibleToolboxCategory.originalCreateDom.call(this);
+  // The arrow opens and folds the drawer with a single click, leaving the drawer showing as it is (the flyout hides when a
+  // drawer folds: the drawer that is showing puts its blocks back).
+  const showSelectedFlyout = () => {
+    const toolbox = this.parentToolbox_;
+    const selected = toolbox && toolbox.getSelectedItem();
+    if (selected && selected.getContents && selected.getContents().length) toolbox.getFlyout().show(selected.getContents());
+  };
+  // (The row's contents let clicks through to the row itself, so the arrow is found by where the click is.)
+  const isOnArrow = (event) => {
+    if (!this.iconDom_) return false;
+    const rect = this.iconDom_.getBoundingClientRect();
+    return event.clientX >= rect.left - 4 && event.clientX <= rect.right + 4 && event.clientY >= rect.top && event.clientY <= rect.bottom;
+  };
+  this.rowDiv_.addEventListener('click', (event) => {
+    if (!isOnArrow(event)) return;
+    this.toggleExpanded();
+    showSelectedFlyout();
+  });
+  this.rowDiv_.addEventListener('dblclick', (event) => {
+    // (A double-click on the arrow is two single clicks on it: it is not a third toggle.)
+    if (isOnArrow(event)) return;
+    this.toggleExpanded();
+    // (The second click of the double-click took the selection off the drawer, and folding a drawer hides the flyout: show the
+    // drawer's blocks again.)
+    const toolbox = this.parentToolbox_;
+    if (!toolbox) return;
+    if (toolbox.getSelectedItem() !== this) toolbox.setSelectedItem(this);
+    else if (this.getContents().length) toolbox.getFlyout().show(this.getContents());
+  });
+  return dom;
+};
+
 // Keeps the toolbox flyout (the drawer of draggable block previews a
 // clicked category opens) open across a zoom - confirmed directly that
 // WorkspaceSvg.prototype.setScale (the function EVERY zoom path - the +/-

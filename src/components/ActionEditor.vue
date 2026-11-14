@@ -403,6 +403,10 @@ export default {
     kernelIsDpcPlus() {
       return (this.configurationStorage.value || {}).kernel === 'dpcplus';
     },
+    // The Tiles drawer of the Playfield category is there while the backgrounds are kept as tiles (Options tab).
+    tilemapEnabled() {
+      return !!(this.configurationStorage.value || {}).dpcPlusTilemap;
+    },
     // The Voice category of the toolbox (the AtariVox blocks) is there while the AtariVox is on (Options tab).
     atariVoxEnabled() {
       return !!(this.configurationStorage.value || {}).enableAtariVox;
@@ -443,6 +447,12 @@ export default {
           this.kernelIsDpcPlus, this.atariVoxEnabled));
     },
     kernelIsDpcPlus() {
+      const workspace = this.$refs['foo'] && this.$refs['foo'].workspace;
+      if (!workspace) return;
+      workspace.updateToolbox(buildToolboxXml(this.player0SpriteColorsEnabled, this.player1SpriteColorsEnabled,
+          this.kernelIsDpcPlus, this.atariVoxEnabled));
+    },
+    tilemapEnabled() {
       const workspace = this.$refs['foo'] && this.$refs['foo'].workspace;
       if (!workspace) return;
       workspace.updateToolbox(buildToolboxXml(this.player0SpriteColorsEnabled, this.player1SpriteColorsEnabled,
