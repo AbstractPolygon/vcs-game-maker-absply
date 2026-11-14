@@ -1,0 +1,53 @@
+name: Snap (test build)
+
+# Builds the snap of the Linux app for Intel/AMD and ARM and keeps it as a download of the run (no release is touched): a way to try
+# build/snap out on GitHub, as snapcraft needs Linux. Run it from the Actions tab.
+on:
+  workflow_dispatch:
+
+jobs:
+  snap:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: x64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npm run build
+      # The program as the packager makes it (a folder), which the snap holds.
+      - run: npm run electron:package
+      - name: Put the snap files together
+        run: |
+          app=$(find "$PWD/out" -maxdepth 1 -type d -name '*-linux-*' | head -1)
+          echo "Packaged program: $app"
+          mkdir -p snap-work/snap
+          cp -a "$app" snap-work/app
+          cp -a build/snap/snapcraft.yaml snap-work/snap/
+          cp -a build/snap/gui snap-work/snap/gui
+          version=$(node -p "require('./package.json').version")
+          sed -i "s#'VERSION'#'$version'#" snap-work/snap/snapcraft.yaml
+      - uses: snapcore/action-build@v1
+        id: build
+        with:
+          path: snap-work
+      - name: Install the snap and look for the program
+        run: |
+          sudo snap install --dangerous "${{ steps.build.outputs.snap }}"
+          ls -l /snap/vcs-game-maker/current/vcs-game-maker
+      - name: Keep the snap under a clear name
+        run: cp "${{ steps.build.outputs.snap }}" "VCS-Game-Maker-Linux-${{ matrix.arch }}.snap"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: snap-${{ matrix.arch }}
+          path: VCS-Game-Maker-Linux-*.snap
+          if-no-files-found: error

@@ -1,0 +1,43 @@
+# The snap of VCS Game Maker: the Electron program the packager built (out/*-linux-*), which .github/workflows/snap.yml copies to the folder
+# "app" next to this file's folder (snap/) before it runs snapcraft. The version is filled in from package.json by the workflow.
+name: vcs-game-maker
+title: VCS Game Maker
+base: core24
+version: 'VERSION'
+summary: Make Atari 2600 games with blocks
+description: |
+  A no-code environment for creating Atari 2600 games using Blockly and batari Basic: blocks for the game logic, editors for sprites,
+  playfields, title screens, text, sound and music, and an emulator to play the result.
+license: PolyForm-Shield-1.0.0
+website: https://github.com/haroldo-ok/vcs-game-maker
+grade: stable
+confinement: strict
+platforms:
+  amd64:
+  arm64:
+parts:
+  vcs-game-maker:
+    plugin: dump
+    source: app
+    stage-packages:
+      - libnss3
+      - libnspr4
+      - libasound2t64
+      - libgbm1
+      - libxss1
+      - libxtst6
+apps:
+  vcs-game-maker:
+    # The Chromium sandbox does not work inside the snap sandbox, which already confines the program.
+    command: vcs-game-maker --no-sandbox
+    extensions: [gnome]
+    plugs:
+      - home
+      - removable-media
+      - network
+      - audio-playback
+      - opengl
+      - desktop
+      - desktop-legacy
+      - x11
+      - wayland
