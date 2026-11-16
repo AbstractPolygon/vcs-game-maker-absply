@@ -37,6 +37,9 @@ const toAsm = (code) => {
     if (inAsm) { out.push(/^\s/.test(line) ? `  ${text}` : text); return; }
     const set = /^hit\{0\} = ([01])$/.exec(text);
     if (set) { out.push(`  lda #${set[1]}`, '  sta hit'); return; }
+    // (The hit bits are cleared first, all of a byte with one statement.)
+    const clear = /^hit = hit & (\d+)$/.exec(text);
+    if (clear) { out.push('  lda hit', `  and #${clear[1]}`, '  sta hit'); return; }
     if (/^[A-Za-z_]\w*$/.test(text)) { out.push(`.${text}`); return; }
     throw new Error(`not handled: ${text}`);
   });
