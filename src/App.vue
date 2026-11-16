@@ -386,6 +386,14 @@
               <v-icon>mdi-bug-outline</v-icon>
             </v-btn>
             <debug-settings-dialog v-if="emulatorSettings.backend === 'stellerator'"></debug-settings-dialog>
+            <!-- The Harmony Cart popup (its icon here): connect the cart, the bankswitch files, the settings, saving for its SD card. -->
+            <harmony-cart-dialog
+              ref="harmonyCartDialog"
+              :rom="compiledRomBytes ? compiledRomBytes.output : null"
+              :configuration="configurationStorage || {}"
+              :disabled-reason="harmonyDisabledReason"
+              :rom-name="romBaseName()"
+            />
             <key-mapping-dialog></key-mapping-dialog>
             <emulator-settings-dialog></emulator-settings-dialog>
           </div>
@@ -515,6 +523,17 @@
               </v-list-item>
             </v-list>
           </v-menu>
+          <!-- Writes the ROM into the Harmony Cart (developer mode). Shows only while a cart is connected and the ROM's bankswitch
+               file, if it needs one, was added (the Harmony popup, its icon by the emulator settings). -->
+          <v-btn
+            v-if="harmonyReady"
+            color="primary"
+            small
+            title="Write the ROM into the Harmony Cart over USB (developer mode)"
+            @click="$refs.harmonyCartDialog.writeNow()"
+          >
+            Write ROM
+          </v-btn>
         </div>
         <!-- The desktop app can also open the ROM in Stella: its button is on a row under the ROM buttons. -->
         <div v-if="isElectron" class="rom-buttons-row mt-2">
@@ -774,6 +793,13 @@
         </div>
       </div>
     </v-footer>
+    <!-- Says so when a Harmony Cart is found (on start, when plugged in, or with the Harmony popup's Connect cart). -->
+    <v-snackbar v-model="harmonyConnectedNotice" :timeout="4000" bottom>
+      {{ harmonyConnectedText }}
+      <template v-slot:action="{ attrs }">
+        <v-btn text v-bind="attrs" @click="harmonyConnectedNotice = false">Close</v-btn>
+      </template>
+    </v-snackbar>
   </v-app>
 </template>
 
@@ -806,6 +832,11 @@ import {optionToReveal} from './hooks/option-reveal';
 import KeyMappingDialog from './components/KeyMappingDialog.vue';
 import EmulatorSettingsDialog from './components/EmulatorSettingsDialog.vue';
 import DebugSettingsDialog from './components/DebugSettingsDialog.vue';
+import HarmonyCartDialog from './components/HarmonyCartDialog.vue';
+import {ensureHarmonyArmFile, harmonyReadyFor, useHarmonyArmFiles, useHarmonyCart, watchForHarmonyCart} from './hooks/harmony-cart';
+import {harmonyArmFileFor} from './utils/harmony-rom';
+import {harmonyCartText} from './utils/harmony-serial';
+import {isPxe} from './utils/pxe';
 import {useDebugVariables, useDebugTitleLoop} from './hooks/debug-symbols';
 import pkg from '../package.json';
 import {checkForUpdate, renderReleaseNotes} from './utils/update-check';
@@ -893,9 +924,11 @@ const TITLE_KERNEL_WATCH_NAME = '__titleKernelRunning';
 // (The lines in a frame, and the most a kernel draws, are the TV standard's: see tvFrameLines and tvPictureLines.)
 
 export default {
-  components: {KeyMappingDialog, EmulatorSettingsDialog, DebugSettingsDialog},
+  components: {KeyMappingDialog, EmulatorSettingsDialog, DebugSettingsDialog, HarmonyCartDialog},
   data: () => ({
     drawer: null,
+    harmonyConnectedNotice: false,
+    harmonyConnectedText: '',
     emulatorWidth: readStoredWidth(),
     emulatorToolbarWrapped: false,
     sidebarWidth: readStoredSidebarWidth(),
@@ -929,6 +962,7 @@ export default {
       errorStorage, errorBannerHighlight: useErrorBannerHighlight(),
       compileLog: useCompileLog(), romOutdated: useRomOutdated(), romCapacity: useRomCapacity(),
       hasCompiledRom: useHasCompiledRom(), compiledRomBytes: useCompiledRomBytes(), lastLoadedRomBytes: useLastLoadedRomBytes(),
+      harmonyCart: useHarmonyCart(), harmonyArmFiles: useHarmonyArmFiles(),
       buildInProgress: useBuildInProgress(),
       productName, version, hideDescriptionTextStorage: useHideDescriptionTextStorage(),
       hideToolbarLabelsStorage: useHideToolbarLabelsStorage(),
@@ -949,6 +983,8 @@ export default {
     };
   },
   mounted() {
+    // Looks for a Harmony Cart now and whenever a USB serial port is plugged in (the Write ROM popup's developer mode).
+    watchForHarmonyCart();
     // A different tip shows on every start while the startup tips setting is on.
     if (this.showStartupTipsStorage) {
       this.tip = nextTip();
@@ -1048,6 +1084,26 @@ export default {
     // since a plain web build has no way to launch a local program at all.
     isElectron() {
       return !!window.electronAPI;
+    },
+    // Whether the Write ROM button shows (a cart connected, the ROM's bankswitch file added; never for PXE). Reads harmonyCart
+    // and harmonyArmFiles so it updates when either changes.
+    harmonyReady() {
+      if (this.harmonyDisabledReason || !this.harmonyCart || !this.harmonyArmFiles) return false;
+      return harmonyReadyFor(this.compiledRomBytes ? this.compiledRomBytes.output : null, this.configurationStorage || {});
+    },
+    // The bankswitch file the built ROM needs, while a cart is there (null when none or no cart).
+    harmonyArmWanted() {
+      const rom = this.compiledRomBytes ? this.compiledRomBytes.output : null;
+      if (!this.harmonyCart || !rom) return null;
+      try {
+        return harmonyArmFileFor(rom, this.configurationStorage || {});
+      } catch (e) {
+        return null;
+      }
+    },
+    // PXE projects do not run on a Harmony Cart.
+    harmonyDisabledReason() {
+      return isPxe(this.configurationStorage) ? 'PXE ROMs do not run on a Harmony Cart' : '';
     },
     debugText() {
       const info = this.debugInfo;
@@ -1258,6 +1314,16 @@ export default {
     },
   },
   watch: {
+    // With a cart there and a ROM built, the ROM's bankswitch file is fetched if it is missing, so Write ROM can show.
+    harmonyArmWanted(name) {
+      if (name) ensureHarmonyArmFile(name);
+    },
+    // A Harmony Cart found (or found on another port): the notice at the bottom of the window.
+    harmonyCart(cart, before) {
+      if (!cart || (before && before.port === cart.port)) return;
+      this.harmonyConnectedText = `Harmony Cart connected (${harmonyCartText(cart)}).`;
+      this.harmonyConnectedNotice = true;
+    },
     // Closing the tip popup with the checkbox ticked turns the startup tips setting off.
     tipOpen(open) {
       if (open || !this.tipDontShowAgain) return;
@@ -2775,8 +2841,10 @@ export default {
   z-index: 100001 !important;
 }
 
-/* The box the title tooltips show in (utils/title-tooltips.js): the look of a Vuetify tooltip, wrapped at 320 pixels. */
+/* The box the title tooltips show in (utils/title-tooltips.js): the look of a Vuetify tooltip, wrapped at 320 pixels. It is added to the
+   page's body, outside .v-application, so it takes the app font here (it had the browser's default font). */
 .app-title-tooltip {
+  font-family: var(--app-font-family);
   position: fixed;
   z-index: 100002;
   max-width: 320px;
@@ -3207,6 +3275,11 @@ body:has(#inspire.dark-mode) .fieldGridDropDownContainer.blocklyMenu .blocklyMen
    text is fully gone still sat farther apart than intended. */
 .hide-description-text .v-messages {
   min-height: 0;
+}
+
+/* Description lines that are not a field's hint (the Harmony popup's notes): hidden in Expert mode too. */
+.hide-description-text .expert-hidden {
+  display: none;
 }
 
 #gopher2600-target-container {

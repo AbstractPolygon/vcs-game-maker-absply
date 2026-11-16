@@ -21,4 +21,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveProject: (filePath, content) => ipcRenderer.invoke('project:save', {filePath, content}),
   openProject: () => ipcRenderer.invoke('project:open'),
   projectPathExists: (filePath) => ipcRenderer.invoke('project:path-exists', filePath),
+  // The Harmony popup's SD card (see background.js).
+  pickSdFolder: () => ipcRenderer.invoke('harmony:pick-sd-folder'),
+  listSdFolder: (folder) => ipcRenderer.invoke('harmony:list-sd', folder),
+  writeSdFile: (folder, name, bytes) => ipcRenderer.invoke('harmony:write-sd', {folder, name, bytes}),
 });

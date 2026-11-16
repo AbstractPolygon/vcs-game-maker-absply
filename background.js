@@ -43,6 +43,20 @@ const createWindow = () => {
     return {action: 'deny'};
   });
 
+  // The emulator's Write ROM button talks to a Harmony Cart over Web Serial (src/utils/harmony-serial.js). Electron shows no
+  // serial ports to the page until it is told it may: navigator.serial.getPorts() lists the ports this handler allows, and a
+  // requestPort() takes a USB serial chip a Harmony Cart may use (FTDI, WCH CH340/CH341, Silicon Labs), else the first port, as there is no
+  // chooser of Chrome's here.
+  const serialSession = win.webContents.session;
+  serialSession.setDevicePermissionHandler((details) => details.deviceType === 'serial');
+  serialSession.on('select-serial-port', (event, portList, webContents, callback) => {
+    event.preventDefault();
+    // (vendorId is the USB vendor number as a decimal string.)
+    const likely = portList.find((port) => [0x0403, 0x1A86, 0x10C4].includes(Number(port.vendorId)));
+    const port = likely || portList[0];
+    callback(port ? port.portId : '');
+  });
+
   win.loadFile('dist/index.html');
   win.webContents.on('context-menu', (event, params) => showContextMenu(win, params));
 };
@@ -173,6 +187,63 @@ ipcMain.handle('project:path-exists', async (event, filePath) => {
     return fs.existsSync(filePath);
   } catch (err) {
     return false;
+  }
+});
+
+// The Harmony popup's SD card choice (src/utils/harmony-sd.js): pick the SD card's folder, list the ROMs on it, save a file onto it.
+// The folder is the one picked in the dialog (the renderer keeps its path for next time); files are only listed and written in it.
+ipcMain.handle('harmony:pick-sd-folder', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const result = await dialog.showOpenDialog(win, {
+    title: 'Pick the Harmony Cart\'s SD card',
+    properties: ['openDirectory'],
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+});
+
+// The ROM files under the folder (the extensions the HarmonyCart program opens as ROMs), as paths from it with their sizes; at most
+// 5 folders deep and 5000 files, leaving out hidden and system folders.
+const SD_ROM_EXTENSIONS = new Set(['a26', 'bin', 'rom', '2k', '4k', 'f4', 'f4s', 'f6', 'f6s', 'f8', 'f8s', 'fa', 'fe', '3f', '3e',
+  'e0', 'e7', 'cv', 'ua', 'ar', 'dpc', '084', 'cu']);
+ipcMain.handle('harmony:list-sd', async (event, folder) => {
+  const roms = [];
+  const walk = (dir, prefix, depth) => {
+    if (depth > 5 || roms.length >= 5000) return;
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, {withFileTypes: true});
+    } catch (err) {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || entry.name === 'System Volume Information') continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full, `${prefix}${entry.name}/`, depth + 1);
+      else if (SD_ROM_EXTENSIONS.has(path.extname(entry.name).slice(1).toLowerCase())) {
+        let size = 0;
+        try {
+          size = fs.statSync(full).size;
+        } catch (err) {
+          // (Size unknown.)
+        }
+        roms.push({path: `${prefix}${entry.name}`, size});
+      }
+    }
+  };
+  if (!folder || !fs.existsSync(folder)) return null;
+  walk(folder, '', 0);
+  return roms;
+});
+
+ipcMain.handle('harmony:write-sd', async (event, {folder, name, bytes}) => {
+  // Only a plain file name goes in the picked folder.
+  if (!folder || !name || name !== path.basename(name)) return {success: false, error: 'Not a file name.'};
+  try {
+    fs.writeFileSync(path.join(folder, name), Buffer.from(bytes));
+    return {success: true};
+  } catch (err) {
+    return {success: false, error: err.message};
   }
 });
 

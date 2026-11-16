@@ -358,8 +358,8 @@
         <v-checkbox
           v-model="configurationState.enableScanlinesDebug"
           @change="handleToggleScanlinesScore"
-          label="Show NTSC scanlines used as the score"
-          hint="Writes the playfield kernel's scanline count (out of the 192-line NTSC visible picture) into the score once at startup, computed from the current pfres/pfrowheight settings. Useful for spotting a kernel overrun that shows up as screen rolling/tearing. Meant for debugging - turn it back off before shipping."
+          label="Show scanlines used as the score"
+          hint="Writes the playfield kernel's scanline count (out of the 192-line picture it draws, the same on NTSC, PAL and PAL60) into the score once at startup, computed from the current pfres/pfrowheight settings. Useful for spotting a kernel overrun that shows up as screen rolling/tearing. Meant for debugging - turn it back off before shipping."
           persistent-hint
           class="option-switch"
         />

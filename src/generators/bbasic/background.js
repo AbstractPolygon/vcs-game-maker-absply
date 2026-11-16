@@ -28,6 +28,7 @@ const pfRowDivisorFor = (config) => Math.max(1, Math.round(exactRowDivisorFor(co
 const PF_TURN_SUBROUTINE_NAME = '_pfturn';
 // And the one that turns them sideways (see pfShiftRoutine).
 const PF_SHIFT_SUBROUTINE_NAME = '_pfshift';
+import {dpcPlusScoreFillAsm, dpcPlusScoreLinesDiffer} from '../../utils/dpc-score-colors';
 import {ctrlpfShadowVarName, spriteScrollFlagsVarName, spriteScrollActiveBit,
   missileBounceStageVarName,
   DIRECTION16_STEPS, backgroundRainbowActiveBit, backgroundRainbowLoadedBit, backgroundRainbowOffsetVarName,
@@ -1674,6 +1675,14 @@ export default (Blockly) => {
       const missileColor = {player0realcolor: 'COLUM0', player1realcolor: 'COLUM1'}[rawVar];
       const configurationStorage = useConfigurationStorage();
       const config = (configurationStorage && configurationStorage.value) || {};
+      // The score under DPC+ is drawn in the colors of its table at scoredata, not in scorecolor (see utils/dpc-score-colors.js):
+      // when a step changes the color the table is written again (unless the Score tab gave its lines different colors, which stay).
+      if (rawVar === 'scorecolor' && config.kernel === 'dpcplus' && !config.pxe && !dpcPlusScoreLinesDiffer(config)) {
+        const same = `_bgfadeasm_${tag}_same`;
+        return [` temp1 = ${colorVarName}`, ...[fadeAsm].flat(), ` if temp1 = ${colorVarName} then goto ${same}`,
+          ' asm', ...['lda #<scoredata', 'sta DF0LOW', 'lda #((>scoredata) & $0f)', 'sta DF0HI', `lda ${colorVarName}`,
+            ...dpcPlusScoreFillAsm(config)].map((line) => '       ' + line), 'end', same];
+      }
       if (!missileColor || config.kernel !== 'dpcplus') return fadeAsm;
       const sizeVar = rawVar.replace('realcolor', 'size');
       const same = `_bgfadeasm_${tag}_same`;

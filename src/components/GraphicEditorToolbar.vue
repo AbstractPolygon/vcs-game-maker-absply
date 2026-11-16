@@ -523,6 +523,24 @@ export default {
         this.handleRedo();
         return;
       }
+      // Ctrl/Cmd+C, X and V copy, cut and paste the selected pixels (see PixelEditor's copySelection). Only with a selection to copy or
+      // something copied to paste, and never in a text field, so the browser's copy and paste work everywhere else.
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && this.activeEditor) {
+        const target = event.target;
+        const typing = target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
+        const letter = event.key.toLowerCase();
+        if (!typing && (letter === 'c' || letter === 'x' || letter === 'v')) {
+          const editor = this.activeEditor;
+          const done = letter === 'c' ? editor.copySelection && editor.copySelection() :
+            letter === 'x' ? editor.cutSelection && editor.cutSelection() : editor.pasteClipboard && editor.pasteClipboard();
+          if (done) {
+            event.preventDefault();
+            // (The pasted pixels stay selected, with the Move tool on to take them where they go.)
+            if (letter === 'v') this.setTool('move');
+            return;
+          }
+        }
+      }
       // Skip the other Ctrl/Cmd/Alt combos entirely (e.g. leaves
       // browser/OS shortcuts alone) - Shift alone is deliberately NOT
       // excluded, since holding it is also how Line/Rectangle/Oval's

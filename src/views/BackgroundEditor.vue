@@ -1003,7 +1003,11 @@ export default defineComponent({
         return id;
       };
       const backgrounds = tileableBackgrounds(state.value.backgrounds);
-      backgrounds.forEach((background) => Vue.set(background, 'tileMap', mapOfPixels(background.pixels, height, tiles, addTile, width)));
+      backgrounds.forEach((background) => {
+        Vue.set(background, 'tileMap', mapOfPixels(background.pixels, height, tiles, addTile, width));
+        // (Kept as tiles again: the grid shows their numbers.)
+        Vue.delete(background, 'pixelsAgain');
+      });
       // (The numbers of the cells' tiles show.)
       showTiles.value = true;
       if (replace) stampTileId.value = null;
@@ -1024,7 +1028,12 @@ export default defineComponent({
     const handleConvertToPixels = () => {
       const before = tileSnapshot();
       backToPixelsVisible.value = false;
-      (state.value.backgrounds || []).forEach((background) => Vue.delete(background, 'tileMap'));
+      // (pixelsAgain: the tile grid over a background turned back to pixels shows the tiles' boxes without numbers, which would be
+      // those of the old tiles, until it is converted to tiles again; see tileGridFor.)
+      (state.value.backgrounds || []).forEach((background) => {
+        if (background.tileMap) Vue.set(background, 'pixelsAgain', true);
+        Vue.delete(background, 'tileMap');
+      });
       if (backToPixelsDeleteTiles.value) {
         stampTileId.value = null;
         deselectTile();
@@ -1222,6 +1231,10 @@ export default defineComponent({
       // (8 columns of 4 pixels with 4-pixel tiles.)
       const columns = Array.from({length: tileColumnsOf(plan)}, (_, column) => column);
       const width = 32 / columns.length;
+      // Turned back to pixels: the boxes without numbers.
+      if (background.pixelsAgain) {
+        return {rows: plan.height, width, numbers: Array.from({length: cellRows}, () => columns.map(() => ''))};
+      }
       // No tiles yet (the Tiles section is empty): each cell a different number, counted along the rows.
       if (!tileSet.value.tiles.length) {
         return {rows: plan.height, width, numbers: Array.from({length: cellRows}, (_, row) => columns.map((column) => row * columns.length + column))};

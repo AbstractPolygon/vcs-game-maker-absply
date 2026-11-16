@@ -46,6 +46,7 @@ import {functionCallDiscardVarName, functionCallArgVarName, functionParamVarName
 import {dataTableSymbolName, processDataTablesStorageDefaults} from '../blocks/data';
 import {matrixToPlayfield} from '../utils/pixels';
 import {colorByteToBuildBBasic, scoreColorByteOf, tvColorByte} from '../utils/palette';
+import {dpcPlusScoreStartColors} from '../utils/dpc-score-colors';
 import {CUSTOM_SCORE_FONT, SQUISH_SCORE_FONT, SQUISH_CUSTOM_SCORE_FONT,
   customScoreFontUsesExtraGlyphs, secondaryScoreFontName, dpcPlusSecondaryScoreFontBytes, dpcPlusScoreFontPointerLines,
   DPC_PLUS_SECONDARY_FONT_LABEL, DPC_PLUS_PRIMARY_FONT_LABEL, dpcPlusPrimaryScoreFontBytes} from '../utils/score-font';
@@ -4862,7 +4863,7 @@ Blockly.BBasic.finish = function(code) {
     code = code + '\n\n' + gameplayUpdateEventCode;
   }
 
-  // Options tab's "Show NTSC scanlines used as the score (debug)" toggle -
+  // Options tab's "Show scanlines used as the score (debug)" toggle -
   // see generateScanlinesDebugScoreCode's comment in
   // generators/bbasic/score.js for why this is prepended here (same timing/
   // reasoning as gameplayUpdateEventCode just above) rather than hand-
@@ -6457,9 +6458,10 @@ Blockly.BBasic.generateDpcPlusColorTables = function() {
   if (!dpcPlusPfColorsOn(config)) out.push(` pfcolors:\n  ${colorByteToBuildBBasic(0x0E)}\nend`);
   if (!config.enableDpcPlusBkColors) out.push(` bkcolors:\n  ${colorByteToBuildBBasic(0xC4)}\nend`);
   // One color for each of the 8 lines of the score digits (set on the Score tab), or the same one on all of them.
+  // (With Score fade shading each line is one less than the line above, as the standard kernel draws it: utils/dpc-score-colors.js.)
   const rowColors = !config.dpcPlusScoreLineColorsOff && Array.isArray(config.dpcPlusScoreColors) && config.dpcPlusScoreColors.length === 8 ?
     config.dpcPlusScoreColors.map((byte) => (Number.isFinite(Number(byte)) ? Math.min(254, Math.max(0, Math.round(Number(byte)) & 254)) : 0x08)) :
-    Array(8).fill(scoreColorByteOf(config));
+    dpcPlusScoreStartColors(config, scoreColorByteOf(config));
   out.push(` scorecolors:\n${rowColors.map((byte) => '  ' + colorByteToBuildBBasic(byte)).join('\n')}\nend`);
   return out.join('\n') + '\n';
 };

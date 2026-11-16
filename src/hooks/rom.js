@@ -1959,7 +1959,7 @@ const buildRomInner = async () => {
       // count, and a Custom/Squish font's  digit shapes would otherwise
       // still get swapped in underneath that debug overlay, which isn't
       // what a font picked for the REAL score digits should also affect.
-      // "Show NTSC scanlines used as the score" (config.enableScanlinesDebug)
+      // "Show scanlines used as the score" (config.enableScanlinesDebug)
       // forces the same thing, for the same reason - it pokes plain digits
       // straight into the score too, sized for the standard kernel's
       // full-height digits, not Squish's shorter ones.
