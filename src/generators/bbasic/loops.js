@@ -204,7 +204,7 @@ export default (Blockly) => {
     const labelBase = `_wait_frames_${Blockly.BBasic.blockNumbers.next('waitFrames')}`;
     return `${counter} = ${argument0}\n` +
       `@${labelBase}\n` +
-      `gosub commongamelogic${suffix} : drawscreen\n` +
+      `${Blockly.BBasic.commonGameLogicCall(suffix)} : drawscreen\n` +
       `${counter} = ${counter} - 1\n` +
       `if ${counter} <> 0 then goto ${labelBase}\n`;
   };

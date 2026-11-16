@@ -1,7 +1,7 @@
 'use strict';
 
 // batari Basic's "return" works out while the game runs whether the caller is in another bank (it compares the bank of the return address on the stack
-// with its own: 13 bytes, about 16 cycles); "return thisbank" is a plain rts (1 byte), "return otherbank" the bank-switching return (3 bytes). The
+// with the bank it is in: 13 bytes, about 16 cycles); "return thisbank" is a plain rts (1 byte), "return otherbank" the bank-switching return (3 bytes). The
 // return that ends a subroutine (see generateSubroutineBody in generators/bbasic.js, which marks it with SUBROUTINE_END_MARK) becomes one of those when
 // the finished code shows how the subroutine is reached:
 // - every call is a "gosub name" without a bank (or a jsr .name in an asm block): thisbank;
@@ -22,6 +22,9 @@ export const narrowSubroutineReturns = (code, enabled) => {
     if (m) markAt.set(m[2], markAt.has(m[2]) ? -1 : i);
   });
   let narrowed = 0;
+  // Each subroutine's block (its label to its marked return), found first: a "goto name" from inside another subroutine's block (a tail call: the
+  // subroutine returns to whoever called that one) counts as a call of the kind that one's return gets.
+  const blocks = new Map();
   markAt.forEach((end, name) => {
     if (end < 0) return;
     const indent = /^\s*/.exec(lines[end])[0];
@@ -32,7 +35,11 @@ export const narrowSubroutineReturns = (code, enabled) => {
       if (line.trimEnd() === name) starts.push(i);
     });
     if (starts.length !== 1 || starts[0] >= end) return;
-    const start = starts[0];
+    blocks.set(name, {start: starts[0], end, indent});
+  });
+  const blockAt = (i) => [...blocks].find(([, {start, end}]) => i > start && i < end);
+  const facts = new Map();
+  blocks.forEach(({start, end}, name) => {
     // (Nothing runs into the label from the line before it.)
     let before = start - 1;
     while (before >= 0 && (lines[before].trim() === '' || /^\s*rem\b/.test(lines[before]))) before--;
@@ -41,19 +48,29 @@ export const narrowSubroutineReturns = (code, enabled) => {
     for (let i = start + 1; i < end; i++) {
       if (isLabel(lines[i])) inside.add(lines[i].trim());
     }
+    const insideWords = [...inside].map((label) => new RegExp(`(^|[^\\w.])\\.?${escape(label)}(?!\\w)`));
     let same = 0;
     let other = 0;
     let ok = true;
+    const tails = new Set();
     const nameWord = new RegExp(`(^|[^\\w.])\\.?${escape(name)}(?!\\w)`, 'g');
+    const tailGoto = new RegExp(`^\\s*goto\\s+${escape(name)}\\s*$`);
     lines.forEach((line, i) => {
       if (!ok || i === start || line.trim().startsWith('rem')) return;
       const outside = i < start || i > end;
-      if (outside && [...inside].some((label) => new RegExp(`(^|[^\\w.])\\.?${escape(label)}(?!\\w)`).test(line))) {
+      if (outside && insideWords.some((word) => word.test(line))) {
         ok = false;
         return;
       }
       const all = (line.match(nameWord) || []).length;
       if (!all) return;
+      // (A goto from inside the subroutine to its label is a loop inside it.)
+      if (!outside && (line.match(new RegExp(`\\bgoto\\s+${escape(name)}(?!\\w)(?!\\s+bank\\d)`, 'g')) || []).length === all) return;
+      const caller = outside && tailGoto.test(line) ? blockAt(i) : null;
+      if (caller) {
+        tails.add(caller[0]);
+        return;
+      }
       const plain = (line.match(new RegExp(`\\bgosub\\s+${escape(name)}(?!\\w)(?!\\s+bank\\d)`, 'g')) || []).length;
       const banked = (line.match(new RegExp(`\\bgosub\\s+${escape(name)}\\s+bank\\d+`, 'g')) || []).length;
       const jsr = (line.match(new RegExp(`\\bjsr\\s+\\.${escape(name)}(?!\\w)`, 'gi')) || []).length;
@@ -64,8 +81,26 @@ export const narrowSubroutineReturns = (code, enabled) => {
       same += plain + jsr;
       other += banked;
     });
-    if (!ok || same + other === 0 || (same && other)) return;
-    lines[end] = `${indent}return ${same ? 'thisbank' : 'otherbank'}`;
+    if (ok) facts.set(name, {same, other, tails});
+  });
+  // The kinds, worked out again until none changes (a subroutine reached by a tail call takes its kind from the one that makes it).
+  const kinds = new Map();
+  for (let pass = 0; pass <= facts.size; pass++) {
+    let changed = false;
+    facts.forEach(({same, other, tails}, name) => {
+      if (kinds.has(name)) return;
+      const tailKinds = [...tails].map((caller) => kinds.get(caller));
+      if (tailKinds.some((kind) => kind === undefined)) return;
+      const all = new Set([...(same ? ['thisbank'] : []), ...(other ? ['otherbank'] : []), ...tailKinds]);
+      kinds.set(name, all.size === 1 ? [...all][0] : null);
+      changed = true;
+    });
+    if (!changed) break;
+  }
+  kinds.forEach((kind, name) => {
+    if (!kind) return;
+    const {end, indent} = blocks.get(name);
+    lines[end] = `${indent}return ${kind}`;
     narrowed++;
   });
   if (enabled) narrowed += narrowFunctionReturns(lines);

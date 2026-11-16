@@ -5059,7 +5059,7 @@ Blockly.BBasic.finish = function(code) {
   // which the Titlescreen Kernel replaces, so the loop marks itself with a flag bit of its own (see titleKernelLoopFlag) and the subroutine
   // returns before that half while the bit is set.
   const generatedTitleKernelSkip = this.titleScreenDrawUsed ?
-    ` if !${titleKernelLoopFlag()} then goto commongamelogicdraw\n return\ncommongamelogicdraw\n` : '';
+    ` if !${titleKernelLoopFlag()} then goto commongamelogicdraw\n${this.commonGameLogicReturn()}\ncommongamelogicdraw\n` : '';
   const generatedRainbowColorGraphics = generateRainbowColorGraphics(Blockly);
   const generatedRainbowColorChecks = generateRainbowColorChecks(Blockly);
   let generatedMissileFireChecks = wrapChecks(this, 'fire', () => generateMissileFireChecks(Blockly) + generateBounceStageChecks(Blockly));
@@ -5278,7 +5278,9 @@ Blockly.BBasic.finish = function(code) {
     '\n\n\n' + code;
   // The blocks of the Title Screen and of the game using each other's flag families: generated again with all flags on bits of their own.
   this.flagOverlayConflict = this.flagOverlay && flagPoolPhaseConflict();
-  const generated = handlebarsTemplate({generatedDpcPlusAudio, generatedBody, generatedBackgrounds, generatedBackgroundColorOverride,
+  const commonGameLogicReturn = this.commonGameLogicReturn();
+  const commonGameLogicFar = this.commonGameLogicFar();
+  const generated = handlebarsTemplate({commonGameLogicReturn, commonGameLogicFar, generatedDpcPlusAudio, generatedBody, generatedBackgrounds, generatedBackgroundColorOverride,
     generatedAnimations, generatedDataTables, generatedRomNoiseChecks, generatedPlayerHeightLimitChecks, generatedTitleScreenAnimationChecks,
     generatedRainbowColorGraphics, generatedRainbowColorChecks, generatedMissileFireChecks,
     generatedSeekChecks, generatedLockChecks, generatedBoxChecksCall, generatedWidePartnerSync, generatedPfHitChecks, generatedInertiaChecks, generatedPlatformerChecks, generatedShakeScreenChecks, generatedScoreFlashChecks, generatedSpeechChecks, generatedDpcPlusColorPriming, generatedDpcPlusColorPrimingOnce, generatedDpcPlusColorTables, generatedDpcPlusInitialDrawscreen,
@@ -6089,7 +6091,7 @@ Blockly.BBasic.generateGameLoopEvent = function(eventName) {
     // With "End title screen" in the project the loop has two ways to draw: the kernel's, and once
     // that block has run, the regular game screen's, so the rest of the event goes on as gameplay.
     const hasEnd = usesTitleScreenKernel && this.titleEndUsed;
-    const kernelLoopTop = [`${titleKernelLoopFlag()} = 1`, `gosub commongamelogic${suffix}`, titleScreenAnimationChecks];
+    const kernelLoopTop = [`${titleKernelLoopFlag()} = 1`, this.commonGameLogicCall(suffix), titleScreenAnimationChecks];
     return [
       ...(hasEnd ? [
         `if ${titleKernelEndedVar()}{${titleKernelEndedBit()}} then goto _titleupdate_ended`,
@@ -6097,10 +6099,10 @@ Blockly.BBasic.generateGameLoopEvent = function(eventName) {
         'goto _titleupdate_body',
         '@_titleupdate_ended',
         `${titleKernelLoopFlag()} = 0`,
-        `gosub commongamelogic${suffix}`,
+        this.commonGameLogicCall(suffix),
         'drawscreen',
         '@_titleupdate_body',
-      ] : usesTitleScreenKernel ? kernelLoopTop : [`gosub commongamelogic${suffix}`, 'drawscreen']),
+      ] : usesTitleScreenKernel ? kernelLoopTop : [this.commonGameLogicCall(suffix), 'drawscreen']),
       innerCode,
       `goto ${eventName}_begin`,
     ].join('\n');
@@ -6809,6 +6811,28 @@ const BANK_COUNT_BY_ROMSIZE_MINI = {'8k': 2, '16k': 4, '32k': 8, '64k': 16, 'dpc
 // would otherwise need a bank-switching call every time), so the Options
 // tab only allows enabling it when the project's ROM size actually
 // bankswitches - see Configuration.vue.
+// commongamelogic runs on every frame, called from the main loop in its bank: its returns are "return thisbank" (an rts), not the return that finds
+// out while the game runs where the caller is (13 bytes, about 10 cycles more). A call from another bank (a title loop or a Wait frames block put
+// in another bank) goes through _commongamelogic_far, in the same bank, which makes the call there and goes back with "return otherbank". Not on
+// PXE (its compiler is another one) nor for 64k (every return switches banks there, see utils/bank64-returns.js).
+const commonGameLogicNarrowed = () => {
+  const config = useConfigurationStorage().value || {};
+  return !isPxe(config) && !(config.kernel !== 'dpcplus' && config.romSize === '64k');
+};
+const COMMON_GAME_LOGIC_FAR = '_commongamelogic_far';
+Blockly.BBasic.commonGameLogicCall = function(suffix) {
+  return suffix && commonGameLogicNarrowed() ? `gosub ${COMMON_GAME_LOGIC_FAR}${suffix}` : `gosub commongamelogic${suffix}`;
+};
+Blockly.BBasic.commonGameLogicReturn = function() {
+  return commonGameLogicNarrowed() ? ' return thisbank' : ' return';
+};
+// (Only a ROM that switches banks has the bank-switching return, and only there can a call come from another bank.)
+Blockly.BBasic.commonGameLogicFar = function() {
+  const config = useConfigurationStorage().value || {};
+  const switched = config.kernel === 'dpcplus' || BANKSWITCHED_ROM_SIZES.includes(config.romSize);
+  return switched && commonGameLogicNarrowed() ? `${COMMON_GAME_LOGIC_FAR}\n gosub commongamelogic\n return otherbank\n` : '';
+};
+
 Blockly.BBasic.useInlineRand = function() {
   const configurationStorage = useConfigurationStorage();
   const config = (configurationStorage && configurationStorage.value) || {};
