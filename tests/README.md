@@ -31,6 +31,21 @@ These files stay on the absply repo: leave the `tests` folder out of pushes to o
   picture. With `projects/mkdpcstress.cjs` (DPC+ at 48, 96 and 192 rows: platformer, playfield collision, Fire, Bounce, Gravity).
 - `framecmp.cjs`, `linewrites.cjs`, `labelline.cjs`, `setupcycles.cjs`, `pcwatch.cjs`, `pooltrace2.cjs`: see the usage line at the top of
   each (DPC+ ROMs and their symbols mostly).
+- `firecmp.cjs old.bin new.bin` and `bouncecmp.cjs prog.bin`: the coprocessor programs (public/bb19/includes/custom/prog) run in 6502.ts's ARM
+  emulator, without a ROM. firecmp: the Fire movement of an older program (function 101, one object a call) against the batch of function 102 on
+  random objects and playfields (old.bin from git, e.g. `git show <commit>:public/bb19/includes/custom/prog/pf.bin`). bouncecmp: the later frames of
+  a bounce (function 100) against the 6502 lines that do them now.
+- `boxcmp.cjs [trials] [seed]`: the box comparison of two sprites as generateBoxChecks makes it, assembled with dasm.wasm and run on 6502.ts's CPU
+  (no ROM, no browser), against a model of the boxes: every kind of box (fixed width, width from the size byte, width and copies from the size
+  byte, the right half of a wide player), every size code, hidden sprites.
+- `edgecmp.cjs`: the flag lines of an edge (a switch just switched on, Fire just pressed: edgeFlagLines in src/generators/bbasic/input.js), assembled
+  and run on 6502.ts's CPU for every pair of bits and every value of the byte, up and down, against what the batari Basic statements did.
+- `scorecmp.cjs`: the assembly of a Set score block for a value worked out while the game runs (score_set in src/generators/bbasic/score.js),
+  assembled and run on 6502.ts's CPU for every byte 0 to 255, against the score it must give (000 and the hundreds, tens and ones).
+- `dfcount.cjs rom.bin [frames] [seed]`: a DPC+ ROM with rollcheck's joystick input: the reads and writes a frame of each variable the build put in
+  the display memory (the bytes of the DPC+ stack area, through data fetcher 6), and of all of them.
+- `picsame.cjs a.bin b.bin [frames]`: two ROMs of any kind (standard, DPC+, PXE) run with no input but the reset switch, their pictures compared
+  frame by frame (PNG=prefix SHOW=frame writes that frame of each; FIRE=from-to,from-to presses Fire in those frames, to start a game).
 
 Example (the ball of the Title Screen demo logo, exact on its rows):
 
