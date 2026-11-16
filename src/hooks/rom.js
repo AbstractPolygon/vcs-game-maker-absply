@@ -51,7 +51,7 @@ import {useGeneratedBasic, markGeneratedFresh, setGeneratedCodeBuilder} from './
 import {appendCompileLog, clearCompileLog, useBackgroundsStorage, useConfigurationStorage, useErrorStorage,
   useDataTablesStorage, usePlayerAnimationsStorage, useTextFontStorage, useTextStringsStorage, useTitleScreenStorage,
   useWorkspaceStorage, useLastTilemap} from './project';
-import {getRelocationBanks, resetRelocationBanks, setRelocationBank,
+import {getRelocationBanks, resetRelocationBanks, setRelocationBank, restoreRelocationBanks,
   recordSuccessfulRelocationBanks, seedRelocationBanksFromLastSuccess} from './relocation-banks';
 import {markRomUpToDate, markRomOutdated, useRomOutdated, useHasCompiledRom,
   useCompiledRomBytes, setCompiledRomBytes, recordLoadedRomForRecovery, useLastBuildScreenshot} from './rom-status';
@@ -1864,6 +1864,29 @@ const buildRomInner = async () => {
     return true;
   };
 
+  // DPC+, once a build: the whole layout planned again from the good build (the sizes of the units where they are, the room the assembler reports
+  // for each bank, the calls between units: see planLayoutFromMeasurement), which keeps what runs every frame in the main bank with what it calls,
+  // where the steps above move one unit at a time. A plan that does not build is taken back, as a squeeze is. (After a plan the squeeze is
+  // not tried: it moves code that runs often, by the rating it gives, out of the main bank the plan chose for it.)
+  let replanned = false;
+  const tryReplan = (compiledResult, maxBanks) => {
+    const config = configurationStorage.value || {};
+    if (replanned || bankSizeKeyFor(config) !== 'dpcplus' || isPxe(config) || !compiledResult || !compiledResult.stdout) return false;
+    replanned = true;
+    const before = JSON.parse(JSON.stringify(getRelocationBanks()));
+    const planMusicBank = musicReservedBank(maxBanks, BlocklyBB.isTextMinikernelActive(), minRelocationBankFor(config));
+    const plan = planLayoutFromMeasurement({stdout: compiledResult.stdout, symbolmap: compiledResult.symbolmap}, config, planMusicBank, maxBanks,
+        BlocklyBB.isTextMinikernelActive(), 0, planSizeMemory);
+    if (!plan || !plan.feasible || !plan.moves.length) {
+      if (plan && plan.moves.length) restoreRelocationBanks(before);
+      return false;
+    }
+    squeeze = {restore: () => restoreRelocationBanks(before), key: 'replan'};
+    squeezeCount++;
+    appendCompileLog(`Planned the layout again from this build: ${plan.moves.length} moved.`);
+    return true;
+  };
+
   for (let attempt = 0; attempt <= MAX_RELOCATION_ATTEMPTS + MAX_SQUEEZE_ATTEMPTS; attempt++) {
     // Every stage below is a synchronous, CPU-bound WASM run (see
     // bb-compiler.js's runWasi - wasi.start blocks until the module exits),
@@ -2190,7 +2213,7 @@ const buildRomInner = async () => {
       squeeze = null;
       goodCapacity = capacity;
       // (A layout that came from the last good build, and worked again, was squeezed then.)
-      if (!(attempt === 0 && seededFromLastSuccess) && (trySqueeze(capacity) || tryPullBack(capacity))) continue;
+      if (!(attempt === 0 && seededFromLastSuccess) && (tryReplan(compiledResult, maxBanks) || (!replanned && trySqueeze(capacity)) || tryPullBack(capacity))) continue;
       recordSuccessfulRelocationBanks(bankSizeKey);
       appendCompileLog('Build succeeded.', 'stage');
       appendCompileLog(`Total build time: ${Math.round(performance.now() - buildStartedAt)}ms.`, 'stage');
@@ -2198,11 +2221,12 @@ const buildRomInner = async () => {
     } catch (e) {
       if (squeeze) {
         // The move did not work out: back to the layout of the last good build, which is still the ROM that is loaded.
-        squeeze.members.forEach(({kind, name}) => setRelocationBank(kind, name, squeeze.from));
+        if (squeeze.restore) squeeze.restore();
+        else squeeze.members.forEach(({kind, name}) => setRelocationBank(kind, name, squeeze.from));
         squeezeTried.add(squeeze.key);
         squeeze = null;
         appendCompileLog('That did not fit: keeping the previous layout.');
-        if (trySqueeze(goodCapacity) || tryPullBack(goodCapacity)) continue;
+        if ((!replanned && trySqueeze(goodCapacity)) || tryPullBack(goodCapacity)) continue;
         regenerateCode();
         recordSuccessfulRelocationBanks(bankSizeKeyFor(configurationStorage.value || {}));
         appendCompileLog('Build succeeded.', 'stage');

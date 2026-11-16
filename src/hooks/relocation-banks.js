@@ -40,6 +40,11 @@ export const setRelocationBank = (kind, unitName, bank) => {
   banks = {...banks, [kind]: {...banks[kind], [unitName]: bank}};
 };
 
+// Puts back a layout taken with getRelocationBanks (a plan of the layout that did not build, see tryReplan in rom.js).
+export const restoreRelocationBanks = (snapshot) => {
+  banks = {graphicsBanks: {}, musicBanks: {}, subroutineBanks: {}, eventBanks: {}, functionBanks: {}, ...snapshot};
+};
+
 // A NARROWER exception to this file's "never persisted" rule above -
 // in-memory only (never written to configurationStorage/localStorage, so it
 // never survives a reload and never gets saved with the project the way the
