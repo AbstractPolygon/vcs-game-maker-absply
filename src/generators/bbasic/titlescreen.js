@@ -409,7 +409,7 @@ export const titlePlayerCardStartLines = (card) => {
   [0, 1].forEach((player) => {
     const code = titlePlayerSizeCode(card, player);
     if (!code) return;
-    lines.push(`player${player}size = player${player}size & $F8`, `player${player}size = player${player}size | $0${code}`);
+    lines.push(`player${player}size = (player${player}size & $F8) | $0${code}`);
   });
   return lines;
 };

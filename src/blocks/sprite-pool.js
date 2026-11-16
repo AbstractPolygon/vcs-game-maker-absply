@@ -163,16 +163,16 @@ Blockly.defineBlocksWithJsonArray([
   },
   {
     'type': 'sprite_pool_release',
-    'message0': `${PLAYER_ICON} Release the pool sprite, set y to 200 %1`,
+    'message0': `${PLAYER_ICON} Release the pool sprite, move it away %1`,
     'args0': [{'type': 'field_checkbox', 'name': 'ORIGIN', 'checked': false}],
     'previousStatement': null,
     'nextStatement': null,
     'colour': SPRITE_POOL_COLOUR,
-    'tooltip': 'Hides the pool sprite, so the pool can hand it out again. Only inside a Sprite pool block.',
+    'tooltip': 'Hides the pool sprite, so the pool can hand it out again. Only inside a Sprite pool block. Move it away also puts it at y 200, below the picture, on DPC+ (y 0 on PXE).',
   },
   {
     'type': 'sprite_pool_release_player',
-    'message0': `${PLAYER_ICON} Release player %1 of pool ID %2, set y to 200 %3`,
+    'message0': `${PLAYER_ICON} Release player %1 of pool ID %2, move it away %3`,
     'args0': [
       {'type': 'field_dropdown', 'name': 'PLAYER', 'options': poolSpriteOptions},
       {'type': 'input_value', 'name': 'ID', 'check': 'Number'},
@@ -183,11 +183,11 @@ Blockly.defineBlocksWithJsonArray([
     'colour': SPRITE_POOL_COLOUR,
     'extensions': ['sprite_pool_warning', 'sprite_pool_id_shadow'],
     'tooltip': 'Makes one sprite of the pool free again (it is hidden), from anywhere: a collision or any other block, not only inside a Sprite pool block. The pool can ' +
-      'hand it out again. The player has to be one of the players of the pool with that id.',
+      'hand it out again. The player has to be one of the players of the pool with that id. Move it away also puts it at y 200, below the picture, on DPC+ (y 0 on PXE).',
   },
   {
     'type': 'sprite_pool_release_all',
-    'message0': `${PLAYER_ICON} Release all sprites in pool ID %1, set y to 200 %2`,
+    'message0': `${PLAYER_ICON} Release all sprites in pool ID %1, move them away %2`,
     'args0': [
       {'type': 'input_value', 'name': 'ID', 'check': 'Number'},
       {'type': 'field_checkbox', 'name': 'ORIGIN', 'checked': false},
@@ -196,7 +196,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': SPRITE_POOL_COLOUR,
     'extensions': ['sprite_pool_warning', 'sprite_pool_id_shadow'],
-    'tooltip': 'Hides every sprite of the pool, so all of them are free. Use it at the start of the game.',
+    'tooltip': 'Hides every sprite of the pool, so all of them are free. Use it at the start of the game. Move them away also puts them at y 200, below the picture, on DPC+ (y 0 on PXE).',
   },
   {
     'type': 'sprite_pool_full',

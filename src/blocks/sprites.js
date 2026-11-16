@@ -671,8 +671,9 @@ const buildCombinedPlayerVarBlocks = ({icon, colour}) => {
           'name': 'LOOP_INPUT',
         },
       ],
-      // A third row, for the "y to 200" checkbox: only shown once VAR is "Visibility" (see the extension below).
-      'message2': '%1 %2 y to 200 when hidden %3',
+      // A third row, for the "move away when hidden" checkbox (y 200 on DPC+, 0 on the standard kernel and PXE, see hiddenSpriteY in
+      // generators/bbasic/sprites.js): only shown once VAR is "Visibility" (see the extension below).
+      'message2': '%1 %2 move away when hidden %3',
       'args2': [
         {'type': 'field_label', 'text': ' '},
         {
@@ -685,7 +686,7 @@ const buildCombinedPlayerVarBlocks = ({icon, colour}) => {
           'name': 'ORIGIN_INPUT',
         },
       ],
-      // The "loop" and "y to 200" checkboxes come after the value on the same line, not on a separate line.
+      // The "loop" and "move away when hidden" checkboxes come after the value on the same line, not on a separate line.
       'inputsInline': true,
       'previousStatement': null,
       'nextStatement': null,
@@ -765,7 +766,7 @@ Blockly.Extensions.register('sprite_player_set_loop_visibility_sync', function()
     if (!block.workspace || !block.workspace.rendered) return;
     const shouldBeVisible = typeof value === 'string' && value.endsWith('animation');
     const input = block.getInput('LOOP_INPUT');
-    // (The "y to 200" row of Player set: only for Visibility. The Player change block has no such row.)
+    // (The "move away when hidden" row of Player set: only for Visibility. The Player change block has no such row.)
     const originInput = block.getInput('ORIGIN_INPUT');
     const originVisible = typeof value === 'string' && value.endsWith('visibility');
     const originChanged = !!originInput && originInput.isVisible() !== originVisible;

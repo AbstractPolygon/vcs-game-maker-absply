@@ -424,9 +424,12 @@ export const missileFireHalfSpeedVarName = (name) => `${name}FireHalfSpeed`;
 // pixels per frame and the other axis at speed * sqrt(2) * sin(22.5). Those are not whole
 // pixels, so the extra fractions are worked out in sixteenths of a pixel, 0 to 15 of them each
 // frame. The leftover sixteenths of each axis are kept in a byte for the object (see missileFireFracSlots).
-// The y a hidden sprite is moved to when its block asks for it (the Player block's "y to 200 when hidden", the Sprite pool's releases): below the
-// picture on every kernel.
-const HIDDEN_AT = 200;
+// The y a hidden sprite is moved to when its block asks for it (the Player block's "move away when hidden", the Sprite pool's releases, the end of the
+// title screen): 200 on DPC+, below the picture; 0 on the standard kernel and PXE.
+export const hiddenSpriteY = () => {
+  const config = useConfigurationStorage().value || {};
+  return config.kernel === 'dpcplus' && !isPxe(config) ? 200 : 0;
+};
 const LEAN_MAIN_PER_SPEED = Math.SQRT2 * Math.cos(Math.PI / 8);
 const LEAN_OTHER_PER_SPEED = Math.SQRT2 * Math.sin(Math.PI / 8);
 export const leanSixteenths = (speed) => ({
@@ -1058,7 +1061,12 @@ export const generateRomNoiseChecks = (Blockly) => {
     const offsetVar = resolveVar(romNoiseOffsetVarName(name));
     const constHeight = (Blockly.BBasic.romNoiseConstHeight || {})[name];
     const heightVar = constHeight !== undefined ? String(constHeight) : resolveVar(romNoiseHeightVarName(name));
-    const heightRef = dpcPlus ? 'temp4' : heightVar;
+    // (A height that is a number: the lines below are worked out here, not while the game runs: the height in lines, the range the offset is
+    // folded into, and the size of that range.)
+    const fixed = /^\d+$/.test(heightVar) ? (dpcPlus ? Math.min(Number(heightVar), 127) * 2 : Number(heightVar)) : null;
+    const heightRef = fixed !== null ? String(fixed) : dpcPlus ? 'temp4' : heightVar;
+    const range = fixed !== null ? String((255 - fixed) & 255) : 'temp1';
+    const rangeSize = fixed !== null ? String((256 - fixed) & 255) : 'temp3';
     lines.push(
         // "flagsVar{bit} = 0" (an equality comparison against the bit-index
         // syntax) isn't valid here - confirmed by a real compile failure
@@ -1077,13 +1085,13 @@ export const generateRomNoiseChecks = (Blockly) => {
         // larger ones approximately), then clamp.
         // Under DPC+ the rows count in scanlines, and every row of the standard kernel's sprites is two lines tall, so the
         // same height covers twice the lines.
-        ...(dpcPlus ? [` temp4 = ${heightVar}`, ' if temp4 > 127 then temp4 = 127', ' temp4 = temp4 + temp4'] : []),
-        ` temp1 = 255 - ${heightRef}`,
+        ...(dpcPlus && fixed === null ? [` temp4 = ${heightVar}`, ' if temp4 > 127 then temp4 = 127', ' temp4 = temp4 + temp4'] : []),
+        ...(fixed === null ? [` temp1 = 255 - ${heightRef}`] : []),
         ` temp2 = ${offsetVar}`,
-        ` temp3 = temp1 + 1`,
-        ` if temp2 >= temp3 then temp2 = temp2 - temp3`,
-        ` if temp2 >= temp3 then temp2 = temp2 - temp3`,
-        ` if temp2 > temp1 then temp2 = temp1`,
+        ...(fixed === null ? [` temp3 = temp1 + 1`] : []),
+        ` if temp2 >= ${rangeSize} then temp2 = temp2 - ${rangeSize}`,
+        ` if temp2 >= ${rangeSize} then temp2 = temp2 - ${rangeSize}`,
+        ` if temp2 > ${range} then temp2 = ${range}`,
         // Sets player0pointer's  hi/lo bytes DIRECTLY (2600basic.h
         // aliases player0pointerlo/player0pointerhi onto the exact same
         // zero-page pair player0pointer itself uses) instead of the
@@ -2737,6 +2745,12 @@ export default (Blockly) => {
         // invalid NUSIZ pattern.
         const widthsVar = Blockly.BBasic.nameDB_.getName(missileWidthsVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
         const secondMissile = varName.startsWith('missile1');
+        // (A width that is a number: its code is worked out here, the bits put in with one statement.)
+        if (/^\s*\d+\s*$/.test(argument0)) {
+          const bits = ({2: 1, 4: 2, 8: 3}[Number(argument0)] || 0) * (secondMissile ? 64 : 16);
+          const keep = `${widthsVar} & ${secondMissile ? '$3F' : '$CF'}`;
+          return bits ? `${widthsVar} = (${keep}) | ${bits}\n` : `${widthsVar} = ${keep}\n`;
+        }
         return `temp1 = ${argument0}\n` +
             `temp2 = 0\n` +
             `if temp1 = 2 then temp2 = 1\n` +
@@ -2754,13 +2768,13 @@ export default (Blockly) => {
         const baseLabel = `_visibility_${blockNumber}`;
 
         const frameVarName = varName.replace('visibility', 'frame');
-        // The "y to 200 when hidden" checkbox: the hidden sprite is moved below the picture (it was moved to x and y 0, the top left corner, still in
-        // the picture). Not x: the kernels place an object on its line by counting x down in 15s, and past 159 that runs over the end of the line,
+        // The "move away when hidden" checkbox: on DPC+ the hidden sprite is moved below the picture, y 200 (it was moved to x and y 0, the top left
+        // corner, still in the picture); on the standard kernel and PXE to y 0 (see hiddenSpriteY). Not x: the kernels place an object on its line by counting x down in 15s, and past 159 that runs over the end of the line,
         // which adds a line to every frame.
         const spriteName = varName.replace('visibility', '');
         const origin = block.getFieldValue('ORIGIN') === 'TRUE';
-        const toOrigin = origin ? ` : ${spriteName}y = ${HIDDEN_AT}` : '';
-        const originLines = origin ? `${spriteName}y = ${HIDDEN_AT}\n` : '';
+        const toOrigin = origin ? ` : ${spriteName}y = ${hiddenSpriteY()}` : '';
+        const originLines = origin ? `${spriteName}y = ${hiddenSpriteY()}\n` : '';
         // The standard kernel's players: a flag, so a hidden player's animation goes on.
         if (hasHiddenFlag(Blockly, varName.replace('visibility', ''))) {
           const hidden = hiddenFlagRef(Blockly, varName.replace('visibility', ''));
@@ -2917,9 +2931,10 @@ ${originLines}`;
       const varName = name + 'size';
       const setVar = Blockly.BBasic.sizeSetPlayers && Blockly.BBasic.sizeSetPlayers.has(name) ?
         Blockly.BBasic.nameDB_.getName(sizeSetVarName(name), Blockly.Names.DEVELOPER_VARIABLE_TYPE) : null;
-      return `${varName} = ${varName} & $F8\n` +
-        `${varName} = ${varName} | ${size}\n` +
-        (setVar ? `${setVar} = ${size} + 1\n` : '');
+      // (One statement for the width and copies bits; the byte that tells a block set them gets the number worked out here.)
+      const sizeNumber = /^\$[0-9A-Fa-f]+$/.test(size) ? parseInt(size.slice(1), 16) : /^\d+$/.test(size) ? Number(size) : null;
+      return `${varName} = (${varName} & $F8) | ${size}\n` +
+        (setVar ? `${setVar} = ${sizeNumber === null ? `${size} + 1` : sizeNumber + 1}\n` : '');
     };
 
     // PXE: a bit for the player asks for the kernel's edge masking, which is bit 6 of NUSIZ (see the NUSIZ lines in bbasic.js).

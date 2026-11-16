@@ -100,7 +100,7 @@ import {processPlayerAnimationsStorageDefaults, generateRomNoiseChecks, generate
   reserveCtrlpfShadowDevVar, generateCtrlpfShadowSetup, missileWidthsVarName, reserveMissileWidthsDevVar, reserveDpcPlusShownDevVars, ctrlpfShadowVarName, resolveUsedPlayerAnimations,
   resolvePlayerAnimationFinishedWatches,
   generateInertiaChecks, generateGravityChecks, reserveGravityDevVars, reserveInertiaDevVars, reserveSpriteScrollDevVars, reserveSpriteHiddenDevVars, ANIM_FINISHED_DONE_FAMILY, reserveAnimFinishedDoneDevVars, animFinishedDoneRef, reserveSizeSetDevVars, sizeSetVarName, animNextVarName, reserveAnimNextDevVars, colorOverrideRef, colorSetFamilies, reserveColorOverrideDevVars, maskFamilies, maskRef, reserveMaskDevVars, ROM_NOISE_EXTRA_FAMILY, isRomNoiseExtra, romNoiseExtraOwnBit,
-  playerNameOfValue} from './bbasic/sprites';
+  playerNameOfValue, hiddenSpriteY} from './bbasic/sprites';
 import {resolveSeekArrivedWatches} from '../blocks/sprites';
 import spriteLock, {reserveLockDevVars, generateLockChecks} from './bbasic/sprite-lock';
 import {reservePfBoxDevVars, pfBoxSharingOf, generatePfHitChecks, boxModeLines} from './bbasic/pf-box-sub';
@@ -5758,13 +5758,15 @@ Blockly.BBasic.getGameEvent = function(eventName, code) {
 // Nothing is shared at all when a title screen block sits outside those events (it would then
 // write the shared slots during gameplay).
 const TITLE_PHASE_EVENTS = ['system_start', 'title_start', 'title_update'];
-// When the title screen ends, every player goes to y 200, below the screen: the Titlescreen Kernel works in some of their bytes (see
+// When the title screen ends, every player goes to the y of a hidden sprite (hiddenSpriteY: 200, below the screen, on DPC+; 0 on the standard kernel
+// and PXE): the Titlescreen Kernel works in some of their bytes (see
 // DPCPLUS_TITLE_KERNEL_BYTES), and a hidden virtual sprite still takes its turn in the DPC+ flicker at the y it has. Players 0 and 1 on the
 // standard kernel; on DPC+ and PXE the virtual sprites the build has on (dpcPlusSpriteMax: the bytes of the others hold variables).
 Blockly.BBasic.titleEndPlayerLines = function() {
   const config = useConfigurationStorage().value || {};
   const last = config.kernel === 'dpcplus' ? this.dpcPlusSpriteMax : 1;
-  return Array.from({length: last + 1}, (_, n) => `player${n}y = 200`);
+  const y = hiddenSpriteY();
+  return Array.from({length: last + 1}, (_, n) => `player${n}y = ${y}`);
 };
 // Set while the Title Screen loop runs (see generatedTitleKernelSkip).
 const titleKernelLoopFlag = () => {

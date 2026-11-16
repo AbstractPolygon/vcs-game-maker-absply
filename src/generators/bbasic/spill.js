@@ -224,6 +224,9 @@ const COLD_LABELS = /^(system_start|title_|gameover_|gameplay_start|_dpc_score_f
 const RARE_NAMES = /^(fnParam\d+|fnCallValue\d+|functionCallResult|collisionPixel(Column|Row)2?)$/;
 const rare = (name) => RARE_NAMES.test(name);
 const weightOf = (name, weight) => (rare(name) ? 1 : weight);
+// The frame counter's tick (the template's first line of commongamelogic) runs on every frame without a test: it counts for four, as a line of
+// the main loop that may be skipped stands for one in about four frames. (The checks of the every N frames events read the counter too.)
+const EVERY_FRAME_LINE = /^\s*framecounter\s*=\s*framecounter\s*\+\s*1\b/;
 const lineWeights = (lines) => {
   let weight = 1;
   return lines.map(({line, kind}) => {
@@ -231,7 +234,7 @@ const lineWeights = (lines) => {
       if (HOT_LABELS.test(line)) weight = HOT_WEIGHT;
       else if (COLD_LABELS.test(line)) weight = 1;
     }
-    return weight;
+    return kind === 'statement' && EVERY_FRAME_LINE.test(line) ? 4 * HOT_WEIGHT : weight;
   });
 };
 
