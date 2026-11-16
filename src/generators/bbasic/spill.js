@@ -49,6 +49,9 @@ const classifyLines = (code) => {
     const text = line.trim();
     if (inBlock) {
       if (text === 'end') inBlock = false;
+      // (The lines of a coprocessor Fire call that name the bytes it reads where they are: filled in once the places are known, see resolveFireBatch in
+      // generators/bbasic/offset-arm.js, so they are not a use.)
+      if (text.startsWith(';FIRE')) return {line, kind: 'ignored'};
       return {line, kind: 'block', asm: blockIsAsm, block: blockId};
     }
     if (text === '' || /^rem\b/.test(text) || /^dim\s/.test(text) || text.startsWith(';')) return {line, kind: 'ignored'};
@@ -135,19 +138,19 @@ const writtenNames = (shape) => {
 // data fetcher with the register it loads (the others are not touched) and reads it, a store writes it there with the accumulator and the flags kept. Not in a block that is timed (it writes the TIA, or waits for a line), that uses the same data
 // fetcher itself, or where a branch could be pushed out of its reach by the lines added (a branch reaches 127 bytes, a spilled access is about 28).
 const ASM_ACCESS = /^\s*(lda|ldx|ldy|sta|stx|sty|bit|cmp|cpx|cpy|adc|sbc|and|ora|eor)\s+([A-Za-z_]\w*)\s*(;.*)?$/;
-// The ones that only read the byte for a calculation or a test (the byte is read into a scratch byte, with the accumulator kept on the stack: the
-// carry and the overflow flag are not touched before the instruction).
+// The ones that only read the byte for a calculation or a test (the instruction reads it from the data fetcher itself, with the accumulator kept on the
+// stack while the pointer is set: the carry and the overflow flag are not touched before the instruction).
 const ASM_READ_OPS = new Set(['bit', 'cmp', 'cpx', 'cpy', 'adc', 'sbc', 'and', 'ora', 'eor']);
 const ASM_TIMED = /\b(WSYNC|RESP[01MB]|RESM[01]|RESBL|HMOVE|HMCLR|HMP[01]|HMM[01]|HMBL|VSYNC|VBLANK|TIM64T|TIM8T|INTIM|DF6\w*)\b/;
 const ASM_IMPLIED = new Set(['rts', 'rti', 'pha', 'pla', 'php', 'plp', 'tax', 'txa', 'tay', 'tya', 'tsx', 'txs', 'inx', 'iny', 'dex', 'dey', 'asl', 'lsr', 'rol',
   'ror', 'clc', 'sec', 'cli', 'sei', 'cld', 'sed', 'clv', 'nop', 'brk', 'end']);
 const ASM_BRANCH = /^(bcc|bcs|beq|bne|bmi|bpl|bvc|bvs)\s+([.@]?[A-Za-z_]\w*)/i;
 // About how many bytes the lines that replace an access take (a load: the pointer and the read; a store: the flags and the accumulator kept, the pointer and the
-// write; a read for a test or a calculation: the accumulator kept, the pointer, the read into a scratch byte and the instruction), with a margin.
+// write; a read for a test or a calculation: the accumulator kept, the pointer and the instruction), with a margin.
 const spillBytesOf = (op) => {
   const word = op.toLowerCase();
   if (word === 'lda' || word === 'ldx' || word === 'ldy') return 14;
-  if (ASM_READ_OPS.has(word)) return 20;
+  if (ASM_READ_OPS.has(word)) return 16;
   return 18;
 };
 // A load or store of one of the names that may be spilled (only those get the lines added).
@@ -214,6 +217,13 @@ const selfScratch = (shape) => !!shape && shape.type === 'set' && SCRATCH.includ
 const HOT_WEIGHT = 100;
 const HOT_LABELS = /^(main|commongamelogic|_fire_checks|_seek_checks|_lock_checks|_inertia_checks|_platformer_checks|_sprite_box_checks|_pfbox_|_run_once_edge_reset|_poolanim|_bouncestage|_bouncepix|_missilefire|_gravity_checks)/;
 const COLD_LABELS = /^(system_start|title_|gameover_|gameplay_start|_dpc_score_font|resetGameVars|_background_load|_background_rainbow_restore|__dpcplus|fullgameloop|_titlestep)/;
+// Bytes that hold a value only around a rare event, wherever their code sits: a Function's arguments and result (set at a call, read in its body),
+// and where Find playfield pixel found a pixel (a hit). The section weights above take their code in the main loop for code that runs every frame,
+// so they kept these in the RAM and sent counters that do run every frame (an every N frames event's, Fire's speed) to the display memory: measured
+// on Bricks of Olympus, about 0.1 uses a frame for these against 2 to 4 for those. Their uses count once.
+const RARE_NAMES = /^(fnParam\d+|fnCallValue\d+|functionCallResult|collisionPixel(Column|Row)2?)$/;
+const rare = (name) => RARE_NAMES.test(name);
+const weightOf = (name, weight) => (rare(name) ? 1 : weight);
 const lineWeights = (lines) => {
   let weight = 1;
   return lines.map(({line, kind}) => {
@@ -253,15 +263,13 @@ const analyze = (code, names) => {
         if (!access || access[2] !== name) return fail('block');
         if (info.timed) return fail('timed block');
         if (info.tight.has(i)) return fail('branch range');
-        if (ASM_READ_OPS.has(access[1].toLowerCase())) {
-          // (temp5 takes the byte: it must not be in the block, nor in the statements just before and after it.)
-          if (info.lines.some((j) => /\btemp5\b/.test(lines[j].line)) || lines5.has(info.lines[0] - 1) || lines5.has(info.lines[info.lines.length - 1] + 1)) return fail('scratch');
-        }
-        entry.uses += weights[i];
+        entry.uses += weightOf(name, weights[i]);
         return;
       }
       if (kind === 'block' || arrayRegex(name).test(line)) return fail(kind);
-      entry.uses += weights[i];
+      // (A name used only after the then of an if, not in its test, is used when the test holds: a quarter of the passes the line runs on.)
+      const onlyWhenTrue = shape && shape.type === 'ifthen' && !wordRegex(name, '').test(shape.cond);
+      entry.uses += onlyWhenTrue ? Math.max(1, Math.round(weightOf(name, weights[i]) / 4)) : weightOf(name, weights[i]);
       if (!shape) return fail('shape');
       const writes = writtenNames(shape).includes(name);
       const reads = readTexts(shape).some((text) => wordRegex(name, '').test(text));
@@ -306,8 +314,24 @@ export const chooseSpill = (code, names, count, partial = false, useBudget = Inf
   return (partial || chosen.length >= count) ? new Set(chosen) : null;
 };
 
+// The names that can go in the display memory, however few uses they have (chooseSpill leaves out the unused ones, as they free nothing): the bytes the
+// coprocessor reads there itself (see fireStatePlan in generators/bbasic.js). In order, each as long as the statements still read no more of them than there
+// are scratch bytes.
+export const chooseAllSpillable = (code, names) => {
+  const usage = analyze(code, names);
+  const chosen = [];
+  names.filter((name) => usage.get(name).ok).forEach((name) => {
+    if (readsOk(code, [...chosen, name])) chosen.push(name);
+  });
+  return new Set(chosen);
+};
+
 // A number written out in the code (decimal, $hex or %binary): it can be loaded straight into the accumulator.
 const LITERAL = /^(\d+|\$[0-9A-Fa-f]+|%[01]+)$/;
+// A value that is a name, or a name and a number with one of these (see the direct copy in applySpill), and the instructions after the load
+// (one that ends in a space takes the number).
+const DIRECT_COPY = /^([A-Za-z_]\w*)(?:\s*([&|^+-])\s*(\d+|\$[0-9A-Fa-f]+|%[01]+))?$/;
+const DIRECT_OPS = {'&': ['and '], '|': ['ora '], '^': ['eor '], '+': ['clc', 'adc '], '-': ['sec', 'sbc ']};
 // Setting the pointer again after a read or a write moved it on by one byte: only the low byte changes, unless the byte was the last
 // of the page (the carry went into the high byte).
 const resetLines = (indent, slot) => {
@@ -366,11 +390,44 @@ const exchangeRunLines = (indent, run, slots) => {
   return lines;
 };
 
+// A test of one spilled name that jumps with a goto in the same bank (name = number, name <> number, name{bit}, !name{bit}, name, !name), as
+// assembly: the pointer, the read into the accumulator, a compare or a mask, a branch past the jump when the test fails, and the jump to the
+// label (batari Basic's labels are .label in the assembly). 6 cycles and 4 bytes less than the read into a scratch byte and the statement.
+// Null for any other test.
+const TEST_COMPARE = /^([A-Za-z_]\w*)\s*(=|<>)\s*(\d+|\$[0-9A-Fa-f]+|%[01]+)$/;
+const TEST_BIT = /^(!?)([A-Za-z_]\w*)(?:\{([0-7])\})?$/;
+const literalValue = (text) => (text.startsWith('$') ? parseInt(text.slice(1), 16) : text.startsWith('%') ? parseInt(text.slice(1), 2) : Number(text));
+const testLines = (shape, slots, id) => {
+  const jump = /^goto\s+([A-Za-z_]\w*)$/.exec(shape.jump.trim());
+  if (!jump) return null;
+  const cond = shape.cond.trim();
+  const compare = TEST_COMPARE.exec(cond);
+  const bit = compare ? null : TEST_BIT.exec(cond);
+  const name = compare ? compare[1] : bit ? bit[2] : null;
+  if (!name || !slots.has(name)) return null;
+  const skip = `_spltest_${id}`;
+  const check = compare ?
+    [...(literalValue(compare[3]) === 0 ? [] : [`cmp #${compare[3]}`]), `${compare[2] === '=' ? 'bne' : 'beq'} ${skip}`] :
+    [...(bit[3] === undefined ? [] : [`and #${1 << Number(bit[3])}`]), `${bit[1] ? 'bne' : 'beq'} ${skip}`];
+  const indent = shape.indent;
+  return [`${indent}asm`, ...pointerLines(indent, slots.get(name)), `${indent}lda DF6DATA`, ...check.map((line) => `${indent}${line}`),
+    `${indent}jmp .${jump[1]}`, skip, 'end'];
+};
+
 // The code with the names in `slots` (name -> {area, byte}) read and written through the display memory.
 export const applySpill = (code, slots) => {
   const names = [...slots.keys()];
   const out = [];
   let labelCount = 0;
+  // The names a store can set as a byte: not the score (three bytes), a fixed point variable (dim name = a.b) or a def.
+  const special = new Set(['score']);
+  code.split('\n').forEach((line) => {
+    const dim = /^\s*dim\s+([A-Za-z_]\w*)\s*=\s*(.*)$/.exec(line);
+    if (dim && /\./.test(dim[2])) special.add(dim[1]);
+    const def = /^\s*def\s+([A-Za-z_]\w*)/.exec(line);
+    if (def) special.add(def[1]);
+  });
+  const plainTargets = (name) => !special.has(name) && !SCRATCH.includes(name);
   // The lines that bring the names `text` reads into the scratch bytes, and the text with them put in place of the names.
   const readsIn = (text, indent, preferred = null) => {
     const pre = [];
@@ -393,16 +450,26 @@ export const applySpill = (code, slots) => {
         simple.value === '1' ? `${indent}ora #${mask}` : `${indent}and #${255 - mask}`,
         ...resetLines(indent, slots.get(simple.target)), `${indent}sta DF6WRITE`, 'end'];
     }
-    if (slots.has(simple.target) && LITERAL.test(simple.rhs.trim())) {
-      return [`${indent}asm`, ...pointerLines(indent, slots.get(simple.target)), `${indent}lda #${simple.rhs.trim()}`, `${indent}sta DF6WRITE`, 'end'];
+    // (Without a comment after the value: the frame counter's tick has one, see SYSTEM_DEFAULT_MARKER in generators/bbasic.js.)
+    const value = simple.rhs.replace(/\s*;.*$/, '').trim();
+    if (slots.has(simple.target) && LITERAL.test(value)) {
+      return [`${indent}asm`, ...pointerLines(indent, slots.get(simple.target)), `${indent}lda #${value}`, `${indent}sta DF6WRITE`, 'end'];
     }
     // name = name + 1 (or - 3, ...): one read and one write, the value kept in the accumulator in between.
     const step = slots.has(simple.target) ?
-      new RegExp(`^${escapeName(simple.target)}\\s*([+-])\\s*(\\d+)$`).exec(simple.rhs.trim()) : null;
+      new RegExp(`^${escapeName(simple.target)}\\s*([+-])\\s*(\\d+)$`).exec(value) : null;
     if (step) {
       return [`${indent}asm`, ...pointerLines(indent, slots.get(simple.target)), `${indent}lda DF6DATA`,
         `${indent}${step[1] === '+' ? 'clc' : 'sec'}`, `${indent}${step[1] === '+' ? 'adc' : 'sbc'} #${step[2]}`,
         ...resetLines(indent, slots.get(simple.target)), `${indent}sta DF6WRITE`, 'end'];
+    }
+    // target = name (or name & 15, name + 1, ...), the name spilled and the target a plain byte: read into the accumulator and stored there,
+    // not through a scratch byte and the statement (6 cycles and 4 bytes less; the colors commongamelogic writes every frame, for one).
+    const direct = !slots.has(simple.target) && plainTargets(simple.target) ? DIRECT_COPY.exec(value) : null;
+    if (direct && slots.has(direct[1])) {
+      const op = direct[2] ? DIRECT_OPS[direct[2]] : [];
+      return [`${indent}asm`, ...pointerLines(indent, slots.get(direct[1])), `${indent}lda DF6DATA`,
+        ...op.map((word) => (word.endsWith(' ') ? `${indent}${word}#${direct[3]}` : `${indent}${word}`)), `${indent}sta ${simple.target}`, 'end'];
     }
     const {pre, text} = readsIn(simple.rhs, indent, selfScratch(simple) ? simple.target : null);
     if (!slots.has(simple.target)) return [...pre, `${indent}${simple.target} = ${text}`];
@@ -472,7 +539,7 @@ export const applySpill = (code, slots) => {
           const loadLines = [`${indent}ld${r} #<(${address})`, `${indent}st${r} DF6LOW`, `${indent}ld${r} #(>(${address})) & $0F`, `${indent}st${r} DF6HI`];
           out.push(...loadLines, `${indent}ld${r} DF6DATA`);
         } else if (ASM_READ_OPS.has(op)) {
-          out.push(`${indent}pha`, ...pointerLines(indent, slot), `${indent}lda DF6DATA`, `${indent}sta temp5`, `${indent}pla`, `${indent}${op} temp5`);
+          out.push(`${indent}pha`, ...pointerLines(indent, slot), `${indent}pla`, `${indent}${op} DF6DATA`);
         } else if (op === 'sta') {
           out.push(`${indent}php`, `${indent}pha`, ...pointerLines(indent, slot), `${indent}pla`, `${indent}sta DF6WRITE`, `${indent}plp`);
         } else {
@@ -516,6 +583,15 @@ export const applySpill = (code, slots) => {
       }
       // (Arriving from a test that read them already, the bytes hold the names still.)
       const reuse = reached && [...union].every((name) => reached.has(name));
+      // A single test, not in a run, that jumps in the same bank: in assembly, the byte read into the accumulator and tested there (see testLines).
+      const alone = run.length === 1 && !reuse ? testLines(shape, slots, labelCount) : null;
+      if (alone) {
+        labelCount++;
+        out.push(...alone);
+        for (let k = at + 1; k < next; k++) out.push(entries[k].line);
+        at = next - 1;
+        continue;
+      }
       const where = reuse ? new Map(reached) : new Map([...union].map((name, index) => [name, SCRATCH[index]]));
       if (!reuse) {
         [...union].forEach((name) => out.push(`${shape.indent}asm`, ...pointerLines(shape.indent, slots.get(name)),

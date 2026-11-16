@@ -59,8 +59,9 @@ export default (Blockly) => {
     const wrapperName = Blockly.BBasic.nameDB_.getName(
         `_call_${targetName}`, Blockly.PROCEDURE_CATEGORY_NAME);
     if (Blockly.BBasic.subroutines[wrapperName]) return wrapperName;
-    const args = Array.from(
-        {length: Blockly.BBasic.functionCallArgCount}, (_, i) => resolveRW(functionCallArgVarName(i + 1)).read);
+    // (With functionCallArgsDirect the calls put the arguments in temp1 to temp4 themselves.)
+    const args = Array.from({length: Blockly.BBasic.functionCallArgCount},
+        (_, i) => (Blockly.BBasic.functionCallArgsDirect ? `temp${i + 1}` : resolveRW(functionCallArgVarName(i + 1)).read));
     Blockly.BBasic.subroutines[wrapperName] =
       `${resolveRW(functionCallDiscardVarName()).write} = ${targetName}(${args.join(', ')})`;
     // Tracked so hooks/rom.js's computeFunctionFamilies can recognize this
@@ -249,8 +250,9 @@ export default (Blockly) => {
     const {name, args} = resolveFunctionCallTarget(block);
     if (asSubroutines()) return subroutineCallLines(name, args, block).join('\n') + '\n';
     const wrapperName = registerFunctionCallWrapper(name);
+    // (Arguments of plain values only, see functionCallArgsDirect in init(): straight into temp1 to temp4, where the Function finds them.)
     const assignments = args
-        .map((argCode, i) => `${resolveRW(functionCallArgVarName(i + 1)).write} = ${argCode}`)
+        .map((argCode, i) => `${Blockly.BBasic.functionCallArgsDirect ? `temp${i + 1}` : resolveRW(functionCallArgVarName(i + 1)).write} = ${argCode}`)
         .join('\n');
     const suffix = Blockly.BBasic.bankJumpSuffix(
         Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(wrapperName));

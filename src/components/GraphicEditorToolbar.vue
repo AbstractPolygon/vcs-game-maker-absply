@@ -298,6 +298,7 @@ import {usePixelGridOverlayStorage, usePixelGridLabelsStorage} from '../hooks/pr
 import {useMirrorDraw, useDrawColor} from '../hooks/pixel-tool';
 import {NTSC_COLORS, colorByteToCss} from '../utils/palette';
 import {REDO_TITLE, UNDO_TITLE, undoRedoKind} from '../utils/undo-hotkey';
+import {hoveredPixelEditor} from '../utils/pixel-clipboard';
 import {canRedoReorder, canUndoReorder, settleEdits, tryRedoReorder, tryUndoReorder} from '../hooks/reorder-history';
 
 // The standard Photoshop/Aseprite-style single-letter tool shortcuts -
@@ -523,20 +524,27 @@ export default {
         this.handleRedo();
         return;
       }
-      // Ctrl/Cmd+C, X and V copy, cut and paste the selected pixels (see PixelEditor's copySelection). Only with a selection to copy or
-      // something copied to paste, and never in a text field, so the browser's copy and paste work everywhere else.
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && this.activeEditor) {
+      // Ctrl/Cmd+C, X and V copy, cut and paste the selected pixels (see PixelEditor's copySelection), in every pixel canvas: a copy or
+      // cut takes the selection of the selected card's canvas, or of the one under the mouse when only that has one; a paste goes into
+      // the canvas under the mouse (another frame, tile or background), else the selected card's (utils/pixel-clipboard.js). Only with
+      // a selection to copy or something copied to paste, and never in a text field, so the browser's copy and paste work everywhere
+      // else.
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
         const target = event.target;
         const typing = target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
         const letter = event.key.toLowerCase();
-        if (!typing && (letter === 'c' || letter === 'x' || letter === 'v')) {
-          const editor = this.activeEditor;
-          const done = letter === 'c' ? editor.copySelection && editor.copySelection() :
-            letter === 'x' ? editor.cutSelection && editor.cutSelection() : editor.pasteClipboard && editor.pasteClipboard();
+        const hovered = hoveredPixelEditor();
+        // (Each tab's toolbar listens; the one whose canvas is under the mouse, or else the one with a selected card, answers.)
+        const mine = hovered && this.ownsEditor(hovered);
+        if (!typing && !event.defaultPrevented && (letter === 'c' || letter === 'x' || letter === 'v') && (mine || (!hovered && this.activeEditor))) {
+          const selected = (editor) => !!(editor && editor.selection && editor.selection.size);
+          const editor = letter === 'v' ? (hovered || this.activeEditor) :
+            (selected(this.activeEditor) ? this.activeEditor : selected(hovered) ? hovered : null);
+          const done = !!editor && (letter === 'c' ? editor.copySelection() : letter === 'x' ? editor.cutSelection() : editor.pasteClipboard());
           if (done) {
             event.preventDefault();
             // (The pasted pixels stay selected, with the Move tool on to take them where they go.)
-            if (letter === 'v') this.setTool('move');
+            if (letter === 'v') editor.setTool('move');
             return;
           }
         }
@@ -641,6 +649,11 @@ export default {
     },
     setTool(tool) {
       if (this.activeEditor) this.activeEditor.setTool(tool);
+    },
+    // Whether a pixel canvas is one of this toolbar's tab (the toolbar's parent holds it).
+    ownsEditor(editor) {
+      const parent = this.$parent && this.$parent.$el;
+      return !!(parent && editor && editor.$el && parent.contains(editor.$el));
     },
     // Clicking the tool that is on turns it off: no tool is active then, and the row color bars open their palette again.
     toggleTool(tool) {

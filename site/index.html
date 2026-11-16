@@ -114,23 +114,23 @@
 
     <section class="downloads" id="download">
       <h2>Download VCS GAME MAKER</h2>
-      <p class="count" id="dl-version">Version 0.54.0</p>
+      <p class="count" id="dl-version">Version 0.54.1</p>
       <div class="dl-groups">
         <div class="dl-group">
           <p class="dl-title">Windows</p>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.0/VCS-Game-Maker-0.54.0-Windows-Setup.msi" data-asset="Windows-Setup.msi">Intel / AMD (installer)</a>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.0/VCS-Game-Maker-0.54.0-Windows-arm64-Setup.msi" data-asset="Windows-arm64-Setup.msi">ARM (installer)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-Windows-Setup.msi" data-asset="Windows-Setup.msi">Intel / AMD (installer)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-Windows-arm64-Setup.msi" data-asset="Windows-arm64-Setup.msi">ARM (installer)</a>
         </div>
         <div class="dl-group">
           <p class="dl-title">macOS</p>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.0/VCS-Game-Maker-0.54.0-macOS-arm64.dmg" data-asset="macOS-arm64.dmg">Apple silicon (dmg)</a>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.0/VCS-Game-Maker-0.54.0-macOS-x64.dmg" data-asset="macOS-x64.dmg">Intel (dmg)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-macOS-arm64.dmg" data-asset="macOS-arm64.dmg">Apple silicon (dmg)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-macOS-x64.dmg" data-asset="macOS-x64.dmg">Intel (dmg)</a>
         </div>
         <div class="dl-group">
           <p class="dl-title">Linux</p>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.0/VCS-Game-Maker-0.54.0-Linux-x64.AppImage.tar.gz" data-asset="Linux-x64.AppImage.tar.gz">Intel / AMD (AppImage)</a>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.0/VCS-Game-Maker-0.54.0-Linux-arm64.AppImage.tar.gz" data-asset="Linux-arm64.AppImage.tar.gz">ARM (AppImage)</a>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.0/VCS-Game-Maker-0.54.0-Linux-x64-VCS-portable.tar.gz" data-asset="Linux-x64-VCS-portable.tar.gz">2021 VCS (portable)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-Linux-x64.AppImage.tar.gz" data-asset="Linux-x64.AppImage.tar.gz">Intel / AMD (AppImage)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-Linux-arm64.AppImage.tar.gz" data-asset="Linux-arm64.AppImage.tar.gz">ARM (AppImage)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-Linux-x64-VCS-portable.tar.gz" data-asset="Linux-x64-VCS-portable.tar.gz">2021 VCS (portable)</a>
         </div>
       </div>
     </section>
@@ -383,7 +383,9 @@
 
     <section class="feature wide" id="updates">
       <h2>Latest updates</h2>
-      <p><strong>Version 0.54.0</strong> (<a href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/latest">release page</a>)</p>
+      <p><strong>Version 0.54.1</strong> (<a href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/latest">release page</a>)</p>
+      <p>Games run faster and take less ROM: subroutine and Function returns are shorter when every call to them is from the same bank (or every one from another), a value stored and loaded straight back is not loaded again, Set score from a value takes at most about 90 cycles, and on DPC+ the colour registers are no longer written before each frame (the kernel writes them itself), Function calls with simple arguments need no variables, and a player of one picture or one animation needs fewer bytes, so fewer variables go to the slower display memory. The coprocessor Fire movement and Bounce are faster. Players are moved below the screen (y 200) when the title screen ends, and the Sprite pool releases and the Player block hide a sprite at y 200. Copy, cut and paste of pixel selections work between the graphic canvases. Fixed: playfields drawn wrong on DPC+ in projects that go straight to the title screen, powerups going through the paddle, and several offset areas in one project.</p>
+      <p><strong>Version 0.54.0</strong></p>
       <p>The block toolbox groups its blocks in drawers inside the categories: Sprites has Animation, Behaviors (Bounce, Fade, Fire, Inertia, Lock, Move, Platform, Scroll), Pooling and VFX; Playfield has Behaviors, Collision, Utility and VFX; Input has Collision, Joystick, Keypad and Utility; Title, Score, Music and Event have drawers too. A category with drawers opens and closes with its arrow, or with a double-click on its name, and a single click only shows its blocks. The Player rainbow colors blocks show on DPC+ without the per-row color option. The example blocks that wrapped Platform in a joystick if, the repeat 30 times and the Title screen update example are gone. The wiki lists the blocks on each page, with block images.</p>
       <p><strong>Version 0.53.21</strong></p>
       <p>Playfield tiles can be up to 127 rows tall (they were 32): the Playfield to tiles popup and Set height offer the new heights, and Best looks at them all.</p>

@@ -370,6 +370,10 @@ The DPC+ graphics bank is full. It holds every player's frames and color rows (a
       `bytes with colors), the playfield (a background that scrolls is stored as 255 rows, 4 bytes each) and the row color ` +
       `tables, and a larger ROM size doesn't add to it. Use fewer or shorter frames and animations, or fewer players.`;
   }
+  // (A DPC+ ROM is always 32K: the ROM size of the Configuration tab, kept from another kernel, does not apply to it.)
+  if (bankSizeKeyFor(config) === 'dpcplus') {
+    return `\n\nThis project may be too large to fit in a DPC+ ROM (32K, the only size DPC+ has). Make the code or the graphics smaller.`;
+  }
   return `\n\nThis project may be too large to fit in the configured ROM size ` +
     `(${(config && config.romSize) || '4k'}) - try a larger ROM size on the Configuration tab.`;
 };
@@ -1171,8 +1175,12 @@ const familyHasExternalBareCaller = (members) => {
 // (A unit that runs on every frame is not moved to free room in the main bank, only when the main bank has no other way to fit.)
 const EVERY_FRAME = 3;
 // The code that the main loop runs on every pass whatever the project has: the checks the sprites and the background ask for, and the animation code of the
-// sprites of a pool.
-const PER_PASS_NAMES = /^_(pass_checks|fire_checks|seek_checks|lock_checks|inertia_checks|platformer_checks|bg_fade_checks|poolanim)/;
+// sprites of a pool, and the pool's steps, swaps and body, which run for each of its sprites that is shown, every frame.
+const PER_PASS_NAMES = /^(_(pass_checks|fire_checks|seek_checks|lock_checks|inertia_checks|platformer_checks|bg_fade_checks|poolanim|poolstep|poolswap)|poolbody\d)/;
+// The code a collision runs (a Bounce block's stage, Find playfield pixel): not every frame, but on the frames that already do the most (a hit, a bounce,
+// what they set off), where a call into another bank is what makes the frame too long. Moved after the other subroutines.
+const ON_COLLISION_NAMES = /^_(bouncestage_|bouncespr_|bouncepix|findpixel_)/;
+const ON_COLLISION = 2.5;
 // Who calls whom, made once for the code of a build (a build makes new tables, and the count of the entries is checked in case one is changed in place):
 // calls: for each subroutine and function the names it calls (see calledNames); eventCalls: the same for each event; reached: the subroutines and functions that
 // the main loop runs on every pass, the ones its events call except under a rare condition (an input, a collision, a random number, a block that runs once or every
@@ -1213,6 +1221,7 @@ const unitRunFrequency = (kind, name) => {
   }
   if (kind === 'subroutineBanks') {
     if (/^_(pfbox|sprite_box|run_once_edge_reset)/.test(name)) return EVERY_FRAME;
+    if (ON_COLLISION_NAMES.test(name)) return ON_COLLISION;
     return /^_background_load/.test(name) ? 0 : 2;
   }
   return 2;
@@ -1317,6 +1326,8 @@ const unitLabels = (kind, name) => {
   return names.flatMap((label) => [`0.${label}`, label]);
 };
 const PLAN_WEIGHTS = [1, 4, 12, 80];
+// The weight of a rating (ON_COLLISION, between 2 and EVERY_FRAME, weighs between theirs).
+const planWeight = (frequency) => (frequency === ON_COLLISION ? 40 : PLAN_WEIGHTS[frequency] || 1);
 const PLAN_MARGINS = [48, 24, 8];
 const PLAN_ENTER_BYTES = 10;
 const MAX_PLAN_ATTEMPTS = 12;
@@ -1380,7 +1391,7 @@ const planLayoutFromMeasurement = (measured, config, reservedMusicBank, maxBanks
     });
     if (bank === null) bank = (banksNow[members[0].kind] || {})[members[0].name] || primary;
     if (!bins.includes(bank)) return;
-    units.push({key: `${unit.kind}:${unit.name}`, unit, bank, size, settled, frequency: unit.passFrequency, weight: PLAN_WEIGHTS[unit.passFrequency] || 1});
+    units.push({key: `${unit.kind}:${unit.name}`, unit, bank, size, settled, frequency: unit.passFrequency, weight: planWeight(unit.passFrequency)});
   });
   // Which units call which (by the names of their parts in the code), each call with what it costs across banks: how often the less frequent of the two runs.
   const unitOfName = new Map();
@@ -1394,8 +1405,8 @@ const planLayoutFromMeasurement = (measured, config, reservedMusicBank, maxBanks
     (kind === 'eventBanks' ? graph.eventCalls : graph.calls).get(name)?.forEach((always, calledName) => {
       const callee = unitOfName.get(calledName);
       if (!callee || callee === key) return;
-      // A call under a rare condition is made less often than the code that makes it runs.
-      const weight = PLAN_WEIGHTS[Math.min(frequencyOf.get(key), frequencyOf.get(callee), always ? EVERY_FRAME : EVERY_FRAME - 1)] || 1;
+      // A call under a rare condition is made less often than the code that makes it runs (a collision's code, under its collision, keeps the rating it has).
+      const weight = planWeight(Math.min(frequencyOf.get(key), frequencyOf.get(callee), always ? EVERY_FRAME : ON_COLLISION));
       const pair = [key, callee].sort().join('|');
       if (!edges.has(pair) || edges.get(pair).weight < weight) edges.set(pair, {a: key, b: callee, weight});
     });

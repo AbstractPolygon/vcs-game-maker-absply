@@ -41,10 +41,8 @@ export const runOnceResetLines = (count) => [
     'sta DF1WRITE',
     `beq _runonce_reset_${index}_done`,
     `@_runonce_reset_${index}_work`,
-    'sta temp2',
-    'and #$0F',
+    // (The fired bits shifted down have 0 above them: ANDed with the whole byte, only the ones with their touched bit stay.)
     'sta temp1',
-    'lda temp2',
     'lsr',
     'lsr',
     'lsr',

@@ -18,7 +18,7 @@
 // left and lines from the top of the picture).
 
 import {flagPoolVar, flagPoolBit} from './flag-pool';
-import {boxWidthVarName} from './sprite-box-width';
+import {boxWidthLines} from './sprite-box-width';
 import {configurationValue} from '../../hooks/configuration-value';
 
 export const TRIGGER_SCENE_VAR = '_scene';
@@ -132,8 +132,9 @@ const leftOffset = (name, dpcPlus) => (dpcPlus ? (/^player0$/.test(name) ? 13 : 
 
 const boxWidthOf = (Blockly, name) => {
   if (!/^player\d+$/.test(name)) return {fixed: 2};
-  if ((Blockly.BBasic.boxFixedPlayers || new Set()).has(name)) return {fixed: 8};
-  return {variable: resolve(Blockly, boxWidthVarName(name))};
+  // (A number, or worked out from the size byte: see boxKinds in init, generators/bbasic.js.)
+  const kind = Blockly.BBasic.boxKinds && Blockly.BBasic.boxKinds.get(name);
+  return Number.isInteger(kind) ? {fixed: kind} : {fromSize: true};
 };
 
 export default (Blockly) => {
@@ -272,10 +273,10 @@ export default (Blockly) => {
       // Across: the sprite's box is x - dx to x - dx + its width of the picture; the trigger is left to right.
       if (isPlayer) out.push(` if ${x} >= ${RIGHT_EDGE_X} then goto ${miss}`);
       if (right + dx <= 255) out.push(` if ${x} >= ${right + dx} then goto ${miss}`);
-      if (box.fixed !== undefined) {
-        out.push(` if (${x} + ${box.fixed}) <= ${left + dx} then goto ${miss}`);
+      if (box.fromSize) {
+        out.push(...boxWidthLines(Blockly, name, 'temp1', 'temp2'), ` temp1 = ${x} + temp1`, ` if temp1 <= ${left + dx} then goto ${miss}`);
       } else {
-        out.push(` temp1 = ${x} + ${box.variable}`, ` if temp1 <= ${left + dx} then goto ${miss}`);
+        out.push(` if (${x} + ${box.fixed}) <= ${left + dx} then goto ${miss}`);
       }
       // Down: standard kernel, the y of a sprite is its bottom edge in steps of two lines; DPC+, the line of its top edge.
       if (!dpcPlus) {

@@ -4330,12 +4330,13 @@ input[type='checkbox']:not(:checked) ~ .v-input--switch__thumb {
   padding-bottom: 0;
 }
 /* The left sidebar's drag handle: the same strip and grip as the emulator's, on the sidebar's right edge. */
+/* (Above the Blockly toolbox beside it, which Blockly puts at z-index 70; below its dropdowns, 99999, and the menus and dialogs.) */
 .sidebar-resize-handle {
   position: fixed;
   top: 72px;
   width: 10px;
   cursor: ew-resize;
-  z-index: 20;
+  z-index: 71;
 }
 .sidebar-resize-handle:hover {
   background-color: rgba(0, 0, 0, 0.15);

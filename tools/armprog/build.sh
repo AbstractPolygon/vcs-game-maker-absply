@@ -12,7 +12,8 @@ OUT="${1:-public/bb19/includes/custom/prog}"
 WORK="$(mktemp -d)"
 mkdir -p "$OUT"
 # The linker script: the entry first, at 0 (the program is position independent).
-echo 'SECTIONS { . = 0; .text : { *(.text.entry) *(.text*) *(.rodata*) } }' > "$WORK/l.ld"
+# (The Fire table's place, FT in armprog.c, last: the generator puts the project's table over it, see fillArmProgram in src/generators/bbasic/offset-arm.js.)
+echo 'SECTIONS { . = 0; .text : { *(.text.entry) *(.text*) *(.rodata*) *(.data*) *(.firetab) } }' > "$WORK/l.ld"
 LETTERS="o b c p f a t n r"
 flag() { case $1 in o) echo NOOFFSET;; b) echo NOBOX;; c) echo NOCIRCLE;; p) echo NOPIX;; f) echo NOFIRE;; a) echo NOAUDIO;; t) echo NOTILES;; n) echo NONARROW;; r) echo NORUNS;; esac; }
 # One program into $1 (a file) with the defines in $2: each step's file is deleted first, so a step that writes nothing can not leave the one before.

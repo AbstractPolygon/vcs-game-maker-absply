@@ -1,13 +1,10 @@
 name: Build and release
 
 # Builds the desktop app for Windows (Intel/AMD and ARM), macOS (Intel and Apple Silicon) and Linux (Intel/AMD and ARM, which covers a 64-bit Raspberry Pi) and publishes the installers as a GitHub Release tagged with the
-# app version in package.json (0.52.11 for version 0.52.11). Runs when a push to main changes package.json (a version
-# bump) and on demand from the Actions tab. A release that already exists for the version gets its files replaced.
+# app version in package.json (0.52.11 for version 0.52.11). Runs only on demand from the Actions tab (Run workflow), never by itself on a push: a
+# version bump is pushed first and released when a build is asked for. A release that already exists for the version gets its files replaced.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: [package.json]
 
 permissions:
   contents: write

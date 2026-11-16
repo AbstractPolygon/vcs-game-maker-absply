@@ -37,8 +37,7 @@ static u valid(volatile b8 *p,u r)
 #endif
 
 // One offset over columns x1 to x2 (in order, in the playfield) and rows y1 to y2. grouped: the rows a group has are separate, and a row
-// is only offset in the columns of the groups that have it. All left and all right (1, 2) wrap a pixel round its row; the alternate rows (0, 5)
-// carry the pixel that leaves a row into the next row (a belt).
+// is only offset in the columns of the groups that have it. The pixel that leaves a row goes into the next row of the area (a belt).
 static void pass(volatile b8 *p,u dir,u x1,u x2,u y1,u y2,u grouped)
 {
   u t,r,e,old,c,pin,mask,hi,lo,left,m;
@@ -60,7 +59,6 @@ static void pass(volatile b8 *p,u dir,u x1,u x2,u y1,u y2,u grouped)
     else
     {
       left=dir==1||(dir==0&&!(r&1))||(dir==5&&(r&1));
-      if (dir==1||dir==2) pin=old&(left?hi:lo);  // all left, all right: the pixel wraps round the same row
       if (left) { t=((old<<1)&~lo)|(pin?lo:0); pin=old&hi; }
       else { t=((old>>1)&~hi)|(pin?hi:0); pin=old&lo; }
     }
@@ -428,31 +426,43 @@ static void bouncepix(volatile b8 *p)
 #endif
 
 #ifndef NOFIRE
-// The movement of an object a Fire block launched, for one frame (the "missilefire" code of generateMissileFireChecks in generators/bbasic/sprites.js, which
-// the 6502 does when this is not in the program): C_function[1..10]: x, y, the direction, the speed, the sixteenths kept (the halfway directions), the flags
-// (bit 0: 16 directions, bit 1: checks the playfield while it moves, bits 2 and 3: the top line is y + 1 (1) or y - 1 (2) for the cell it is in, bit 6: the
-// row is the line / the row increment, rows a whole number of lines that does not divide 256), the stage
-// byte of the Bounce (given back as it is), the column offset, the last
-// row, the row increment. Gives back x, y, the sixteenths kept and the stage byte in [1] to [4].
+// The movement of the objects Fire blocks launched, for one frame (the "missilefire" code of generateMissileFireChecks in generators/bbasic/sprites.js, which
+// the 6502 does when this is not in the program), for up to 8 objects in one call (function 102). The numbers of each object that do not change while the game
+// runs are in FT (the table at the end of the program, see fireTableLines in generators/bbasic/offset-arm.js): FT[0] the number of objects, then 14 bytes for
+// each: the flags (bit 0: 16 directions, bit 1: checks the playfield while it moves, bits 2 and 3: the top line is y + 1 (1) or y - 1 (2) for the cell it is
+// in, bit 6: the row is the line / the row increment, rows a whole number of lines that does not divide 256, bit 7: the same speed at every angle, a straight
+// heading takes 7/16 of the speed more), the column offset, the last row and the row increment, then where the direction,
+// the speed, the sixteenths kept (the halfway directions and the stretch), the stage byte of the Bounce and the sixteenths of the same speed at every angle
+// are: two bytes each, the place in the display memory (the low byte, then the high one's low four bits), or with bit 7 of the high byte the next byte the 6502
+// wrote, or with bit 6 a number (the low byte: 0 for none, or the speed when it is always the same).
+// C_function[1] the first object of the call in FT, [2] the ones that move this frame (bit 0 the first), then each object's x, y and the bytes of it the
+// 6502 wrote. Gives back from [1]: the ones that moved (not a speed of 0), then each object's x, y and the sixteenths kept, the stage byte and the sixteenths
+// of the same speed when the 6502 wrote them (the ones in the display memory are written there).
 // (Each step plus 2, for the tables are bytes: the coprocessor emulators have no signed loads.)
 static const b8 DX16[16]={2,3,3,4,3,4,3,3,2,1,1,0,1,0,1,1};
 static const b8 DY16[16]={1,0,1,1,2,3,3,4,3,4,3,3,2,1,1,0};
+// Put over by the generated table (see above): the last bytes of the program.
+static const volatile b8 FT[4] __attribute__((section(".firetab")))={0x5E,0xF1,0x7A,0xB1};
 
-// Whether the cell an object at x, y is in is lit (the numbers of the call are in the bytes of the call).
+// One object's numbers for a move, a[0] to a[10]: the direction, the speed, the sixteenths kept, the stage byte, the sixteenths of the same speed at every
+// angle (in the order of their places in FT), x, y, the flags, the column offset, the last row, the row increment. The move gives back x, y, the sixteenths
+// kept and the stage byte in the same places.
+
+// Whether the cell an object at x, y is in is lit.
 // 0 for a clear cell (or none), else 1 + a number of the lit cell: its column xor 8 times its row (different for neighbouring cells).
-static u lit(volatile b8 *p,u x,u y)
+static u lit(volatile b8 *p,const b8 *a,u x,u y)
 {
-  u fl=CF[6],shift=(fl&4)?1:((fl&8)?255:0),inc=CF[10],col=((x-CF[8])&255)>>2,row=(y+shift)&255;
+  u fl=a[7],shift=(fl&4)?1:((fl&8)?255:0),inc=a[10],col=((x-a[8])&255)>>2,row=(y+shift)&255;
   // (The row as rowat has it: an increment of 0 is 256, bit 6 divides.)
   if ((fl&0x40)&&inc) { u r=0; while (row>=inc) { row-=inc; r++; } row=r; }
   else row=(row*(inc?inc:256))>>8;
-  if (col>31 || row>CF[9]) return 0;
+  if (col>31 || row>a[9]) return 0;
   return pixel(p,col,row)?1+((col^(row<<3))&255):0;
 }
 
-static void firemove(volatile b8 *p)
+static void firemove(volatile b8 *p,b8 *a)
 {
-  u x=CF[1],y=CF[2],dir=CF[3],speed=CF[4],frac=CF[5],fl=CF[6],stage=CF[7],steps=(fl&1)?16:8;
+  u x=a[5],y=a[6],dir=a[0],speed=a[1],frac=a[2],fl=a[7],stage=a[3],steps=(fl&1)?16:8;
   u t3,t4,t5=0,n,start,cell,i=(fl&1)?dir:dir<<1,big=2,mv=26,nv=0;
   int dx=0,dy=0,sx,sy,px,py,mx,my;
   if (dir<steps) { dx=(int)DX16[i]-2; dy=(int)DY16[i]-2; }
@@ -476,7 +486,7 @@ static void firemove(volatile b8 *p)
   my=(big==1&&nv)?sy:0;
   stage&=127;
   // An object that starts inside a lit cell is stopped by any other lit cell it comes to, not by the one it is in.
-  start=lit(p,x,y);
+  start=lit(p,a,x,y);
   n=t3;
   do
   {
@@ -486,7 +496,7 @@ static void firemove(volatile b8 *p)
     for (;;)
     {
       // A lit cell stops the object (see start above); the step into it is taken back, as far as it was taken.
-      if ((cell=lit(p,x,y)) && (!start || (cell!=start && !((stage&0x30)==0x30 && (dir&15)!=(stage&15))) || (cell==start && !(stage&0x30))))
+      if ((cell=lit(p,a,x,y)) && (!start || (cell!=start && !((stage&0x30)==0x30 && (dir&15)!=(stage&15))) || (cell==start && !(stage&0x30))))
       {
         if (!start) stage&=207;
         if (start && cell!=start) { if (moved) { x-=mx; y-=my; } else { x-=px; y-=py; } }
@@ -501,10 +511,54 @@ static void firemove(volatile b8 *p)
     n--;
   } while (n>0);
   done:;
-  CF[1]=x;
-  CF[2]=y;
-  CF[3]=frac;
-  CF[4]=stage;
+  a[5]=x;
+  a[6]=y;
+  a[2]=frac;
+  a[3]=stage;
+}
+
+static void firebatch(volatile b8 *p)
+{
+  u first=CF[1],go=CF[2],moved=0,i,k;
+  volatile b8 *in=CF+3,*out=CF+2;
+  const volatile b8 *d=FT+1+first*14;
+  for (i=0;i<8 && first+i<FT[0];i++,d+=14)
+  {
+    // (Each object's bytes are all read before the ones it gives back are written: what it gives back is never more than what it was given, so the bytes given back
+    // never reach the ones of the next objects.)
+    b8 a[11];
+    a[5]=*in++;
+    a[6]=*in++;
+    a[7]=d[0]; a[8]=d[1]; a[9]=d[2]; a[10]=d[3];
+    // The direction, the speed, the sixteenths kept, the stage byte and the sixteenths of the same speed at every angle (see FT above).
+    for (k=0;k<5;k++)
+    {
+      u lo=d[4+2*k],hi=d[5+2*k];
+      a[k]=(hi&0x80)?*in++:((hi&0x40)?lo:*(volatile b8 *)(0x40000C00+lo+((hi&15)<<8)));
+    }
+    if (((go>>i)&1) && a[1])
+    {
+      // The same speed at every angle: a straight heading (a multiple of 2 of the 8 directions, of 4 of the 16) adds 7/16 of the speed, the sixteenths kept in a[4].
+      if ((a[7]&0x80) && !(a[0]&((a[7]&1)?3:1)))
+      {
+        u t=a[1]*7+(a[4]&15);
+        a[4]=t&15;
+        a[1]+=(t&255)>>4;
+      }
+      a[4]&=15;
+      firemove(p,a);
+      moved|=1u<<i;
+    }
+    *out++=a[5];
+    *out++=a[6];
+    for (k=2;k<5;k++)
+    {
+      u lo=d[4+2*k],hi=d[5+2*k];
+      if (hi&0x80) *out++=a[k];
+      else if (!(hi&0x40)) *(volatile b8 *)(0x40000C00+lo+((hi&15)<<8))=a[k];
+    }
+  }
+  CF[1]=moved;
 }
 #endif
 
@@ -702,7 +756,7 @@ void __attribute__((section(".text.entry"))) run(void)
   else if (op==100) bouncepix(p);
 #endif
 #ifndef NOFIRE
-  else if (op==101) firemove(p);
+  else if (op==102) firebatch(p);
 #endif
 #ifndef NOAUDIO
   else if (op==104) audiowave();

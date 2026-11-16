@@ -414,6 +414,19 @@ export const reserveSwitchEdgeDevVars = (reserveDevVar, usedFor) => {
   reserveDevVar(switchEdgeFlagsVarName(), undefined, 'console switches: on last frame / just switched on');
 };
 
+// The flag lines of an edge (a switch just switched on, Fire just pressed): a "prev" bit (down last frame) and a "just" bit (down now, not last frame) of
+// one byte. Down: prev set, just set only if prev was clear. Up: both clear. In assembly (one read of the byte where the statements of batari Basic read
+// it three times): about 10 cycles a frame less for each edge.
+const edgeFlagLines = (flagsVar, prevBit, justBit, key) => {
+  const prev = 1 << prevBit;
+  const just = 1 << justBit;
+  return {
+    up: [' asm', `  lda ${flagsVar}`, `  and #${255 - prev - just}`, `  sta ${flagsVar}`, 'end'],
+    down: [' asm', `  lda ${flagsVar}`, '  tax', `  and #${255 - just}`, `  ora #${prev}`, `  sta ${flagsVar}`, '  txa', `  and #${prev}`,
+      `  bne ${key}_was`, `  lda ${flagsVar}`, `  ora #${just}`, `  sta ${flagsVar}`, `${key}_was`, 'end'],
+  };
+};
+
 // Once per frame, before the game's code runs: sets each switch's "just switched on" bit for the one
 // frame it goes from off to on.
 export const generateSwitchEdgeChecks = (Blockly) => {
@@ -424,17 +437,13 @@ export const generateSwitchEdgeChecks = (Blockly) => {
   [...used].filter((value) => switchEdgeIndex(value) >= 0).forEach((value) => {
     const key = `_switchedge${switchEdgeIndex(value)}`;
     const pressed = Blockly.BBasic.nameDB_.getName(value, Blockly.VARIABLE_CATEGORY_NAME);
-    const prev = `${flagsVar}{${switchEdgePrevBit(value)}}`;
-    const just = `${flagsVar}{${switchEdgeJustBit(value)}}`;
+    const edge = edgeFlagLines(flagsVar, switchEdgePrevBit(value), switchEdgeJustBit(value), key);
     lines.push(
         ` if ${pressed} then goto ${key}_on`,
-        ` ${prev} = 0`,
-        ` ${just} = 0`,
+        ...edge.up,
         ` goto ${key}_done`,
         `${key}_on`,
-        ` ${just} = 0`,
-        ` if !${prev} then ${just} = 1`,
-        ` ${prev} = 1`,
+        ...edge.down,
         `${key}_done`);
   });
   return lines.join('\n');
@@ -464,17 +473,13 @@ export const generateJoystickButtonChecks = (Blockly) => {
     const fireVar = resolveSystemVar(`${name}fire`);
     if ((Blockly.BBasic.joyTapOnlyFor || new Set()).has(name)) {
       const flagsVar = resolveDevVar(joyTapFlagsVarName());
-      const prev = `${flagsVar}{${joyTapPrevBit(name)}}`;
-      const just = `${flagsVar}{${joyTapJustBit(name)}}`;
+      const edge = edgeFlagLines(flagsVar, joyTapPrevBit(name), joyTapJustBit(name), `_${name}tap`);
       lines.push(
           ` if ${fireVar} then goto _${name}tap_down`,
-          ` ${prev} = 0`,
-          ` ${just} = 0`,
+          ...edge.up,
           ` goto _${name}tap_done`,
           `_${name}tap_down`,
-          ` ${just} = 0`,
-          ` if !${prev} then ${just} = 1`,
-          ` ${prev} = 1`,
+          ...edge.down,
           `_${name}tap_done`);
       return;
     }

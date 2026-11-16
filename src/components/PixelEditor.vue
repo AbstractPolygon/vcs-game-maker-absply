@@ -113,11 +113,7 @@ import Rectangle from '../utils/rectangle-tool';
 import Oval from '../utils/oval-tool';
 import Move from '../utils/move-tool';
 import {RectangleSelect, CircleSelect, PolygonSelect} from '../utils/selection-tools';
-
-// Copied pixels (Ctrl+C or Ctrl+X on a selection, see GraphicEditorToolbar.vue), shared by every pixel editor so a copy from one
-// background (or frame) pastes into another: {x, y: where the box round them was, cells: [{dx, dy, on}] from the box's top left}.
-// Both the lit and the clear cells of the selection are kept, so a paste puts back exactly what was selected.
-let pixelClipboard = null;
+import {getPixelClipboard, registerPixelEditor, setPixelClipboard, unregisterPixelEditor} from '../utils/pixel-clipboard';
 import {isMatrixEqual} from '../utils/array';
 import {getDateInfix} from '../utils/date';
 import {loadImageFromFile, openFileDialog} from '../utils/file';
@@ -315,12 +311,15 @@ export default {
   },
   mounted() {
     this.initEditor(this.value.length, this.value);
+    // (For copy and paste between canvases: utils/pixel-clipboard.js.)
+    registerPixelEditor(this);
 
     if (this.showGrid || this.selection || this.polygonPreview || this.hoverCell || this.hasGuides) this.setupGridOverlay();
     this.setupBackdrop();
     window.addEventListener('mouseup', this.handleWindowMouseUp);
   },
   beforeDestroy() {
+    unregisterPixelEditor(this);
     window.removeEventListener('mouseup', this.handleWindowMouseUp);
     this.handleWindowDragEnd();
     this.teardownGridOverlay();
@@ -1562,7 +1561,8 @@ export default {
       this.editor.set(editorPixels, logToHistory);
     },
 
-    // Ctrl+C: keeps the selected cells (lit or not) for a paste. Gives back whether there was a selection to copy.
+    // Ctrl+C: keeps the selected cells (lit or not) for a paste in any canvas (utils/pixel-clipboard.js), so a paste puts back exactly
+    // what was selected. Gives back whether there was a selection to copy.
     copySelection() {
       if (!this.selection || !this.selection.size) return false;
       const pixels = this.getPixels();
@@ -1571,7 +1571,7 @@ export default {
       if (!cells.length) return false;
       const left = Math.min(...cells.map(([x]) => x));
       const top = Math.min(...cells.map(([, y]) => y));
-      pixelClipboard = {x: left, y: top, cells: cells.map(([x, y]) => ({dx: x - left, dy: y - top, on: pixels[y][x] ? 1 : 0}))};
+      setPixelClipboard({x: left, y: top, cells: cells.map(([x, y]) => ({dx: x - left, dy: y - top, on: pixels[y][x] ? 1 : 0}))});
       return true;
     },
     // Ctrl+X: copies the selected cells, then clears them.
@@ -1584,6 +1584,7 @@ export default {
     // where they were copied from, and selects them so the Move tool can take them where they go. Cells past the picture's edge are
     // left out. A plain pixel-matrix edit like any stroke (undone with Undo). Gives back whether there was anything to paste.
     pasteClipboard() {
+      const pixelClipboard = getPixelClipboard();
       if (!pixelClipboard) return false;
       const pixels = this.getPixels();
       const at = this.hoverCell || {x: pixelClipboard.x, y: pixelClipboard.y};

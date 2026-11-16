@@ -1902,6 +1902,8 @@ export default (Blockly) => {
       'missile0height = 0\n' +
       'missile1height = 0\n' +
       (shadowVar ? `CTRLPF = ${shadowVar}\n` : '') +
+      // (Every player below the screen: see titleEndPlayerLines in generators/bbasic.js.)
+      Blockly.BBasic.titleEndPlayerLines().map((line) => `${line}\n`).join('') +
       (Blockly.BBasic.titleEndResets || []).map((line) => `${line}\n`).join('');
   };
 

@@ -402,6 +402,37 @@ export const trimCompiledCode = (asm, symbolmap) => {
   const inRam = (operand) => /^#/.test(operand) || (/^\w+$/.test(operand) && typeof symbolmap[operand] === 'number' && symbolmap[operand] >= 0x80 && symbolmap[operand] <= 0xFF);
   let compares = 0;
   let loads = 0;
+  let jumps = 0;
+  // - "STA x" (the compiler's or an asm block's) right after an instruction that set A (and so the zero and negative flags from it), then the compiler's
+  //   "LDA x": A and those flags are already what the load gives (x a byte of the RAM): 2 bytes, 3 cycles. (A read of the display memory into temp5, then
+  //   the statement that uses temp5, is the common case.)
+  // (Not after an add or a subtract: in decimal mode, the score's, their zero flag is not that of the result.)
+  const SETS_A = /^\s+(lda|pla|txa|tya|and|ora|eor)\b/i;
+  const prev = (i) => {
+    let k = i - 1; while (k >= 0 && isPassedOver(lines[k])) k--; return k;
+  };
+  // - A goto statement whose label comes right after it ("goto x" then "x"): its jmp goes where the program goes anyway: 3 bytes, 3 cycles. (Only the
+  //   compiler's jmp for a goto, which follows the statement's ";;line" mark, not one of an asm block.)
+  for (let i = 0; i < lines.length; i++) {
+    const statement = /^\.L\d+ ;;line \d+;;\s*goto\s+([A-Za-z_]\w*)\s*$/.exec(lines[i]);
+    if (!statement) continue;
+    const j = next(i);
+    if (j >= lines.length || !new RegExp(`^\\s+jmp\\s+\\.${statement[1]}\\s*$`, 'i').test(lines[j])) continue;
+    const k = next(j);
+    if (k < lines.length && lines[k].trim() === `.${statement[1]}`) {
+      lines[j] = '';
+      jumps++;
+    }
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const store = /^\s+(?:STA|sta) ([A-Za-z_]\w*)\s*$/.exec(lines[i]);
+    if (!store || !inRam(store[1])) continue;
+    const before = prev(i);
+    const j = next(i);
+    if (before < 0 || !SETS_A.test(lines[before]) || j >= lines.length || !new RegExp(`^\\tLDA ${store[1]}\\s*$`).test(lines[j])) continue;
+    lines[j] = '';
+    loads++;
+  }
   for (let i = 0; i < lines.length; i++) {
     const load = /^\tLDA (\S+)\s*$/.exec(lines[i]);
     if (!load) continue;
@@ -426,7 +457,7 @@ export const trimCompiledCode = (asm, symbolmap) => {
       }
     }
   }
-  return {asm: lines.join('\n'), compares, loads};
+  return {asm: lines.join('\n'), compares, loads, jumps};
 };
 
 // (A program that is too big for a bank is shortened too, with the addresses of the measuring assembly, which gives every bank its room: the bytes it saves can
@@ -620,11 +651,12 @@ const shorterCode = (asm, symbolmap) => {
   const fetched = trimDisplayMemoryAccess(asm, symbolmap);
   const trimmed = trimCompiledCode(fetched.asm, symbolmap);
   const short = shortenBranchesOverJumps(trimmed.asm, symbolmap);
-  const bytes = short.count * 3 + trimmed.compares * 2 + trimmed.loads * 2 + fetched.reads * 13 + fetched.highs * 5 + fetched.flags * 2;
+  const bytes = short.count * 3 + trimmed.compares * 2 + trimmed.loads * 2 + trimmed.jumps * 3 + fetched.reads * 13 + fetched.highs * 5 + fetched.flags * 2;
   if (!bytes) return null;
   const parts = [short.count ? `${short.count} "if ... then goto" tests are one branch instead of a branch and a jump` : '',
     trimmed.compares ? `${trimmed.compares} compares with 0 after a load are left out` : '',
     trimmed.loads ? `${trimmed.loads} loads of a value A already holds are left out` : '',
+    trimmed.jumps ? `${trimmed.jumps} jumps to the line that follows are left out` : '',
     fetched.reads ? `${fetched.reads} reads of the display memory take the byte already read` : '',
     fetched.highs ? `${fetched.highs} high bytes of the display memory pointer are not set again` : '',
     fetched.flags ? `${fetched.flags} stores to the display memory do not keep flags nothing reads` : ''].filter(Boolean);

@@ -768,9 +768,9 @@ Blockly.Blocks['background_offset'] = {
     this.setNextStatement(true);
     this.setColour(BACKGROUND_COLOR);
     this.setTooltip(`Moves the pixels of the playfield by one step in the chosen direction, so holes in a wall drift ` +
-        `along (the shield in Yars' Revenge). "all left" and "all right" wrap a pixel that leaves a row round to its other end, ` +
-        `and "all up" and "all down" wrap the top and the bottom of each column. With the alternate rows a pixel that leaves the end of a row ` +
-        `carries on at the start of the next row and one that leaves the last row comes back on the first. "alternate rows left and right" moves one row left, the next right, and so on, so the ` +
+        `along (the shield in Yars' Revenge). A pixel that leaves the end of a row carries on at the start of the next row ` +
+        `and one that leaves the last row comes back on the first, and "all up" and "all down" wrap the top and ` +
+        `the bottom. "alternate rows left and right" moves one row left, the next right, and so on, so the ` +
         `pixels run along the rows like a belt ("alternate rows right and left" starts the other way round: the first row ` +
         `of the playfield goes right, the next left). "alternate columns up and down" moves one column up, the next down, and so on, ` +
         `each column wrapping from the top to the bottom ("alternate columns down and up" starts the other way round: the first ` +

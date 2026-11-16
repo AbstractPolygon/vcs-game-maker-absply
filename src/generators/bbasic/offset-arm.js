@@ -1,5 +1,7 @@
 'use strict';
 
+import {displayRamSlotAddress} from './spill';
+
 // The coprocessor program of the DPC+ kernel's Playfield offset block and playfield box test (functions 64 and 68 and up of
 // public/bb19/includes/custom/main.c, built with DPC_OFFSET). The program is the compiled armprog.c (a self-contained, position independent Thumb
 // routine), placed in the ROM as data in a subroutine, and the coprocessor is given the place of it (the way the sound engine is given its waveforms).
@@ -26,6 +28,8 @@ export const buildArmProgramBody = (rows, features = 'ob') => [
   ' align 4',
   '@' + OFFSET_ARM_PROGRAM,
   `;ARM_PROGRAM ${armProgramKey(rows, features)} ${rows ? rows.inc : 0} ${rows ? rows.maxRow : 0} ${rows && rows.clamp ? 1 : 0} ${rows && rows.groups ? 1 : 0}`,
+  // (The table of the objects Fire moves on the coprocessor, right after the program: see resolveFireBatch.)
+  ...(features.includes('f') ? [FIRE_TABLE_LINE] : []),
   '@end',
 ].join('\n');
 
@@ -57,10 +61,13 @@ const loadProgram = (key) => {
 export const fillArmProgram = async (code) => {
   const match = ARM_PROGRAM_LINE.exec(code);
   if (!match) return code;
+  if (FIRE_MARK.test(code)) throw new Error('The coprocessor Fire table was not filled in (resolveFireBatch).');
   const [line, key, inc, maxRow, clamp, groups] = match;
   const bytes = [...await loadProgram(key)];
   const at = bytes.findIndex((value, i) => value === 0xA5 && bytes[i + 1] === 0x5A && bytes[i + 2] === 0xC3 && bytes[i + 3] === 0x3C);
   if (at >= 0) bytes.splice(at, 4, Number(inc), Number(maxRow), Number(clamp), Number(groups));
+  // A program with the Fire movement ends with the 4 bytes of the place of its table (FT in armprog.c): the table lines that follow the program take their place.
+  if (FIRE_TABLE_MAGIC.every((value, k) => bytes[bytes.length - 4 + k] === value)) bytes.length -= 4;
   const lines = [];
   for (let i = 0; i < bytes.length; i += 16) {
     lines.push(' .byte ' + bytes.slice(i, i + 16).map((value) => '$' + value.toString(16).padStart(2, '0')).join(','));
@@ -124,7 +131,14 @@ export const buildCircleArmCall = ({operation, cx, cy, radius, padLeft, padRight
 
 // The ball's and the missiles' pixel finding and bounce (functions 99 and 100 of armprog.c): each argument is the lines that leave the byte in A, written
 // after the function number in order; then the call, and the first `read` bytes it gives back go to temp3, temp4 (and temp5, temp6).
-export const ARM_FIND_PIXEL_FUNCTION = {find: 99, bounce: 100, fire: 101};
+export const ARM_FIND_PIXEL_FUNCTION = {find: 99, bounce: 100};
+// The reads of the bytes a call gives back: the first `read` go to temp3, temp4 (and temp5, temp6), and byte i also to after[i] when that is a name.
+const resultReads = (read, after) => {
+  const count = Math.max(read, ...after.map((place, i) => (place ? i + 1 : 0)));
+  if (!count) return [];
+  return ['lda #<(C_function+1)', 'sta DF0LOW', ...Array.from({length: count}, (_, i) => ['lda DF0DATA',
+    ...(i < read ? [`sta temp${i + 3}`] : []), ...(after[i] ? [`sta ${after[i]}`] : [])]).flat()];
+};
 // after: the places (names of bytes, '' for none) the bytes it gives back, from the first, are stored in.
 export const buildPixArmCall = ({fn, args, read = 0, after = [], tail = []}) => [
   'asm',
@@ -132,8 +146,83 @@ export const buildPixArmCall = ({fn, args, read = 0, after = [], tail = []}) => 
   `lda #${fn}`, 'sta DF0WRITE',
   ...args.flatMap((lines) => [...lines, 'sta DF0WRITE']),
   'lda #255', 'sta CALLFUNCTION',
-  ...Array.from({length: read}, (_, i) => i).flatMap((i) => [`lda #<(C_function+${i + 1})`, 'sta DF0LOW', 'lda DF0DATA', `sta temp${i + 3}`]),
-  ...after.flatMap((place, i) => (place ? [`lda #<(C_function+${i + 1})`, 'sta DF0LOW', 'lda DF0DATA', `sta ${place}`] : [])),
+  // The bytes it gives back, read in order from one setting of the pointer (each read of DF0DATA moves it on by one): each read once, then stored
+  // in its temp and its place (6 cycles less a byte than setting the pointer again for each).
+  ...resultReads(read, after),
   ...tail,
   '@end',
 ].join('\n');
+
+// The movement of the objects Fire launched with the playfield check, on the coprocessor (function 102 of armprog.c, firebatch): one call for up to
+// FIRE_BATCH_SIZE objects. Each object's numbers that do not change while the game runs are in a table at the end of the program, made from the ;FIREOBJ
+// lines of the call (one for each object, in order), and its direction, speed, sixteenths kept, stage byte and sixteenths of the same speed at every angle are
+// read by the coprocessor where they are: the ones in the display memory there, the ones in the RAM written by the 6502 into the call (;FIREIN) and the
+// ones it changes read back from it (;FIREOUT). Where each one is is only known once the variables have their places, so the lines are filled in last,
+// by resolveFireBatch.
+export const FIRE_BATCH_FUNCTION = 102;
+export const FIRE_BATCH_SIZE = 8;
+const FIRE_TABLE_LINE = ';ARM_FIRETABLE';
+const FIRE_TABLE_MAGIC = [0x5E, 0xF1, 0x7A, 0xB1];
+const FIRE_MARK = /^[ \t]*;(FIREIN|FIREOUT|FIREOBJ|ARM_FIRETABLE)\b/m;
+// objects: {x, y, flags, offset, maxRow, inc, dir, speed, frac, stage, even} for each: x and y the names of its position, flags to inc numbers, and each of
+// the others the name of its byte or '#' and a number (none: '#0'). go: the byte with a bit for each object that moves this frame. moved: the byte the
+// coprocessor's bits of the ones that moved go to. first: the place of the first object in the table.
+export const buildFireBatchCall = ({objects, first, go, moved}) => {
+  const STATE = ['dir', 'speed', 'frac', 'stage', 'even'];
+  const OUT = ['frac', 'stage', 'even'];
+  const named = (value) => !String(value).startsWith('#');
+  return [
+    ...objects.map((o) => `;FIREOBJ ${o.flags} ${o.offset} ${o.maxRow} ${o.inc} ${STATE.map((key) => o[key]).join(' ')}`),
+    'lda #<C_function', 'sta DF0LOW', 'lda #(>C_function) & $0F', 'sta DF0HI',
+    `lda #${FIRE_BATCH_FUNCTION}`, 'sta DF0WRITE', `lda #${first}`, 'sta DF0WRITE', `lda ${go}`, 'sta DF0WRITE',
+    ...objects.flatMap((o) => [`lda ${o.x}`, 'sta DF0WRITE', `lda ${o.y}`, 'sta DF0WRITE', ...STATE.filter((key) => named(o[key])).map((key) => `;FIREIN ${o[key]}`)]),
+    'lda #255', 'sta CALLFUNCTION',
+    'lda #<(C_function+1)', 'sta DF0LOW', 'lda DF0DATA', `sta ${moved}`,
+    ...objects.flatMap((o) => ['lda DF0DATA', `sta ${o.x}`, 'lda DF0DATA', `sta ${o.y}`, ...OUT.filter((key) => named(o[key])).map((key) => `;FIREOUT ${o[key]}`)]),
+  ];
+};
+
+// Fills in the lines of the Fire calls (see buildFireBatchCall) once the variables have their places: `places` the names in the display memory and their
+// places (displayRamVars). A byte in the display memory is read and written there by the coprocessor (its lines go); one in the RAM is written into the
+// call and, when the call changes it, read back. The table goes in place of FIRE_TABLE_LINE: the number of objects, then for each its flags, column offset,
+// last row and row increment, and two bytes for each of the five: the place in the display memory, or $80 in the second byte for a byte written into the
+// call, or $40 with the number in the first.
+export const resolveFireBatch = (code, places) => {
+  if (typeof code !== 'string' || !FIRE_MARK.test(code)) return code;
+  const inDisplay = (name) => !!(places && places.has(name));
+  const objects = [];
+  const out = [];
+  code.split('\n').forEach((line) => {
+    const m = /^([ \t]*);(FIREIN|FIREOUT|FIREOBJ)[ \t]+(.*?)[ \t\r]*$/.exec(line);
+    if (!m) {
+      out.push(line);
+      return;
+    }
+    const [, indent, kind, rest] = m;
+    const cr = line.endsWith('\r') ? '\r' : '';
+    if (kind === 'FIREOBJ') {
+      objects.push(rest.split(/\s+/));
+      return;
+    }
+    if (inDisplay(rest)) return;
+    if (kind === 'FIREIN') out.push(`${indent}lda ${rest}${cr}`, `${indent}sta DF0WRITE${cr}`);
+    else out.push(`${indent}lda DF0DATA${cr}`, `${indent}sta ${rest}${cr}`);
+  });
+  const placeBytes = (value) => {
+    if (value.startsWith('#')) return [String(Number(value.slice(1)) & 255), '$40'];
+    if (!inDisplay(value)) return ['0', '$80'];
+    const address = displayRamSlotAddress(places.get(value));
+    return [`<(${address})`, `(>(${address}))&$0F`];
+  };
+  const table = [` .byte ${objects.length}`, ...objects.map(([flags, offset, maxRow, inc, ...state]) =>
+    ` .byte ${[flags, offset, maxRow, inc].map((n) => String(Number(n) & 255)).join(',')},${state.flatMap(placeBytes).join(',')}`)];
+  let filled = false;
+  const result = out.flatMap((line) => {
+    if (line.replace(/\r$/, '').trim() !== FIRE_TABLE_LINE) return [line];
+    filled = true;
+    const cr = line.endsWith('\r') ? '\r' : '';
+    return table.map((text) => text + cr);
+  }).join('\n');
+  if (objects.length && !filled) throw new Error('The coprocessor program has no place for the Fire table.');
+  return result;
+};

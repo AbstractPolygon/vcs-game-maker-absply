@@ -163,7 +163,7 @@ Blockly.defineBlocksWithJsonArray([
   },
   {
     'type': 'sprite_pool_release',
-    'message0': `${PLAYER_ICON} Release the pool sprite, set x and y to 0 %1`,
+    'message0': `${PLAYER_ICON} Release the pool sprite, set y to 200 %1`,
     'args0': [{'type': 'field_checkbox', 'name': 'ORIGIN', 'checked': false}],
     'previousStatement': null,
     'nextStatement': null,
@@ -172,7 +172,7 @@ Blockly.defineBlocksWithJsonArray([
   },
   {
     'type': 'sprite_pool_release_player',
-    'message0': `${PLAYER_ICON} Release player %1 of pool ID %2, set x and y to 0 %3`,
+    'message0': `${PLAYER_ICON} Release player %1 of pool ID %2, set y to 200 %3`,
     'args0': [
       {'type': 'field_dropdown', 'name': 'PLAYER', 'options': poolSpriteOptions},
       {'type': 'input_value', 'name': 'ID', 'check': 'Number'},
@@ -187,7 +187,7 @@ Blockly.defineBlocksWithJsonArray([
   },
   {
     'type': 'sprite_pool_release_all',
-    'message0': `${PLAYER_ICON} Release all sprites in pool ID %1, set x and y to 0 %2`,
+    'message0': `${PLAYER_ICON} Release all sprites in pool ID %1, set y to 200 %2`,
     'args0': [
       {'type': 'input_value', 'name': 'ID', 'check': 'Number'},
       {'type': 'field_checkbox', 'name': 'ORIGIN', 'checked': false},

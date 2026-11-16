@@ -113,9 +113,12 @@ const buildDigitPokeLines = (address, high, valueExpression) => {
 export const pokeScoreLiteral = (value) => {
   const clamped = Math.max(0, Math.min(999999, Math.round(value)));
   const digits = String(clamped).padStart(6, '0').split('');
-  // Every digit is known, so each of the three score bytes is written whole.
-  const bytes = [0, 1, 2].map((byteIndex) =>
-    `lda #$${digits[byteIndex * 2]}${digits[byteIndex * 2 + 1]}\nsta ${byteIndex ? `score+${byteIndex}` : 'score'}`);
+  // Every digit is known, so each of the three score bytes is written whole (a byte the same as the one before needs no load: 0 to 0 to 0).
+  const bytes = [0, 1, 2].map((byteIndex) => {
+    const value = `${digits[byteIndex * 2]}${digits[byteIndex * 2 + 1]}`;
+    const same = byteIndex > 0 && value === `${digits[byteIndex * 2 - 2]}${digits[byteIndex * 2 - 1]}`;
+    return `${same ? '' : `lda #$${value}\n`}sta ${byteIndex ? `score+${byteIndex}` : 'score'}`;
+  });
   return ['asm', ...bytes, '@end'].join('\n') + '\n';
 };
 
@@ -181,8 +184,7 @@ export default (Blockly) => {
     const blockNumber = Blockly.BBasic.blockNumbers.next('scoreSet');
     const hLoop = `_score_set_hloop_${blockNumber}`;
     const hDone = `_score_set_hdone_${blockNumber}`;
-    const tLoop = `_score_set_tloop_${blockNumber}`;
-    const tDone = `_score_set_tdone_${blockNumber}`;
+    const tLoop = `_score_set_tens_${blockNumber}_`;
     // A plain integer literal (e.g. a Math Number block) is known at compile
     // time, so it's poked directly as a full 6-digit BCD value here in JS -
     // no byte clamp, no runtime conversion needed. This used to run every
@@ -199,43 +201,47 @@ export default (Blockly) => {
     // A RUNTIME expression (a variable, "framecounter", "loopcounter", ...)
     // only ever holds a single byte (0-255), so at most its last three
     // decimal digits are meaningful - converted here via real
-    // binary-to-decimal digit extraction (repeated subtraction of 100s, then
-    // 10s, not division: a real, reproduced compiler bug ruled out combining
+    // binary-to-decimal digit extraction (subtraction of 200 or 100, then 80, 40, 20 and
+    // 10, not division: a real, reproduced compiler bug ruled out combining
     // division with multiplication in one expression for exactly this kind
     // of conversion, see RAND_OPTIONS' old "1 to 24" comment history in
     // blocks/random.js), with the leading three digits zeroed since a byte
     // can't represent them.
-    const maskedValue = `(${argument0}) & 255`;
+    // In assembly: the hundreds by two compares (200, 100), the tens by four (80, 40, 20, 10), each bit of the tens rotated in from the carry
+    // the compare (and the subtract) leaves, the ones what is left; the three bytes of the score written whole (digits 1 to 3 are 0). About 70
+    // cycles whatever the value, where the loops of subtractions and the digit by digit writes took about 130 (up to 220) and twice the bytes.
+    // (Decimal mode is off here, as it is for every statement: the subtracts are binary.)
     const lines = [
-      `temp1 = ${maskedValue}`,
-      `temp2 = 0`,
+      `temp1 = (${argument0}) & 255`,
+      'asm',
+      'lda temp1',
+      'ldx #0',
+      'cmp #200',
+      `bcc ${hLoop}`,
+      'sbc #200',
+      'ldx #2',
+      `bne ${hDone}`,
       `@${hLoop}`,
-      `if temp1 < 100 then goto ${hDone}`,
-      `temp1 = temp1 - 100`,
-      `temp2 = temp2 + 1`,
-      `goto ${hLoop}`,
+      'cmp #100',
+      `bcc ${hDone}`,
+      'sbc #100',
+      'ldx #1',
       `@${hDone}`,
-      `temp3 = 0`,
-      `@${tLoop}`,
-      `if temp1 < 10 then goto ${tDone}`,
-      `temp1 = temp1 - 10`,
-      `temp3 = temp3 + 1`,
-      `goto ${tLoop}`,
-      `@${tDone}`,
-      `temp4 = temp1`,
-      `temp5 = temp2`,
-      `temp6 = temp3`,
+      'stx score+1',
+      'ldx #0',
+      'stx score',
+      'stx temp2',
+      ...[80, 40, 20, 10].flatMap((step) => [`cmp #${step}`, `bcc ${tLoop}${step}`, `sbc #${step}`, `@${tLoop}${step}`, 'rol temp2']),
+      'sta temp1',
+      'lda temp2',
+      'asl',
+      'asl',
+      'asl',
+      'asl',
+      'ora temp1',
+      'sta score+2',
+      '@end',
     ];
-    [1, 2, 3].forEach((digit) => {
-      const {address, high} = scoreDigitTarget(String(digit));
-      lines.push(buildDigitPokeLines(address, high, '0'));
-    });
-    const hundreds = scoreDigitTarget('4');
-    lines.push(buildDigitPokeLines(hundreds.address, hundreds.high, 'temp5'));
-    const tens = scoreDigitTarget('5');
-    lines.push(buildDigitPokeLines(tens.address, tens.high, 'temp6'));
-    const ones = scoreDigitTarget('6');
-    lines.push(buildDigitPokeLines(ones.address, ones.high, 'temp4'));
     return lines.join('\n') + '\n';
   };
 

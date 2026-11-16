@@ -1,12 +1,10 @@
 name: Publish the site
 
 # Puts the web page at https://abstractpolygon.github.io/VCS-Game-Maker-AbsPly/ (the site folder) and the online version of the app
-# under /app/ (the built app). Runs on every push to main and on demand from the Actions tab. The repository needs Pages turned on with
+# under /app/ (the built app). Runs only on demand from the Actions tab (Run workflow), not on a push. The repository needs Pages turned on with
 # the source set to GitHub Actions (Settings, Pages).
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
