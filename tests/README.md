@@ -54,6 +54,14 @@ node tests/emulator/frameball.cjs tests/roms/ball2.bin 100 1,1,1 tests/out/ball2
 node tests/emulator/exactball.cjs tests/out/ball2.json tests/projects/ball2.vcsgm 0 6 69 66,72,200 0
 ```
 
+## Generator and compiler (`tests/generator`)
+
+- `returnkind.cjs`: the cases of narrowSubroutineReturns (src/generators/bbasic/return-kind.js): a subroutine called only in its bank gets return thisbank,
+  one called only from other banks return otherbank, anything else (mixed calls, a goto into it, a call that falls into it) the plain return; a
+  Function's return value lines get thisbank.
+- `returnasm.cjs`: compiles a short program with the app's batari Basic compiler (preprocess.wasm and 2600basic.wasm with WASI) and checks the
+  code of those returns: RTS, JMP BS_return, a load and an RTS.
+
 ## TIA test ROMs (`tests/tia`)
 
 - `mkhm.cjs T`, `hmmeasure.cjs rom`: HMOVE at cycle T of a line, the moves of the ball and Player 0.
