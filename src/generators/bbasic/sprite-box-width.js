@@ -90,6 +90,14 @@ export const generateBoxChecks = (Blockly) => {
   const lines = [];
   const kinds = [...pairs].flatMap((key) => key.split('|').map((name) => boxesOf(Blockly, name).kind));
   if (kinds.some((kind) => !Number.isInteger(kind))) lines.push(...boxTables(kinds.includes('full')));
+  // The hit bits of all the pairs are cleared first, a byte at a time (one statement for the bits of a byte, not one for each pair), and each
+  // pair sets its bit when its boxes overlap.
+  const clears = new Map();
+  [...pairs].forEach((key) => {
+    const bit = /^(.+)\{(\d)\}$/.exec(boxHitRef(Blockly, key));
+    clears.set(bit[1], (clears.get(bit[1]) || 0) | (1 << Number(bit[2])));
+  });
+  clears.forEach((mask, name) => lines.push(` ${name} = ${name} & ${255 - mask}`));
   [...pairs].sort().forEach((key) => {
     const [first, second] = key.split('|');
     const hit = boxHitRef(Blockly, key);
@@ -102,7 +110,7 @@ export const generateBoxChecks = (Blockly) => {
     const hideable = [first, second].filter((name) => (Blockly.BBasic.hideablePlayers || new Set()).has(name));
     const over = (low, high, lowEnd, fail) => [`  lda ${low}`, '  clc', `  adc ${high}`, `  cmp ${lowEnd}`, `  bcc ${fail}`];
     // (fail: where a test that finds no overlap goes; with the copies the end is past a branch's reach, so a jump next to the tests goes on to it.)
-    const head = (fail) => [` rem ${first} and ${second} boxes:`, ` ${hit} = 0`, ' asm',
+    const head = (fail) => [` rem ${first} and ${second} boxes:`, ' asm',
       // (A hidden sprite first: they are the most pairs in a game with a Sprite pool, and the test is a few cycles when the frame is in zero page.)
       ...hideable.flatMap((name) => [`  lda ${name}frame`, '  cmp #255', `  beq ${fail}`]),
       // (a.y + a.height) < b.y: a is above b. b.y + b.height < a.y: a is below b.

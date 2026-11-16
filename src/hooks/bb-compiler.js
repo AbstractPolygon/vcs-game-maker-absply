@@ -792,7 +792,8 @@ const assembleOnce = async (mainAsmContent, workDir, log) => {
   }
   const symbolmap = parseSymbolmap(symText);
   if (log) log(`Assembling took ${Math.round(r.elapsedMs)}ms.`);
-  return {output, symbolmap};
+  // (stdout: what the assembler printed, with the room left in each bank: see computeRomCapacity.)
+  return {output, symbolmap, stdout: r.stdout};
 };
 
 /**

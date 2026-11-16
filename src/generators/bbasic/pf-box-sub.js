@@ -173,6 +173,9 @@ export const callPfBox = (Blockly, player, feet = false, quick = false) => {
       quickLastXVar: sharing ? (sharing.quick ? rwPair(PF_BOX_LAST_X).read : undefined) : undoQuickLastX(Blockly, player),
       armBox,
       armGroups: armBox && groupRows,
+      // (Players 0 and 1 of a project with a title screen keep the copies: the Title Screen can give them a size.)
+      noCopies: !sharing && !!Blockly.BBasic.playerCopiesPossible && !Blockly.BBasic.playerCopiesPossible(player) &&
+        !(/^player[01]$/.test(player) && Blockly.BBasic.titleScreenDrawUsed),
       dpcPlusScan: dpcPlus,
       pxeRead: pxe,
       armRows: dpcPlus && varying,

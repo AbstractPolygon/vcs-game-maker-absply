@@ -2944,6 +2944,11 @@ Blockly.BBasic.init = function(workspace) {
   } catch (e) {
     allAnimations = [];
   }
+  // Whether a player can have copies (NUSIZ 1 to 4 and 6): only a block that sets its size can give them (the animations set the width only), or one
+  // that sets the size of another sprite of its pool (the pool exchanges the size bytes), and a player with a partner sprite counts as changed. The
+  // playfield box test of a player that can not leaves its copies out (see noCopies in generators/bbasic/pf-box.js).
+  const widePlayers = new Set([...Object.keys(this.widePartners || {}), ...Object.values(this.widePartners || {})]);
+  this.playerCopiesPossible = (name) => widePlayers.has(name) || [...(poolOf.get(name) || [name])].some((member) => sizeChangedPlayers.has(member));
   const animationWidths = (name) => new Set([...(poolOf.get(name) || [name])].flatMap((member) => {
     const used = this.usedPlayerAnimations && this.usedPlayerAnimations[member];
     return allAnimations.filter((animation, index) => !used || used.has(index)).map((animation) => ({2: 2, 4: 4})[animation.previewWidthScale] || 1);

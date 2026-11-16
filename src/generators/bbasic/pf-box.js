@@ -51,7 +51,7 @@ const DEFAULT_PF_X_OFFSET = 17;
 // partnerFrameVar: for a 16 pixel wide player, the frame byte of the sprite that shows its right half (255 while it is not shown);
 // the box is twice as wide while it is shown. partnerHiddenVar: a bit that also hides it.
 export const buildPlayfieldBoxLines = ({label, xVar, yVar, sizeVar, heightVar: baseHeightVar, resultVar, maxRow, rowDivisor, dpcPlusRows, dpcPlusRowSets, rowFracVar, maxRowVar,
-  blankLines = true, pfXOffset = DEFAULT_PF_X_OFFSET, partnerFrameVar, partnerHiddenVar, directRead = false, objectWidth, yShift = 0, extraHeight = 0, extVar, dpcPlusScan = false, pxeRead = false, armRows = false, quickLastXVar, armBox = false, armGroups = false, feetOf}) => {
+  blankLines = true, pfXOffset = DEFAULT_PF_X_OFFSET, partnerFrameVar, partnerHiddenVar, directRead = false, objectWidth, yShift = 0, extraHeight = 0, extVar, dpcPlusScan = false, pxeRead = false, armRows = false, quickLastXVar, armBox = false, armGroups = false, feetOf, noCopies = false}) => {
   const heightVar = extraHeight ? `(${baseHeightVar} ${extraHeight < 0 ? '-' : '+'} ${Math.abs(extraHeight)})` : baseHeightVar;
   const lab = (name) => `${label}_${name}`;
   const at = (name) => `@ ${lab(name)}`;
@@ -741,7 +741,7 @@ export const buildPlayfieldBoxLines = ({label, xVar, yVar, sizeVar, heightVar: b
   // A missile or the ball (objectWidth): kind 3 with its width less one (0, 1, 3 or 7) in the low bits, its height with the correction of its
   // geometry (extraHeight); a player whose partner sprite shows is twice as wide: a double width box one pixel to the left (the same columns),
   // or a quad one when it is stretched already.
-  const partnerHiddenOperand = partnerHiddenVar ? /^(w+){(d)}$/.exec(partnerHiddenVar) : null;
+  const partnerHiddenOperand = partnerHiddenVar ? /^(\w+)\{(\d)\}$/.exec(partnerHiddenVar) : null;
   const armOne = armBox ? [
     ...(objectWidth ? [`temp1 = ${objectWidth}`] : []),
     'asm',
@@ -798,19 +798,7 @@ export const buildPlayfieldBoxLines = ({label, xVar, yVar, sizeVar, heightVar: b
     `${yVar} = ${yVar} - ${feetOf.realHeightVar} + ${feetLines}`,
     at('feetback'),
   ] : [];
-  const start = [
-    `goto ${lab('start')}`,
-    ...quickEntry,
-    ...rowTableLines,
-    at('one'),
-    ...(armBox ? armOne : oneBox),
-    at('start'),
-    ...feetPrelude,
-    `if ${xVar} >= ${pfXOffset + 160} then ${resultVar} = 0 : goto ${lab('finish')}`,
-    `gosub ${lab('one')}`,
-    `if ${resultVar} then goto ${lab('finish')}`,
-    // The box test used temp1, so the number of copies is read again. A sprite with one copy (the usual case) leaves at once;
-    // the others jump straight to their copies.
+  const copiesLines = [
     `temp1 = ${sizeVar} & 7`,
     `if temp1 = 0 then goto ${lab('finish')}`,
     `on temp1 goto ${lab('finish')} ${lab('copies1')} ${lab('copies2')} ${lab('copies3')} ${lab('copies4')} ${lab('finish')} ${lab('copies6')} ${lab('finish')}`,
@@ -826,6 +814,21 @@ export const buildPlayfieldBoxLines = ({label, xVar, yVar, sizeVar, heightVar: b
     `goto ${lab('finish')}`,
     at('copies4'),
     ...copyStep(64),
+  ];
+  const start = [
+    `goto ${lab('start')}`,
+    ...quickEntry,
+    ...rowTableLines,
+    at('one'),
+    ...(armBox ? armOne : oneBox),
+    at('start'),
+    ...feetPrelude,
+    `if ${xVar} >= ${pfXOffset + 160} then ${resultVar} = 0 : goto ${lab('finish')}`,
+    `gosub ${lab('one')}`,
+    `if ${resultVar} then goto ${lab('finish')}`,
+    // The box test used temp1, so the number of copies is read again. A sprite with one copy (the usual case) leaves at once;
+    // the others jump straight to their copies. (noCopies: a sprite no block can give copies to has none of this.)
+    ...(noCopies ? [] : copiesLines),
     at('finish'),
     ...feetPostlude,
     ...(extVar ? [`if ${extVar} = 0 then goto ${lab('keepy')}`, `if ${resultVar} then ${yVar} = temp2`, at('keepy'), `${extVar} = 0`] : []),

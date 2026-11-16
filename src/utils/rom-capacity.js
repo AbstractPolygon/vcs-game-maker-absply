@@ -39,12 +39,25 @@ const countTrailingFree = (bin, bankStart, boundaryOffset, padding = 0xFF) => {
 // where the space a bank can hold stops (the score table's offset, which the other kernels use, is only right for bank 1 there).
 const DPC_PLUS_REGIONS = [0, 1, 2, 3, 4, 5, 7];
 const DPC_PLUS_BANK_SWITCH_OFFSET = 4096 - 0x40;
-const computeDpcPlusCapacity = (bin, symbolmap, primaryBankIndex) => {
+// The room the assembler reports for each bank ("N bytes of ROM space left in bank B"; the last line of a bank wins), by bank number.
+const reportedFree = (stdout) => {
+  const free = {};
+  [...(stdout || '').matchAll(/(-?\d+) bytes of ROM space left in bank (\d+)/g)].forEach((match) => {
+    free[Number(match[2])] = Number(match[1]);
+  });
+  return free;
+};
+const computeDpcPlusCapacity = (bin, symbolmap, primaryBankIndex, stdout) => {
   const fromSymbol = symbolmap['begin_bscode'] == null ? NaN : symbolmap['begin_bscode'] % BANK_SIZE;
   const boundaryOffset = fromSymbol > BANK_SIZE / 2 ? fromSymbol : DPC_PLUS_BANK_SWITCH_OFFSET;
+  // The room of a bank is between the end of its code and the tables batari Basic puts at the end of the bank, not at the very end: what the
+  // assembler reports for banks 1 to 6 when it is there (the bytes at the end of a bank are its tables, so counting the $FF bytes before
+  // the bank switching code found 0 in every bank, and the build never saw the room it had to bring code that runs every frame back).
+  const reported = reportedFree(stdout);
   const perBank = DPC_PLUS_REGIONS.filter((region) => (region + 1) * BANK_SIZE <= bin.length).map((region) => ({
     // (The display data's region is padded with zeros, the banks with $FF.)
-    freeBytes: countTrailingFree(bin, region * BANK_SIZE, boundaryOffset, region === 7 ? 0 : 0xFF), usableBytes: boundaryOffset}));
+    freeBytes: region < 6 && reported[region + 1] !== undefined ? Math.max(0, reported[region + 1]) :
+      countTrailingFree(bin, region * BANK_SIZE, boundaryOffset, region === 7 ? 0 : 0xFF), usableBytes: boundaryOffset}));
   if (!perBank.length) return null;
   return {
     bank1: perBank[primaryBankIndex || 0],
@@ -69,9 +82,9 @@ const computeDpcPlusCapacity = (bin, symbolmap, primaryBankIndex) => {
 // total: the same measurement summed across every bank the compiled binary
 // actually has - grows with ROM size, reflecting genuine total capacity
 // (including banks the automatic allocator hasn't put anything in yet).
-export const computeRomCapacity = ({output, symbolmap}, primaryBankIndex, isDpcPlus) => {
+export const computeRomCapacity = ({output, symbolmap, stdout}, primaryBankIndex, isDpcPlus) => {
   const bin = output;
-  if (isDpcPlus) return computeDpcPlusCapacity(bin, symbolmap, primaryBankIndex);
+  if (isDpcPlus) return computeDpcPlusCapacity(bin, symbolmap, primaryBankIndex, stdout);
   const scoretable = symbolmap['scoretable'];
   if (scoretable == null) return null;
 
