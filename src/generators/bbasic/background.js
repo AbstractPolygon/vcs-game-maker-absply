@@ -5,14 +5,15 @@ import {useConfigurationStorage} from '../../hooks/project';
 import {buildPxeOffsetBody, PXE_OFFSET_VARS, PXE_OFFSET_ROUTINE} from './offset-pxe';
 import {flagPoolVar, flagPoolBit} from './flag-pool';
 import {NARROW_TILE_WIDTH, STANDARD_TILE_LOAD_NAME, TILE_SET_FUNCTION} from './pf-tiles';
-import {OFFSET_ARM_FUNCTION, buildOffsetArmCall, buildCircleArmCall, ensureArmProgram, ARM_FIND_PIXEL_FUNCTION, buildPixArmCall} from './offset-arm';
+import {OFFSET_ARM_FUNCTION, buildOffsetArmCall, ensureArmProgram, ARM_FIND_PIXEL_FUNCTION, buildPixArmCall} from './offset-arm';
 import {fireObjectName} from '../../utils/fire-object';
+import {pfDrawBlockCode, pfDrawCircleCode, pfDrawCenteredAreaCode, pfDrawStopFillCode, pfDrawFillDoneCode} from './pf-draw';
 import {EXTRA_PLAYER_NAME} from '../../utils/pxe';
 import {effectiveBackgroundRows, backgroundDataRows, backgroundFadeTimerVarName, backgroundFadePaceVarName,
   backgroundFadeTargetVarName, fadeFlagsVarName, FADE_STEPS, rowFadeStartColor, multicolorFadeVarName,
   backgroundFadeFinishedBit, fadeActiveBit, backgroundFadeWatchKey,
   backgroundGetPixelXVarName, backgroundGetPixelYVarName,
-  collisionPixelColumnVarName, collisionPixelRowVarName, areaClearLeftVarName, circleVarNames,
+  collisionPixelColumnVarName, collisionPixelRowVarName, areaClearLeftVarName,
   backgroundScrollRowVarName, backgroundScrollRowMaxVarName,
   backgroundScrollEdgeFlagsVarName, BACKGROUND_SCROLL_EDGE_BITS, backgroundScrollStartVarName, backgroundScrollShiftVarName,
   dpcPlusPlainScrollVarName, dpcPlusPlainColorScrollVarName,
@@ -99,135 +100,6 @@ const FADE_LABEL_TAG_BY_VAR = {
   player0realcolor: 'p0', player1realcolor: 'p1',
 };
 
-// Shared by every "Background [Set/Clear/Flip] line from X/Y to X/Y" block
-// (background_draw_line) - a runtime implementation of Bresenham's line
-// algorithm, needed because (unlike background_change_hv_line's
-// straight horizontal/vertical runs, which are always axis-aligned and so
-// can compile straight to a single pfhline/pfvline macro call) an arbitrary
-// line's  endpoints can be variables, not fixed numbers known at compile
-// time - there's no way to know in advance how many pixels it needs, or
-// which ones, without actually running the algorithm.
-//
-// One subroutine PER OPERATION ACTUALLY USED (Set/Clear/Flip - see
-// BACKGROUND_LINE_SUBROUTINE_NAMES below), not one shared routine with a
-// runtime dispatch - a project using only "Set" line blocks (the common
-// case) gets exactly one copy, no dispatch branching, and no separate
-// "which operation" variable to track at all; only a project that mixes
-// Set/Clear/Flip line blocks pays for more than one copy of this routine.
-// Still only ONE copy PER operation regardless of how many line blocks use
-// it (see registerKeypadPollSubroutine's  identical "one shared copy,
-// called via gosub" reasoning in generators/bbasic/input.js).
-//
-// The "err" term is tracked with a fixed +128 bias throughout (comparing
-// against 128 instead of 0) rather than as a true signed value - this
-// codebase's "dim"'d variables are plain unsigned bytes, and while
-// ADD/SUBTRACT wrap correctly for negative values via ordinary two's-
-// complement arithmetic, an UNSIGNED ">"/"<" comparison on a wrapped
-// negative value reads it as a huge positive number instead, which would
-// send the algorithm the wrong way at exactly the values where a plain sign
-// check matters most. Biasing keeps every comparison safely within 0-255
-// with no wraparound, as long as neither operand's  true magnitude ever
-// approaches ~127 - true for every coordinate range this app's
-// playfield editor (32 pixels wide, well under 127 tall even with Superchip
-// RAM's  largest pfres) can ever produce.
-//
-// 7 dedicated dev vars: the current point (x1,y1), target point (x2,y2),
-// distances (dx,dy), and the error accumulator - down from an earlier design
-// that also had a loop counter and a runtime operation selector (9 vars).
-// The loop counter turned out to be redundant: since x1 (low branch) or y1
-// (high branch) already walks toward the target by exactly 1 every
-// iteration, checking "have I just plotted the target point?" right after
-// each plot is an equally valid stop condition, using state this routine
-// already has to track anyway - see the "goto"-based loop below instead of
-// the earlier "for/next" one. The operation selector is gone because the
-// operation is now baked into which subroutine gets called (see above)
-// instead of being read at runtime.
-//
-// An even earlier version tried to save vars a different way - keeping
-// x1/y1/x2/y2/dx/dy in the shared temp1-temp6 scratch registers instead
-// (the same ones background_change_pixel/background_change_hv_line use) -
-// that was wrong, and a real reported bug (a couple of pixels drawn, then
-// nothing, instead of a continuous line): pfpixel's implementation
-// (public/bb19/includes/pf_drawing.asm's  setuppointers) uses temp1 AND
-// temp2 as ITS internal scratch while computing the byte/row address -
-// "stx temp2" / "sta temp1" - clobbering whatever this routine had stored
-// there the instant the FIRST pfpixel call happened. background_change_pixel
-// gets away with temp1/temp2 only because it uses them for one single,
-// immediate call and never reads them again - safe for a one-shot hand-off,
-// not for state that has to survive across a whole loop of repeated pfpixel
-// calls. temp1/temp2 are still used here, but only as that same kind of
-// momentary hand-off, immediately before each individual plot - x1/y1
-// themselves live in their  dedicated vars.
-export const BACKGROUND_LINE_SUBROUTINE_NAMES = {
-  on: '_bgDrawLineOn', off: '_bgDrawLineOff', flip: '_bgDrawLineFlip',
-};
-// operations: a Set/array of which of 'on'/'off'/'flip' to actually build a
-// subroutine for (see backgroundLineOperationsUsed's  pre-scan in
-// generators/bbasic.js) - an operation nothing ever uses gets no subroutine
-// at all, not even an unused/dead one.
-export const registerBackgroundLineSubroutine = (Blockly, names, operations) => {
-  const {x1, y1, x2, y2, dx, dy, err} = names;
-  // Every label DEFINITION needs an "@ " prefix (goto/gosub REFERENCES to it
-  // stay bare) - Blockly.BBasic.normalizeIndents (run on every generated
-  // subroutine body, and on the whole program's  top-level code too -
-  // see finish()'s  call) blindly indents every line, which breaks a
-  // plain label's  required column-0 placement; "@ " is stripped back
-  // out afterward, restoring it. Same convention controls_if's "@
-  // ${bodyLabel}" already uses for its  goto targets (see logic.js) -
-  // this isn't specific to raw "asm...end" blocks the way it might look
-  // from titlescreen.js's  comments, it's universal to every label
-  // Blockly.BBasic ever generates. Confirmed as a real, reproduced build
-  // failure without it ("Unknown keyword: _lineDrawLow" - the indented
-  // label was read as an attempted statement/command instead).
-  operations.forEach((operation) => {
-    // Every internal label is tagged with the operation (e.g. "_lineDrawLowOn"
-    // vs "_lineDrawLowOff") - these are real, global assembly labels once
-    // compiled, not scoped to this one subroutine, so a project using more
-    // than one operation (e.g. both "Set" and "Clear" line blocks) would
-    // otherwise get a duplicate-label build error the moment a second one of
-    // these subroutines was registered with the exact same internal label
-    // names as the first.
-    const tag = operation.charAt(0).toUpperCase() + operation.slice(1);
-    const plot = [
-      `temp1 = ${x1.read}`,
-      `temp2 = ${y1.read}`,
-      `pfpixel temp1 temp2 ${operation}`,
-    ].join('\n');
-
-    Blockly.BBasic.subroutines[BACKGROUND_LINE_SUBROUTINE_NAMES[operation]] = [
-      `if ${x2.read} >= ${x1.read} then ${dx.write} = ${x2.read} - ${x1.read} else ${dx.write} = ${x1.read} - ${x2.read}`,
-      `if ${y2.read} >= ${y1.read} then ${dy.write} = ${y2.read} - ${y1.read} else ${dy.write} = ${y1.read} - ${y2.read}`,
-      `if ${dx.read} < ${dy.read} then goto _lineDrawHigh${tag}`,
-      '',
-      `@ _lineDrawLow${tag}`,
-      `${err.write} = 128 + ${dy.read} + ${dy.read} - ${dx.read}`,
-      `@ _lineLowLoop${tag}`,
-      plot,
-      `if ${x1.read} = ${x2.read} then return`,
-      `if ${err.read} <= 128 then goto _lineSkipYLow${tag}`,
-      `if ${y1.read} < ${y2.read} then ${y1.write} = ${y1.read} + 1 else ${y1.write} = ${y1.read} - 1`,
-      `${err.write} = ${err.read} - ${dx.read} - ${dx.read}`,
-      `@ _lineSkipYLow${tag}`,
-      `${err.write} = ${err.read} + ${dy.read} + ${dy.read}`,
-      `if ${x1.read} < ${x2.read} then ${x1.write} = ${x1.read} + 1 else ${x1.write} = ${x1.read} - 1`,
-      `goto _lineLowLoop${tag}`,
-      '',
-      `@ _lineDrawHigh${tag}`,
-      `${err.write} = 128 + ${dx.read} + ${dx.read} - ${dy.read}`,
-      `@ _lineHighLoop${tag}`,
-      plot,
-      `if ${y1.read} = ${y2.read} then return`,
-      `if ${err.read} <= 128 then goto _lineSkipXHigh${tag}`,
-      `if ${x1.read} < ${x2.read} then ${x1.write} = ${x1.read} + 1 else ${x1.write} = ${x1.read} - 1`,
-      `${err.write} = ${err.read} - ${dy.read} - ${dy.read}`,
-      `@ _lineSkipXHigh${tag}`,
-      `${err.write} = ${err.read} + ${dx.read} + ${dx.read}`,
-      `if ${y1.read} < ${y2.read} then ${y1.write} = ${y1.read} + 1 else ${y1.write} = ${y1.read} - 1`,
-      `goto _lineHighLoop${tag}`,
-    ].join('\n');
-  });
-};
-
 // screen_shake's frame countdown lives in the low 7 bits of "shakescreen" itself (see
 // generateShakeScreenChecks below): the kernel only looks at bit 7 of that byte, so the
 // rest of it is free, and a separate countdown variable is not needed. That limits a shake
@@ -294,22 +166,6 @@ export const OFFSET_AREA_VARS = {
   b1: 'offsetb1', m1: 'offsetm1', b2: 'offsetb2', m2: 'offsetm2', pixel: 'offsetpixel',
   mask: ['offsetmask0', 'offsetmask1', 'offsetmask2', 'offsetmask3'],
 };
-// The coprocessor (DPC+, not PXE) draws the circle block (see buildCircleArm).
-export const circleArmFits = (config) => config.kernel === 'dpcplus' && !config.pxe;
-// The inputs of a circle block that count (the ones the block's padding mode shows).
-const circleInputNames = (block) => ['X', 'Y', 'RADIUS', ...(block.getFieldValue('PADMODE') === 'EACH' ? ['PAD_LEFT', 'PAD_RIGHT', 'PAD_TOP', 'PAD_BOTTOM'] : ['PADDING'])];
-const isPlainNumberBlock = (target) => !target || (target.type === 'math_number' && /^[0-9]+$/.test(String(target.getFieldValue('NUM'))));
-const isLiveBlock = (block) => block.isEnabled() && !block.getInheritedDisabled();
-// The coprocessor call of a circle block is one shared routine when another circle block has the same operation and padding mode (each block puts its
-// numbers in the scratch bytes and calls it), or when more of its numbers are worked out than the six scratch bytes hold; a block that is the only one
-// of its kind has the call in line (plain numbers written as they are, which is smaller than a call to a routine used once).
-export const circleArmShared = (config, block) => circleArmFits(config) && (
-  circleInputNames(block).filter((name) => !isPlainNumberBlock(block.getInputTargetBlock(name))).length > 6 ||
-  (block.workspace ? block.workspace.getAllBlocks(false) : []).some((other) => other !== block && other.type === 'background_fill_circle' && isLiveBlock(other) &&
-    other.getFieldValue('OPERATION') === block.getFieldValue('OPERATION') && other.getFieldValue('PADMODE') === block.getFieldValue('PADMODE')));
-// The shared routine with a padding for each side also takes one of the numbers in the area block's last row byte.
-export const circleArmUsesLastRow = (config, block) => circleArmShared(config, block) && block.getFieldValue('PADMODE') === 'EACH';
-
 // The bytes the Playfield offset block of the coprocessor needs while its blocks run: the left and right column. The bytes the box test uses for
 // the position it tries are only used when the end of the frame runs, so they do the job when the project has them. Returns the names (null for the ones to reserve here).
 export const offsetArmSharedVars = ({boxTest}) => ({b1: boxTest ? 'pfboxx' : null, b2: boxTest ? 'pfboxy' : null});
@@ -1831,281 +1687,34 @@ export default (Blockly) => {
     ];
   };
 
-  // "Playfield set/clear/flip area from X Y to X Y": the corners go into temp4 to temp6 and the variable of the area check (x1, y1, x2, y2),
-  // and a shared subroutine for the operation draws one row at a time with pfhline, which only overwrites temp1 to temp3. The corners may be
-  // in either order and are clamped to the playfield.
-  const AREA_FILL_SUBROUTINES = {on: '_background_area_set', off: '_background_area_clear_pixels', flip: '_background_area_flip'};
-  const buildAreaFillBody = (operation, maxRow, last, pxe = false) => {
-    const lab = (part) => `@ _areafill_${operation}_${part}`;
-    const label = (part) => `_areafill_${operation}_${part}`;
-    return [
-      `if temp4 <= temp6 then goto ${label('xok')}`,
-      `temp1 = temp4`,
-      `temp4 = temp6`,
-      `temp6 = temp1`,
-      lab('xok'),
-      `if temp5 <= ${last.read} then goto ${label('yok')}`,
-      `temp1 = temp5`,
-      `temp5 = ${last.read}`,
-      `${last.write} = temp1`,
-      lab('yok'),
-      `if temp6 > ${pfMaxColumn(pfConfigOf())} then temp6 = ${pfMaxColumn(pfConfigOf())}`,
-      `if ${last.read} > ${maxRow} then ${last.write} = ${maxRow}`,
-      `if temp4 > temp6 then goto ${label('end')}`,
-      `if temp5 > ${last.read} then goto ${label('end')}`,
-      lab('row'),
-      `temp1 = temp4`,
-      `temp2 = temp5`,
-      `temp3 = temp6`,
-      // (PXE has no line function in its ARM program: the row is drawn a pixel at a time.)
-      ...(pxe ? [lab('col'), `pfpixel temp1 temp2 ${operation}`, 'temp1 = temp1 + 1', `if temp1 <= temp3 then goto ${label('col')}`] :
-        [`pfhline temp1 temp2 temp3 ${operation}`]),
-      `temp5 = temp5 + 1`,
-      `if temp5 <= ${last.read} then goto ${label('row')}`,
-      lab('end'),
-    ].join('\n');
-  };
+  // The Draw blocks (an area, a circle, a pixel, the straight lines, a line and the fill) give their work to the drawing engine, which draws it a
+  // pixel at a time at the end of the frames, in the order the blocks gave it (see generators/bbasic/pf-draw.js).
+  const drawArg = (block, name, fallback = '0') => Blockly.BBasic.valueToCode(block, name, Blockly.BBasic.ORDER_ASSIGNMENT) || fallback;
+  // The padding of a circle or a centered area: the same number on all four sides, or one for each (left, right, top, bottom).
+  const drawPadding = (block) => (block.getFieldValue('PADMODE') === 'EACH' ? ['PAD_LEFT', 'PAD_RIGHT', 'PAD_TOP', 'PAD_BOTTOM'].map((name) => drawArg(block, name)) :
+    Array(4).fill(drawArg(block, 'PADDING')));
 
   Blockly.BBasic['background_fill_area'] = function(block) {
-    if (block.getFieldValue('MODE') === 'CENTER') return fillCenteredArea(block);
-    const configurationStorage = useConfigurationStorage();
-    const config = (configurationStorage && configurationStorage.value) || {};
-    const maxRow = Blockly.BBasic.maxRowText(config);
-    const last = Blockly.BBasic.superchipRwPairs[areaClearLeftVarName()];
-    if (!last) return '';
     const operation = block.getFieldValue('OPERATION');
-    const arg = (name) => Blockly.BBasic.valueToCode(block, name, Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-    const x1 = arg('X1');
-    const y1 = arg('Y1');
-    const x2 = arg('X2');
-    const y2 = arg('Y2');
-    const name = AREA_FILL_SUBROUTINES[operation];
-    if (!Blockly.BBasic.subroutines[name]) {
-      Blockly.BBasic.subroutines[name] = buildAreaFillBody(operation, maxRow, last, !!config.pxe);
+    if (block.getFieldValue('MODE') === 'CENTER') {
+      return pfDrawCenteredAreaCode(Blockly, operation, drawArg(block, 'X1'), drawArg(block, 'Y1'), drawArg(block, 'WIDTH'), drawArg(block, 'HEIGHT'), ...drawPadding(block));
     }
-    const suffix = Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(name));
-    // The corners (x1, y1, x2, y2) become temp4, temp5, temp6 and the second row.
-    return `temp4 = ${x1}\ntemp5 = ${y1}\ntemp6 = ${x2}\n${last.write} = ${y2}\ngosub ${name}${suffix}\n`;
+    return pfDrawBlockCode(Blockly, 'area', operation, ['X1', 'Y1', 'X2', 'Y2'].map((name) => drawArg(block, name)));
   };
 
-  // "Playfield set/clear/flip area centered at X Y width height": the corners are worked out from the center (the width and the height halved, the extra
-  // pixel of an even one to the right or below), held to the padding and to the playfield, and the area routine of the area block draws it. The working out
-  // is one subroutine for each operation, which every such block calls after putting the center in the circle block's first two variables, the padding
-  // (left, right, top, bottom) in temp3 to temp6, the height in temp2 and the width in temp1 (in that order: a multiply or divide in a number uses temp1 and
-  // temp2). The area block's last row byte holds the half height and then the first row while it works.
-  const fillCenteredArea = (block) => {
-    const configurationStorage = useConfigurationStorage();
-    const config = (configurationStorage && configurationStorage.value) || {};
-    const maxRow = Blockly.BBasic.maxRowText(config);
-    const maxColumn = pfMaxColumn(config);
-    const last = Blockly.BBasic.superchipRwPairs[areaClearLeftVarName()];
-    const [cx, cy] = circleVarNames().slice(0, 2).map((name) => Blockly.BBasic.superchipRwPairs[name]);
-    if (!last || !cx || !cy) return '';
-    const operation = block.getFieldValue('OPERATION');
-    const arg = (name) => Blockly.BBasic.valueToCode(block, name, Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-    const separate = block.getFieldValue('PADMODE') === 'EACH';
-    const [padLeft, padRight, padTop, padBottom] = separate ? ['PAD_LEFT', 'PAD_RIGHT', 'PAD_TOP', 'PAD_BOTTOM'].map(arg) : Array(4).fill(arg('PADDING'));
-    const fillName = AREA_FILL_SUBROUTINES[operation];
-    if (!Blockly.BBasic.subroutines[fillName]) {
-      Blockly.BBasic.subroutines[fillName] = buildAreaFillBody(operation, maxRow, last, !!config.pxe);
-    }
-    const routine = `_pfrect_${operation}`;
-    if (!Blockly.BBasic.subroutines[routine]) {
-      const suffix = Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getSubroutineBank(routine), Blockly.BBasic.getSubroutineBank(fillName));
-      Blockly.BBasic.subroutines[routine] = [
-        'if temp1 = 0 then return',
-        'if temp2 = 0 then return',
-        // The rows: the last (temp2) and the first (the last row byte), held to the padding (temp5 the top, temp6 the bottom).
-        `${last.write} = temp2 / 2`,
-        'temp2 = temp2 - 1',
-        `temp2 = temp2 - ${last.read}`,
-        `temp2 = ${cy.read} + temp2`,
-        `if temp2 < ${cy.read} then temp2 = 255`,
-        `if ${cy.read} < ${last.read} then ${last.write} = 0 else ${last.write} = ${cy.read} - ${last.read}`,
-        `if ${last.read} < temp5 then ${last.write} = temp5`,
-        `if temp6 > ${maxRow} then return`,
-        `temp6 = ${maxRow} - temp6`,
-        'if temp2 > temp6 then temp2 = temp6',
-        `if ${last.read} > temp2 then return`,
-        // the first row to temp5 and the last to the last row byte, as the area routine wants them
-        `temp5 = ${last.read}`,
-        `${last.write} = temp2`,
-        // The columns: the first (temp4) and the last (temp6), held to the padding (temp3 the left, temp4 the right).
-        'temp2 = temp1 / 2',
-        'temp1 = temp1 - 1',
-        'temp1 = temp1 - temp2',
-        `temp6 = ${cx.read} + temp1`,
-        `if temp6 < ${cx.read} then temp6 = 255`,
-        `if temp4 > ${maxColumn} then return`,
-        `temp4 = ${maxColumn} - temp4`,
-        'if temp6 > temp4 then temp6 = temp4',
-        `if ${cx.read} < temp2 then temp4 = 0 else temp4 = ${cx.read} - temp2`,
-        'if temp4 < temp3 then temp4 = temp3',
-        'if temp4 > temp6 then return',
-        `gosub ${fillName}${suffix}`,
-      ].join('\n');
-    }
-    return [
-      `${cx.write} = ${arg('X1')}`,
-      `${cy.write} = ${arg('Y1')}`,
-      `temp3 = ${padLeft}`, `temp4 = ${padRight}`, `temp5 = ${padTop}`, `temp6 = ${padBottom}`,
-      `temp2 = ${arg('HEIGHT')}`,
-      `temp1 = ${arg('WIDTH')}`,
-      `gosub ${routine}${Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(routine))}`,
-    ].join('\n') + '\n';
-  };
-
-  // "Playfield set/clear/flip circle": the rows of the circle from the center row outwards, each drawn by the area fill routine (the same one the area block
-  // calls, so it is a row of pixels on every kernel). The half width of a row is the biggest d whose square is not more than the radius squared less the
-  // square of the row's distance from the center, found in a table of squares (so a radius is 15 at most: 15 * 15 is 225, the biggest square of a byte).
-  // The row routine uses every scratch byte, so five variables keep what is needed between the rows: the center (two), the radius and the distance of
-  // the row from the center (a nibble each, in one byte) and the padding of the four sides (a nibble each, in two bytes: 15 at most).
-  // The block's numbers go to the coprocessor in order: the center, the radius and the padding (the one number four times, or one for each side). Shared (see circleArmShared), the call is
-  // one routine for each operation and padding mode, which every circle block of it calls after putting its numbers in the scratch bytes: temp3 to temp6 the
-  // center, the radius and the padding (the left padding with one for each side), and with one for each side the right padding in the area block's last row
-  // byte, the top in temp2 and the bottom in temp1. (Worked out in that order: a multiply or divide in a number uses temp1 and temp2.)
-  const buildCircleArm = (block, config) => {
-    const groupRows = !!Blockly.BBasic.dpcPlusGroupFracVars;
-    const maxRow = groupRows ? '191' : Blockly.BBasic.maxRowText(config);
-    const arg = (name) => Blockly.BBasic.valueToCode(block, name, Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-    const separate = block.getFieldValue('PADMODE') === 'EACH';
-    const operation = block.getFieldValue('OPERATION');
-    ensureArmProgram(Blockly, groupRows ? {inc: 0, maxRow: 0, clamp: true, groups: true} : undefined, 'c');
-    Blockly.BBasic.pfBoxArm = true;
-    if (!circleArmShared(config, block)) {
-      // In line: a plain number is written as it is; the others are worked out into the next scratch byte, in the order the block has them.
-      const setups = [];
-      let used = 0;
-      const operandOf = (name) => {
-        const text = arg(name);
-        if (/^[0-9]+$/.test(String(text).trim())) return `#${Number(text)}`;
-        used++;
-        setups.push(`temp${used} = ${text}`);
-        return `temp${used}`;
-      };
-      const cx = operandOf('X');
-      const cy = operandOf('Y');
-      const radius = operandOf('RADIUS');
-      const [padLeft, padRight, padTop, padBottom] = separate ?
-        ['PAD_LEFT', 'PAD_RIGHT', 'PAD_TOP', 'PAD_BOTTOM'].map(operandOf) : Array(4).fill(operandOf('PADDING'));
-      return [...setups, buildCircleArmCall({operation, cx, cy, radius, padLeft, padRight, padTop, padBottom, last: `#${maxRow}`})].join('\n') + '\n';
-    }
-    const last = Blockly.BBasic.superchipRwPairs[areaClearLeftVarName()];
-    if (separate && !last) return '';
-    const routine = `_pfcirclearm_${operation}${separate ? '_each' : ''}`;
-    if (!Blockly.BBasic.subroutines[routine]) {
-      Blockly.BBasic.subroutines[routine] = buildCircleArmCall({operation, cx: 'temp3', cy: 'temp4', radius: 'temp5',
-        ...(separate ? {padLeft: 'temp6', padRight: last.read, padTop: 'temp2', padBottom: 'temp1'} :
-          {padLeft: 'temp6', padRight: 'temp6', padTop: 'temp6', padBottom: 'temp6'}),
-        last: `#${maxRow}`});
-    }
-    return [
-      `temp3 = ${arg('X')}`, `temp4 = ${arg('Y')}`, `temp5 = ${arg('RADIUS')}`,
-      ...(separate ? [`temp6 = ${arg('PAD_LEFT')}`, `${last.write} = ${arg('PAD_RIGHT')}`, `temp2 = ${arg('PAD_TOP')}`, `temp1 = ${arg('PAD_BOTTOM')}`] :
-        [`temp6 = ${arg('PADDING')}`]),
-      `gosub ${routine}${Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(routine))}`,
-    ].join('\n') + '\n';
-  };
-
-  const CIRCLE_RADIUS_MAX = 15;
   Blockly.BBasic['background_fill_circle'] = function(block) {
-    const configurationStorage = useConfigurationStorage();
-    const config = (configurationStorage && configurationStorage.value) || {};
-    // Under DPC+ the coprocessor draws it (see circleArmFits): the numbers go to it as they are and it does every row in one go.
-    if (circleArmFits(config, block)) return buildCircleArm(block, config);
-    const maxRow = Blockly.BBasic.maxRowText(config);
-    const maxColumn = pfMaxColumn(config);
-    const last = Blockly.BBasic.superchipRwPairs[areaClearLeftVarName()];
-    const vars = circleVarNames().map((name) => Blockly.BBasic.superchipRwPairs[name]);
-    if (!last || vars.some((pair) => !pair)) return '';
-    const [cx, cy, rd, padLR, padTB] = vars;
-    const operation = block.getFieldValue('OPERATION');
-    const arg = (name) => Blockly.BBasic.valueToCode(block, name, Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-    // The padding: the same number on all four sides, or one for each.
-    const separate = block.getFieldValue('PADMODE') === 'EACH';
-    const [padLeft, padRight, padTop, padBottom] = separate ? ['PAD_LEFT', 'PAD_RIGHT', 'PAD_TOP', 'PAD_BOTTOM'].map(arg) : Array(4).fill(arg('PADDING'));
-    const fillName = AREA_FILL_SUBROUTINES[operation];
-    if (!Blockly.BBasic.subroutines[fillName]) {
-      Blockly.BBasic.subroutines[fillName] = buildAreaFillBody(operation, maxRow, last, !!config.pxe);
-    }
-    // The circle is one subroutine for each operation (set, clear, flip), which every circle block of it calls after putting the center and the radius in
-    // their variables and the padding (left, right, top, bottom) in temp3 to temp6 (inline a block was about 300 bytes, too many for the first bank of a
-    // full project). The rows below and above the center row are drawn by one row routine inside it, given the row in temp5.
-    const loopName = `_pfcircle_${operation}`;
-    const suffix = Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getSubroutineBank(loopName), Blockly.BBasic.getSubroutineBank(fillName));
-    const label = (part) => `_pfcircle_${operation}_${part}`;
-    const squares = Array.from({length: CIRCLE_RADIUS_MAX + 1}, (_, i) => i * i).join(',');
-    // Two numbers (0 to 15 each) in a byte: the first the low nibble.
-    const pack = (low, high, variable) => [
-      `temp1 = ${low}`, `if temp1 > 15 then temp1 = 15`,
-      `temp2 = ${high}`, `if temp2 > 15 then temp2 = 15`,
-      'temp2 = temp2 + temp2', 'temp2 = temp2 + temp2', 'temp2 = temp2 + temp2', 'temp2 = temp2 + temp2',
-      `${variable.write} = temp1 + temp2`,
-    ];
-    // One row of the circle (the row in temp5): the half width comes from the table, the row and the columns are held to the padding, and a row with
-    // nothing left is not given to the area routine (it would put the corners in order).
-    const rowLines = [
-      `@ ${label('row')}`,
-      `temp1 = ${rd.read} / 16`,
-      `temp2 = ${rd.read} & 15`,
-      ['asm', 'ldx temp1', `lda ${label('sq')},x`, 'sta temp1', 'ldx temp2', `lda ${label('sq')},x`, 'sec', 'sbc temp1',
-        'sta temp1', 'ldx temp2', `@${label('find')}`, `lda ${label('sq')},x`, 'cmp temp1',
-        `beq ${label('found')}`, `bcc ${label('found')}`, 'dex', `bne ${label('find')}`,
-        `@${label('found')}`, 'stx temp3', '@end'].join('\n'),
-      `temp1 = ${padTB.read} & 15`,
-      `if temp5 < temp1 then return`,
-      `temp1 = ${padTB.read} / 16`,
-      `if temp1 > ${maxRow} then return`,
-      `temp1 = ${maxRow} - temp1`,
-      `if temp5 > temp1 then return`,
-      'temp4 = 0',
-      `if ${cx.read} >= temp3 then temp4 = ${cx.read} - temp3`,
-      `temp6 = ${cx.read} + temp3`,
-      `temp1 = ${padLR.read} & 15`,
-      'if temp4 < temp1 then temp4 = temp1',
-      `temp1 = ${padLR.read} / 16`,
-      `if temp1 > ${maxColumn} then return`,
-      `temp1 = ${maxColumn} - temp1`,
-      'if temp6 > temp1 then temp6 = temp1',
-      `if temp4 > temp6 then return`,
-      `${last.write} = temp5`,
-      `gosub ${fillName}${suffix}`,
-      'return',
-    ];
-    if (!Blockly.BBasic.subroutines[loopName]) {
-      Blockly.BBasic.subroutines[loopName] = [
-        `if ${rd.read} > ${CIRCLE_RADIUS_MAX} then ${rd.write} = ${CIRCLE_RADIUS_MAX}`,
-        ...pack('temp3', 'temp4', padLR),
-        ...pack('temp5', 'temp6', padTB),
-        `@ ${label('loop')}`,
-        // the row below the center row (the center row itself at the start)
-        `temp1 = ${rd.read} / 16`,
-        `temp5 = ${cy.read} + temp1`,
-        `gosub ${label('row')}`,
-        // the row above it
-        `temp1 = ${rd.read} / 16`,
-        `if temp1 = 0 then goto ${label('next')}`,
-        `if ${cy.read} < temp1 then goto ${label('next')}`,
-        `temp5 = ${cy.read} - temp1`,
-        `gosub ${label('row')}`,
-        `@ ${label('next')}`,
-        `temp1 = ${rd.read} / 16`,
-        `temp2 = ${rd.read} & 15`,
-        `if temp1 >= temp2 then return`,
-        `${rd.write} = ${rd.read} + 16`,
-        `goto ${label('loop')}`,
-        ...rowLines,
-        ['asm', `@${label('sq')}`, `.byte ${squares}`, '@end'].join('\n'),
-      ].join('\n');
-    }
-    // (The radius is held to 15 in the routine.)
-    return [
-      `${cx.write} = ${arg('X')}`,
-      `${cy.write} = ${arg('Y')}`,
-      `${rd.write} = ${arg('RADIUS')}`,
-      `temp3 = ${padLeft}`, `temp4 = ${padRight}`, `temp5 = ${padTop}`, `temp6 = ${padBottom}`,
-      `gosub ${loopName}${Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(loopName))}`,
-    ].join('\n') + '\n';
+    return pfDrawCircleCode(Blockly, block.getFieldValue('OPERATION'), drawArg(block, 'X'), drawArg(block, 'Y'), drawArg(block, 'RADIUS'), ...drawPadding(block));
+  };
+
+  Blockly.BBasic['background_flood_fill'] = function(block) {
+    return pfDrawBlockCode(Blockly, 'fill', block.getFieldValue('OPERATION'), [drawArg(block, 'X'), drawArg(block, 'Y')]);
+  };
+  Blockly.BBasic['background_flood_fill_stop'] = function() {
+    return pfDrawStopFillCode(Blockly);
+  };
+  // (The lines before the last one are hoisted in front of whatever uses the value, as the area check's are.)
+  Blockly.BBasic['background_flood_fill_done'] = function() {
+    return [pfDrawFillDoneCode(Blockly), Blockly.BBasic.ORDER_ATOMIC];
   };
 
   // "Playfield offset": moves the pixels of the playfield (or of an area of it, whole bytes wide) by one pixel column or
@@ -2709,109 +2318,16 @@ export default (Blockly) => {
   };
 
   Blockly.BBasic[`background_change_pixel`] = function(block) {
-    // Block for setting a playfield pixel
-    const operation = block.getFieldValue('OPERATION');
-    const argumentX = Blockly.BBasic.valueToCode(block, 'X',
-        Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-    const argumentY = Blockly.BBasic.valueToCode(block, 'Y',
-        Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-
-    // "pfpixel X Y OPERATION" is a whitespace-separated positional macro,
-    // not a real function call - a multi-token argument (e.g. a Random
-    // block's "(rand / 8) + 1", which has spaces in it) gets split into
-    // several garbage tokens instead of read as one expression, confirmed
-    // directly as a real build failure ("Syntax Error ''" from a
-    // malformed "LDA #(" with nothing after it). Assigning to temp1/temp2
-    // first and passing THOSE (always a single plain token) sidesteps the
-    // whitespace-splitting entirely, regardless of how complex the
-    // plugged-in X/Y expression is.
-    // A compound X or Y (a division, say, goes through a routine that uses temp1 and temp2) is worked out into temp5 and temp6 first: the
-    // second one could otherwise put the first one's answer out of temp1.
-    const isSimple = (code) => !/\s/.test(code);
-    if (isSimple(argumentX) && isSimple(argumentY)) {
-      return `temp1 = ${argumentX}\n` +
-        `temp2 = ${argumentY}\n` +
-        `pfpixel temp1 temp2 ${operation}\n`;
-    }
-    return `temp5 = ${argumentX}\n` +
-      `temp6 = ${argumentY}\n` +
-      `temp1 = temp5\n` +
-      `temp2 = temp6\n` +
-      `pfpixel temp1 temp2 ${operation}\n`;
+    return pfDrawBlockCode(Blockly, 'pixel', block.getFieldValue('OPERATION'), [drawArg(block, 'X'), drawArg(block, 'Y')]);
   };
 
   Blockly.BBasic[`background_change_hv_line`] = function(block) {
-    // Block for drawing an horizontal/vertical line
-    const direction = block.getFieldValue('DIRECTION');
-    const operation = block.getFieldValue('OPERATION');
-    const argumentLineLength = Blockly.BBasic.valueToCode(block, 'LENGTH',
-        Blockly.BBasic.ORDER_ASSIGNMENT) || '2';
-    const argumentX = Blockly.BBasic.valueToCode(block, 'X',
-        Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-    const argumentY = Blockly.BBasic.valueToCode(block, 'Y',
-        Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-
-    // Same "pfhline/pfvline X Y LENGTH OPERATION" whitespace-splitting risk
-    // as background_change_pixel above, for both X and Y (temp2/temp3 -
-    // temp1 is already used for the length calculation just below, so X/Y
-    // need their  separate scratch vars rather than reusing it).
-    // A compound number (a division goes through a routine that uses temp1 and temp2) is worked out into temp4 to temp6 first, so that
-    // working out the next one cannot put the answer of the one before out.
-    // PXE: the ARM program has no line functions (only the pixel ones), so the line is drawn a pixel at a time.
-    if (((useConfigurationStorage() && useConfigurationStorage().value) || {}).pxe) {
-      const number = Blockly.BBasic.blockNumbers.next('hvline');
-      const step = direction === 'pfhline' ? 'temp2' : 'temp3';
-      return `temp4 = ${argumentX}\n` +
-        `temp5 = ${argumentY}\n` +
-        `temp6 = ${argumentLineLength}\n` +
-        `temp2 = temp4\n` +
-        `temp3 = temp5\n` +
-        `if temp6 = 0 then goto _hvline_${number}_done\n` +
-        `@ _hvline_${number}_loop\n` +
-        `pfpixel temp2 temp3 ${operation}\n` +
-        `${step} = ${step} + 1\n` +
-        `temp6 = temp6 - 1\n` +
-        `if temp6 > 0 then goto _hvline_${number}_loop\n` +
-        `@ _hvline_${number}_done\n`;
-    }
-    const isSimple = (code) => !/\s/.test(code);
-    if (isSimple(argumentX) && isSimple(argumentY) && isSimple(argumentLineLength)) {
-      return `temp2 = ${argumentX}\n` +
-        `temp3 = ${argumentY}\n` +
-        `temp1 = ${argumentLineLength} + ${direction == 'pfhline' ? 'temp2' : 'temp3'} - 1\n` +
-        `${direction} temp2 temp3 temp1 ${operation}\n`;
-    }
-    return `temp4 = ${argumentX}\n` +
-      `temp5 = ${argumentY}\n` +
-      `temp6 = ${argumentLineLength}\n` +
-      `temp2 = temp4\n` +
-      `temp3 = temp5\n` +
-      `temp1 = temp6 + ${direction == 'pfhline' ? 'temp2' : 'temp3'} - 1\n` +
-      `${direction} temp2 temp3 temp1 ${operation}\n`;
+    const kind = block.getFieldValue('DIRECTION') === 'pfvline' ? 'vline' : 'hline';
+    return pfDrawBlockCode(Blockly, kind, block.getFieldValue('OPERATION'), [drawArg(block, 'X'), drawArg(block, 'Y'), drawArg(block, 'LENGTH', '2')]);
   };
 
   Blockly.BBasic[`background_draw_line`] = function(block) {
-    // Block for drawing an arbitrary (diagonal) line between two points -
-    // see registerBackgroundLineSubroutine's  comment for the runtime
-    // Bresenham's-line-algorithm this gosubs into, and for why X1/Y1/X2/Y2
-    // need their  dedicated vars rather than temp1-temp4 (pfpixel's
-    // implementation clobbers temp1/temp2 internally). OPERATION picks
-    // which of the (up to 3) pre-built subroutines to gosub directly - a
-    // compile-time choice fixed per block instance, not a runtime value.
-    const operation = block.getFieldValue('OPERATION');
-    const argumentX1 = Blockly.BBasic.valueToCode(block, 'X1', Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-    const argumentY1 = Blockly.BBasic.valueToCode(block, 'Y1', Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-    const argumentX2 = Blockly.BBasic.valueToCode(block, 'X2', Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-    const argumentY2 = Blockly.BBasic.valueToCode(block, 'Y2', Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
-    const names = Blockly.BBasic.backgroundLineVarNames;
-    const subroutineName = BACKGROUND_LINE_SUBROUTINE_NAMES[operation];
-    const suffix = Blockly.BBasic.bankJumpSuffix(
-        Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(subroutineName));
-    return `${names.x1.write} = ${argumentX1}\n` +
-      `${names.y1.write} = ${argumentY1}\n` +
-      `${names.x2.write} = ${argumentX2}\n` +
-      `${names.y2.write} = ${argumentY2}\n` +
-      `gosub ${subroutineName}${suffix}\n`;
+    return pfDrawBlockCode(Blockly, 'line', block.getFieldValue('OPERATION'), ['X1', 'Y1', 'X2', 'Y2'].map((name) => drawArg(block, name)));
   };
 
   Blockly.BBasic[`background_clear`] = function(block) {

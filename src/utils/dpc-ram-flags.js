@@ -33,14 +33,12 @@ export const runOnceEnterLines = (offset, touchedBit, firedBit) => [
 // stays only if its touched bit is set, and the touched bits clear for the next frame to mark again.
 export const runOnceResetLines = (count) => [
   'asm',
-  ...aim(0),
-  // (A byte that is 0, which is the case on most frames, stays 0: it is written back at once.)
+  // (DF0 reads the bytes one after the other; DF1, which writes one back, is aimed at it only when it changes: a byte that is 0, which is the case on
+  // most frames, stays 0 with nothing written.)
+  'lda #0', 'sta DF0LOW', `lda #${PAGE}`, 'sta DF0HI',
   ...Array.from({length: count}).flatMap((_, index) => [
     'lda DF0DATA',
-    `bne _runonce_reset_${index}_work`,
-    'sta DF1WRITE',
     `beq _runonce_reset_${index}_done`,
-    `@_runonce_reset_${index}_work`,
     // (The fired bits shifted down have 0 above them: ANDed with the whole byte, only the ones with their touched bit stay.)
     'sta temp1',
     'lsr',
@@ -52,6 +50,10 @@ export const runOnceResetLines = (count) => [
     'asl',
     'asl',
     'asl',
+    `ldx #${index}`,
+    'stx DF1LOW',
+    `ldx #${PAGE}`,
+    'stx DF1HI',
     'sta DF1WRITE',
     `@_runonce_reset_${index}_done`,
   ]),

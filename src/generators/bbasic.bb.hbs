@@ -15,33 +15,12 @@
  rem Setup:
  rem - set initial values
  rem **************************************************************************
- COLUBK = {{{ defaultInitialBackgroundColor }}}
- score = 00000 :  scorecolor = {{{ defaultScoreColor }}}{{{ scoreBarColorInit }}}
-
  const true = 1
  const false = 0
 
 {{{ generatedSystemDims }}}
 
- newbackground = 1
-{{{ generatedScrollDefaults }}}
-
- player0x = 75 : player0y = {{{ defaultPlayer0Y }}}
- player1x = 75 : player1y = {{{ defaultPlayer1Y }}}
- ballx = 0 : bally = 0
-{{{ generatedDpcPlusSpriteDefaults }}}
-{{{ generatedDpcPlusColorTables }}}
-{{{ generatedPlayerColorDefaults }}}
-{{{ generatedBackdropDefaults }}}
- player1size = $00
- player0size = $00
- COLUBK = backgroundrealcolor
-{{{ generatedPlayerAnimationDefaults }}}
-{{{ generatedTextMinikernelDefaults }}}
-{{{ generatedKeypadSetup }}}
-{{{ generatedCtrlpfShadowSetup }}}
-{{{ generatedBackgroundFadeSetup }}}
-{{{ generatedDpcPlusColorPrimingOnce }}}
+{{{ programSetupCall }}}
 
 {{{ systemStartEvent }}}
 {{{ generatedDpcPlusInitialDrawscreen }}}
@@ -177,6 +156,7 @@ backgroundchangeend
 {{{ generatedSpeechChecks }}}
 {{{ generatedDpcPlusColorPriming }}}
 {{{ generatedDpcPlusAudio }}}
+{{{ generatedPfDrawStep }}}
 {{{ commonGameLogicReturn }}}
 {{{ commonGameLogicFar }}}
 

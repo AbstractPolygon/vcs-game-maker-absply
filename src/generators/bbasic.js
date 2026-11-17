@@ -16,6 +16,7 @@ import {legalizeForPxe, PXE_SCRATCH_NAMES} from '../utils/pxe-legalize';
 import {superchipOn} from '../utils/superchip';
 import Blockly from 'blockly/core';
 import templateText from 'raw-loader!./bbasic.bb.hbs';
+import setupTemplateText from 'raw-loader!./bbasic-setup.bb.hbs';
 import Handlebars from 'handlebars';
 import {sumBy, chunk} from 'lodash';
 
@@ -27,7 +28,7 @@ import {DEFAULT_ROW_COLOR, DEFAULT_BK_ROW_COLOR, processBackgroundStorageDefault
   backgroundFadeTimerVarName, backgroundFadePaceVarName, backgroundFadeTargetVarName,
   fadeFlagsVarName, fadeActiveBit, backgroundFadeFinishedBit, backgroundFadeWatchKey, FADE_FLAGS_REGISTER_GROUPS,
   backgroundGetPixelXVarName, backgroundGetPixelYVarName,
-  collisionPixelColumnVarName, collisionPixelRowVarName, areaClearLeftVarName, circleVarNames,
+  collisionPixelColumnVarName, collisionPixelRowVarName, areaClearLeftVarName,
   resolveBackgroundFadeFinishedWatches, hasBackgroundFadeActiveChecks,
   backgroundScrollEdgeFlagsVarName, backgroundScrollStartVarName, backgroundScrollShiftVarName, dpcPlusPlainScrollVarName,
   dpcPlusPlainColorScrollVarName,
@@ -121,6 +122,41 @@ import {generateTextStaticOffsetTables, generateTextRow2OffsetsTable, textLinesB
   textEndIconColorVarName, TITLE_TEXT_FLAG_FAMILY} from './bbasic/text-minikernel';
 
 const handlebarsTemplate = Handlebars.compile(templateText);
+const handlebarsSetupTemplate = Handlebars.compile(setupTemplateText);
+
+// The setup (the starting values the program gives everything before System start, bbasic-setup.bb.hbs) is, on DPC+, a subroutine like the others: the
+// layout of the banks can move it out of the main bank, which a DPC+ project fills first, and make room there for the code of every frame. It runs once,
+// so the call into another bank costs nothing that counts. It stays in place (the template's {{{ programSetupCall }}}) on the other kernels, and when its
+// lines name something only the main bank can reach: a plain gosub or goto to a label not in it, a jump of an asm block out of it, a Function, a table
+// (a table is read from the bank it is in).
+const PROGRAM_SETUP_NAME = '_program_setup';
+const PROGRAM_SETUP_PLACEHOLDER = '__program_setup_body__';
+const setupMovable = (text) => {
+  const lines = text.split('\n');
+  const labels = new Set(lines.map((line) => /^@?([A-Za-z_]\w*)\s*$/.exec(line)).filter(Boolean).map((match) => match[1]));
+  return lines.every((line) => {
+    const code = line.replace(/;.*$/, '');
+    if (/^\s*rem\b/.test(code)) return true;
+    if (/\b[A-Za-z_]\w*\s*\[/.test(code) || /\b[A-Za-z_]\w*\(/.test(code)) return false;
+    for (const match of code.matchAll(/\b(gosub|goto|jsr|jmp)\s+\.?([A-Za-z_]\w*)(\s+bank\d+)?/gi)) {
+      if (!match[3] && !labels.has(match[2])) return false;
+    }
+    return true;
+  });
+};
+// The code with the setup's lines back in place of its call (for findGameplayOnlyNames, which reads the setup as the code before the first event).
+const SETUP_CALL = /^\s*gosub _program_setup\b/;
+const inlineProgramSetup = (code) => {
+  const lines = code.split('\n');
+  const start = lines.findIndex((line) => line.trim() === PROGRAM_SETUP_NAME);
+  if (start < 0) return code;
+  const end = lines.findIndex((line, i) => i > start && /^\s*return\b/.test(line));
+  if (end < 0 || !lines.some((line) => SETUP_CALL.test(line))) return code;
+  const body = lines.slice(start + 1, end);
+  const rest = lines.filter((line, i) => i < start || i > end);
+  const at = rest.findIndex((line) => SETUP_CALL.test(line));
+  return [...rest.slice(0, at), ...body, ...rest.slice(at + 1)].join('\n');
+};
 
 // The app's  bookkeeping variables, and the letters they're aliased to on
 // the standard (non-Superchip) kernel. Without Superchip RAM, batari Basic's
@@ -1368,21 +1404,6 @@ Blockly.BBasic.init = function(workspace) {
     this.keypad1Used = false;
   }
 
-  // Which OPERATION(s) "Background [Set/Clear/Flip] line from X/Y to X/Y"
-  // actually uses, project-wide - a real block-field pre-scan, since (unlike
-  // the fixed straight runs background_change_hv_line can pre-flatten at
-  // compile time) an arbitrary line's  endpoints can be variables, so
-  // this needs a real runtime Bresenham's-line-algorithm subroutine (see
-  // registerBackgroundLineSubroutine in generators/bbasic/background.js) -
-  // one PER operation actually used (a project using only "Set" line blocks
-  // never pays for a "Clear"/"Flip" copy), and a project using none of this
-  // block at all pays nothing for its  dev vars either.
-  this.backgroundLineOperationsUsed = new Set(
-      workspace.getAllBlocks(false)
-          .filter((block) => block.type === 'background_draw_line')
-          .map((block) => block.getFieldValue('OPERATION')));
-  this.backgroundLineUsed = this.backgroundLineOperationsUsed.size > 0;
-
   // The pages the "Draw title screen" blocks name: only these are built (a page no block draws can not be shown, so it takes no ROM; see
   // processTitleScreenStorageForBuild). A block counts when it makes code: enabled, not under a disabled block, and in an event or routine.
   // Whether there is one at all has to be known before reserveDevVar hands out user variable letters below (see
@@ -2227,37 +2248,6 @@ Blockly.BBasic.init = function(workspace) {
     this.pxeScratch = {a, x, t};
   }
 
-  // Same bucket again, for the shared background line-drawing subroutine's
-  // working variables (see registerBackgroundLineSubroutine in
-  // generators/bbasic/background.js) - resolved names captured on "this"
-  // (not just reserved) for the same reason as keypadLeftVarName/
-  // keypadRightVarName just above: registering the subroutine's  body
-  // needs them, but has to wait until "this.subroutines = {}" below runs
-  // first. 7 vars: the current point/target point/distances/error term -
-  // no separate loop counter (the current point already walking toward the
-  // target IS the loop's  stop condition) or operation selector (the
-  // operation is baked into which of the - up to 3 - subroutines gets
-  // called, not read at runtime). An earlier version tried to keep the
-  // current point/target point/distances in the shared temp1-temp6 scratch
-  // registers instead of dedicated vars entirely, which was wrong (see
-  // registerBackgroundLineSubroutine's  comment for the real, reported
-  // bug this caused: pfpixel's  implementation clobbers temp1/temp2
-  // internally, corrupting them the instant the first pixel was plotted).
-  if (this.backgroundLineUsed) {
-    this.backgroundLineVarNames = {
-      // Read/write pairs: only plain adds, subtracts and comparisons touch these,
-      // so they fit Superchip RAM's separate pool (see reserveDevVarRW) and
-      // leave seven of the ordinary variables free.
-      x1: reserveDevVarRW('lineX1', 'background line: current X position'),
-      y1: reserveDevVarRW('lineY1', 'background line: current Y position'),
-      x2: reserveDevVarRW('lineX2', 'background line: end X position'),
-      y2: reserveDevVarRW('lineY2', 'background line: end Y position'),
-      dx: reserveDevVarRW('lineDX', 'background line: X distance'),
-      dy: reserveDevVarRW('lineDY', 'background line: Y distance'),
-      err: reserveDevVarRW('lineErr', 'background line: Bresenham error term'),
-    };
-  }
-
   // Which Title Screen page a "Draw title screen" block wants drawn next -
   // written right before that block's  gosub into the one shared
   // Titlescreen Kernel subroutine every page compiles into (see
@@ -2470,22 +2460,14 @@ Blockly.BBasic.init = function(workspace) {
   // background_collision_pixel).
   // "Background area ... is clear" (see background_area_clear's generator): the
   // one variable its scan needs.
-  if (workspace.getAllBlocks(false).some((block) =>
-    (block.type === 'background_area_clear' || block.type === 'background_fill_area' ||
-      (block.type === 'background_fill_circle' && (!circleArmFits(useConfigurationStorage().value || {}) ||
-        circleArmUsesLastRow(useConfigurationStorage().value || {}, block)))) &&
-    block.isEnabled() && !block.getInheritedDisabled())) {
-    reserveDevVarRW(areaClearLeftVarName(), 'area clear check: the left column each row restarts from; the area fill block: its last row');
+  if (workspace.getAllBlocks(false).some((block) => block.type === 'background_area_clear' && block.isEnabled() && !block.getInheritedDisabled())) {
+    reserveDevVarRW(areaClearLeftVarName(), 'area clear check: the left column each row restarts from');
   }
 
-  // (Under DPC+ the coprocessor draws the circle: no variables.)
-  if (workspace.getAllBlocks(false).some((block) => block.type === 'background_fill_circle' && block.isEnabled() && !block.getInheritedDisabled() &&
-    !circleArmFits(useConfigurationStorage().value || {}))) {
-    circleVarNames().forEach((name) => reserveDevVarRW(name, 'the circle block: its center column and row, radius and the row it is drawing'));
-  } else if (workspace.getAllBlocks(false).some((block) => block.type === 'background_fill_area' && block.getFieldValue('MODE') === 'CENTER' &&
-    block.isEnabled() && !block.getInheritedDisabled())) {
-    // (A centered area block: the center, see fillCenteredArea in generators/bbasic/background.js.)
-    circleVarNames().slice(0, 2).forEach((name) => reserveDevVarRW(name, 'the centered area block: its center column and row'));
+  // The drawing engine of the Draw blocks (see generators/bbasic/pf-draw.js): its bytes, for the kinds of drawing the enabled blocks use.
+  {
+    const liveBlocks = workspace.getAllBlocks(false).filter((block) => block.isEnabled() && !block.getInheritedDisabled());
+    reservePfDrawVars(Blockly, reserveDevVarRW, config, superchipOn(config), pfDrawKindsUsed(liveBlocks), liveBlocks);
   }
 
   if (this.collisionPixelUsed) {
@@ -2953,6 +2935,13 @@ Blockly.BBasic.init = function(workspace) {
     const used = this.usedPlayerAnimations && this.usedPlayerAnimations[member];
     return allAnimations.filter((animation, index) => !used || used.has(index)).map((animation) => ({2: 2, 4: 4})[animation.previewWidthScale] || 1);
   }));
+  // The width code the coprocessor's playfield box test takes for a player (0, $20 for double, $40 for quad) when only its animations set its width
+  // and they all set the same one; null when it can change (see fixedWidthCode in generators/bbasic/pf-box.js).
+  this.playerFixedWidthCode = (name) => {
+    if (this.playerCopiesPossible(name)) return null;
+    const widths = animationWidths(name);
+    return widths.size > 1 ? null : {1: 0, 2: 0x20, 4: 0x40}[[...widths][0] || 1];
+  };
   // The kind of each player's box (see boxesOf in generators/bbasic/sprite-box-width.js), none of them kept in bytes: a number, a box always that
   // wide; 'size', the width read from the size byte (animations of different widths, nothing else changes the size); 'full', the width and the copies read
   // from the size byte (a block can change the width or the copies), and twice the width while the sprite that shows the right half of a wide player is there.
@@ -3457,7 +3446,8 @@ Blockly.BBasic.init = function(workspace) {
     });
     if (this.dpcPlusGeometries.length > 1) {
       const rowBlocks = ['background_pixel_to_sprite', 'background_sprite_to_pixel', 'background_get_resolution',
-        'background_collision_pixel', 'background_collision_pixel_direction', 'background_area_clear', 'background_fill_area', 'background_fill_circle'];
+        'background_collision_pixel', 'background_collision_pixel_direction', 'background_area_clear', 'background_fill_area', 'background_fill_circle',
+        'background_flood_fill'];
       const pfBoxUsed = this.pfBoxPlayers.size > 0 || (this.pfHitExtras && this.pfHitExtras.size > 0);
       const rowsUsed = pfBoxUsed || this.missileFireUsedFor.size > 0 || this.missileBounceUsedFor.size > 0 ||
         this.inertiaUsedFor.size > 0 || workspace.getAllBlocks(false).some((block) => rowBlocks.includes(block.type));
@@ -3810,6 +3800,12 @@ Blockly.BBasic.init = function(workspace) {
   // "End title screen" sets back to zero the variables that only code running after it uses, which took a Title Screen variable's slot.
   this.titleEndNames = new Set(this.titleSharedSlots.map(({target}) => target).filter((name) => afterEndNames.has(name)));
   this.titleEndResets = [...this.titleEndNames].map((name) => `${name} = 0`);
+  // A variable that took a slot because the generated code shows only gameplay touching it (see title-liveness.js) gets its starting value
+  // back in Gameplay start, but once "End title screen" has run the title loop goes on running the shared code of every frame (the second
+  // half of commongamelogic, which reads it), with no Gameplay start in between: the block gives it its starting value as well.
+  new Set(this.titleSharedSlots.map(({target}) => target)).forEach((name) => {
+    if (this.titleSharedInit.has(name) && !this.titleEndNames.has(name)) this.titleEndResets.push(`${name} = ${this.titleSharedInit.get(name) || 0}`);
+  });
   // The bytes that are another page's graphics' as well take the same slot as the one they share it with.
   (this.titleAliasPairs || []).forEach(({alias, rep}) => {
     const hosted = this.titleSharedSlots.find(({titleVar}) => titleVar === rep);
@@ -3888,6 +3884,10 @@ Blockly.BBasic.init = function(workspace) {
       runOnceDefvarsStart--;
     });
     this.dpcPlusSpriteVars.push(...this.titleScratchHosted);
+    // (The same for the ones that live in the bytes the Title Screen Kernel works in: see titleEndResets above.)
+    this.titleScratchHosted.filter((name) => !gameplayOnlyUserNames.has(name)).forEach((name) => {
+      this.titleEndResets.push(`${name} = ${(hints && hints.initValues.get(name)) || 0}`);
+    });
     freedSpriteRam = freedSpriteRam.concat(titleScratchSlots.slice(0, this.titleScratchHosted.length));
   }
   this.dpcPlusSpriteVarSlot = (name) => freedSpriteRam[this.dpcPlusSpriteVars.indexOf(name)];
@@ -4153,13 +4153,6 @@ Blockly.BBasic.init = function(workspace) {
       useLeft: this.keypad0Used, useRight: this.keypad1Used,
       leftVarName: this.keypadLeftVarName, rightVarName: this.keypadRightVarName,
     });
-  }
-
-  // Same timing/reasoning as registerKeypadPollSubroutine above - needs
-  // backgroundLineVarNames, already resolved earlier via reserveDevVar (see
-  // backgroundLineUsed's  pre-scan).
-  if (this.backgroundLineUsed) {
-    registerBackgroundLineSubroutine(Blockly, this.backgroundLineVarNames, this.backgroundLineOperationsUsed);
   }
 
   // Same timing/reasoning as registerKeypadPollSubroutine above - has to
@@ -5073,7 +5066,7 @@ Blockly.BBasic.finish = function(code) {
   const generatedWidePartnerSync = Blockly.BBasic.generateWidePartnerSync();
   // The boxes of the sprites and the pairs that overlap are in a subroutine, that can be moved to another bank (it is long, with several pairs).
   const boxChecks = inSubroutineContext(this, SPRITE_BOX_CHECKS_NAME, () => generateBoxChecks(Blockly) + generateOverlapChecks(Blockly));
-  if (boxChecks) this.subroutines[SPRITE_BOX_CHECKS_NAME] = asSubroutineBody(boxChecks + ' return\n');
+  if (boxChecks) this.subroutines[SPRITE_BOX_CHECKS_NAME] = asSubroutineBody(boxChecks + ' return\n' + (Blockly.BBasic.boxChecksTables ? Blockly.BBasic.boxChecksTables + '\n' : ''));
   const boxChecksCall = boxChecks ? ` gosub ${SPRITE_BOX_CHECKS_NAME}${Blockly.BBasic.bankJumpSuffix(
       Blockly.BBasic.primaryBank(), Blockly.BBasic.getSubroutineBank(SPRITE_BOX_CHECKS_NAME))}
 ` : '';
@@ -5089,6 +5082,7 @@ Blockly.BBasic.finish = function(code) {
       [['fire', generatedMissileFireChecks], ['seek', generatedSeekChecks], ['inertia', generatedInertiaChecks], ['platformer', generatedPlatformerChecks], ['lock', generatedLockChecks],
         ['box', generatedBoxChecksCall]]);
   const generatedShakeScreenChecks = generateShakeScreenChecks(Blockly);
+  const generatedPfDrawStep = generatePfDrawStep(Blockly);
   const generatedScoreFlashChecks = Blockly.BBasic.generateScoreFlashChecks();
   const generatedSpeechChecks = generateSpeechChecks(Blockly);
   // The steps of the fractional data fetchers (DFxFRACINC) stay as they were written: the kernel writes only DF5 and DF7, the coprocessor none. When they are
@@ -5152,6 +5146,10 @@ Blockly.BBasic.finish = function(code) {
   }
   // The shared routine of the Distance blocks has to be there before the subroutines are written out (the checks that call it are made later).
   if ((this.distanceChecks && this.distanceChecks.size) || (this.distancePointChecks && this.distancePointChecks.size)) registerDistanceAbsDiffSubroutine(Blockly);
+  // (The setup's subroutine has its lines put in once the template is filled: see programSetupCall.)
+  const setupConfig = useConfigurationStorage().value || {};
+  const setupAsSubroutine = setupConfig.kernel === 'dpcplus' && !isPxe(setupConfig);
+  if (setupAsSubroutine) this.subroutines[PROGRAM_SETUP_NAME] = PROGRAM_SETUP_PLACEHOLDER;
   const generatedSubroutines = Blockly.BBasic.generateSubroutines();
   const generatedFunctions = Blockly.BBasic.generateFunctions();
 
@@ -5285,7 +5283,7 @@ Blockly.BBasic.finish = function(code) {
   this.flagOverlayConflict = this.flagOverlay && flagPoolPhaseConflict();
   const commonGameLogicReturn = this.commonGameLogicReturn();
   const commonGameLogicFar = this.commonGameLogicFar();
-  const generated = handlebarsTemplate({commonGameLogicReturn, commonGameLogicFar, generatedDpcPlusAudio, generatedBody, generatedBackgrounds, generatedBackgroundColorOverride,
+  const templateData = ({commonGameLogicReturn, commonGameLogicFar, generatedDpcPlusAudio, generatedPfDrawStep, generatedBody, generatedBackgrounds, generatedBackgroundColorOverride,
     generatedAnimations, generatedDataTables, generatedRomNoiseChecks, generatedPlayerHeightLimitChecks, generatedTitleScreenAnimationChecks,
     generatedRainbowColorGraphics, generatedRainbowColorChecks, generatedMissileFireChecks,
     generatedSeekChecks, generatedLockChecks, generatedBoxChecksCall, generatedWidePartnerSync, generatedPfHitChecks, generatedInertiaChecks, generatedPlatformerChecks, generatedShakeScreenChecks, generatedScoreFlashChecks, generatedSpeechChecks, generatedDpcPlusColorPriming, generatedDpcPlusColorPrimingOnce, generatedDpcPlusColorTables, generatedDpcPlusInitialDrawscreen,
@@ -5308,6 +5306,27 @@ Blockly.BBasic.finish = function(code) {
     generatedTextScrollAdvance, generatedTitleKernelSkip, generatedScoreBkColorAsm, generatedRunOnceEdgeReset,
     generatedKeypadPollCall, generatedKeypadSetup, generatedCtrlpfShadowSetup, generatedBackgroundFadeSetup,
     nusiz0Line, player1NusizLine, player1FlipLines, extraPlayerNusizLines});
+  const setupText = handlebarsSetupTemplate(templateData).replace(/\r\n/g, '\n');
+  // (Lines in the first column, labels and the ends of blocks, keep it in the subroutine: see normalizeIndents.)
+  const setupBody = setupText.split('\n').map((line) => (/^\S/.test(line) ? '@' + line : line)).join('\n');
+  const movable = setupAsSubroutine && setupMovable(setupBody);
+  const setupCall = ' gosub ' + PROGRAM_SETUP_NAME +
+    Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.primaryBank(), Blockly.BBasic.getSubroutineBank(PROGRAM_SETUP_NAME));
+  let generated = handlebarsTemplate({...templateData, programSetupCall: movable ? setupCall : setupText});
+  if (setupAsSubroutine) {
+    const lines = generated.split('\n');
+    const at = lines.findIndex((line) => line.trim() === PROGRAM_SETUP_PLACEHOLDER);
+    if (movable && at >= 0) {
+      lines.splice(at, 1, ...Blockly.BBasic.normalizeIndents(setupBody).split('\n'));
+      // (For the estimates of the layout, made after the code: the lines it has.)
+      this.subroutines[PROGRAM_SETUP_NAME] = setupBody;
+    } else if (at >= 1) {
+      // (Not movable: the subroutine written out with the placeholder goes, its label, the placeholder and its return.)
+      lines.splice(at - 1, 3);
+      delete this.subroutines[PROGRAM_SETUP_NAME];
+    }
+    generated = lines.join('\n');
+  }
   const withScrollFlags = standardPfscrollFlags(generated);
   return dpcAudioNames ? redirectSoundRegisters(withScrollFlags, dpcAudioNames) : withScrollFlags;
 };
@@ -9823,9 +9842,10 @@ Blockly.BBasic.generateAnimations = function() {
       .map(([partner, owner]) => ` if !${owner}size{7} then ${partner}size{7} = 0`);
   return [...(partnerResets.length ? [partnerResets.join('\n')] : []), ...hardwareCode, ...extraCode, ...partnerCode].join('\n\n\n');
 };
-import background, {backgroundGetPixelDevVarsNeeded, registerBackgroundLineSubroutine,
-  reserveShakeScreenDevVar, circleArmFits, circleArmUsesLastRow, reserveOffsetAreaDevVars, offsetArmSharedVars, offsetByteRange, bgColorFlagBits, rainbowBackgroundBits, rainbowIdBits, BG_COLOR_FLAGS_FAMILY, BG_RAINBOW_ID_FAMILY, BG_COLOR_STEP_FAMILY, reserveBackgroundColorFlagsDevVar, bgColorFlagRef, generateShakeScreenChecks, dpcPlusScrollDivider} from './bbasic/background';
+import background, {backgroundGetPixelDevVarsNeeded,
+  reserveShakeScreenDevVar, reserveOffsetAreaDevVars, offsetArmSharedVars, offsetByteRange, bgColorFlagBits, rainbowBackgroundBits, rainbowIdBits, BG_COLOR_FLAGS_FAMILY, BG_RAINBOW_ID_FAMILY, BG_COLOR_STEP_FAMILY, reserveBackgroundColorFlagsDevVar, bgColorFlagRef, generateShakeScreenChecks, dpcPlusScrollDivider} from './bbasic/background';
 import bit from './bbasic/bit';
+import {reservePfDrawVars, pfDrawKindsUsed, generatePfDrawStep} from './bbasic/pf-draw';
 import collision from './bbasic/collision';
 import color from './bbasic/color';
 import colour from './bbasic/colour';
@@ -9988,7 +10008,7 @@ Blockly.BBasic.workspaceToCodeOnce = function(workspace) {
   if (this.pxeScratch) code = this.finishForPxe(code);
   // Title Screen variables still taking a slot for themselves: the generated code shows which other variables only gameplay
   // touches, and those can take the title variables' place (see the hints in init).
-  const hints = (this.titleUnhostedCount > 0 || this.titleScratchPossible) ? findGameplayOnlyNames(code) : null;
+  const hints = (this.titleUnhostedCount > 0 || this.titleScratchPossible) ? findGameplayOnlyNames(inlineProgramSetup(code)) : null;
   const unused = code.includes(SYSTEM_DEFAULT_MARKER) ? findUnusedSystemVars(code) : new Set();
   // The Text Minikernel's score row follows the background color through the very byte this variable lives in.
   if (this.isTextMinikernelActive() && this.scoreBkColorIsBackground((useConfigurationStorage().value || {}).scoreBkColor)) {

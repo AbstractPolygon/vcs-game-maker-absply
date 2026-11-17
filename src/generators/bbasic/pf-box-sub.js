@@ -101,6 +101,7 @@ const undoQuickLastX = (Blockly, player) => {
 // pfboxx and pfboxy first).
 export const callPfBox = (Blockly, player, feet = false, quick = false) => {
   const sharing = Blockly.BBasic.pfBoxSharing && sharesBoxTest(Blockly.BBasic, player) ? Blockly.BBasic.pfBoxSharing : null;
+  const titleSized = /^player[01]$/.test(player) && !!Blockly.BBasic.titleScreenDrawUsed;
   const name = sharing ? pfBoxSubroutineName('p', feet) : pfBoxSubroutineName(player, feet);
   const rwPair = (canonicalName) => Blockly.BBasic.superchipRwPairs[canonicalName];
   if (!Blockly.BBasic.subroutines[name]) {
@@ -173,9 +174,9 @@ export const callPfBox = (Blockly, player, feet = false, quick = false) => {
       quickLastXVar: sharing ? (sharing.quick ? rwPair(PF_BOX_LAST_X).read : undefined) : undoQuickLastX(Blockly, player),
       armBox,
       armGroups: armBox && groupRows,
-      // (Players 0 and 1 of a project with a title screen keep the copies: the Title Screen can give them a size.)
-      noCopies: !sharing && !!Blockly.BBasic.playerCopiesPossible && !Blockly.BBasic.playerCopiesPossible(player) &&
-        !(/^player[01]$/.test(player) && Blockly.BBasic.titleScreenDrawUsed),
+      // (Players 0 and 1 of a project with a title screen keep the copies and the width read from the size byte: the Title Screen can give them a size.)
+      noCopies: !sharing && !!Blockly.BBasic.playerCopiesPossible && !Blockly.BBasic.playerCopiesPossible(player) && !titleSized,
+      fixedWidthCode: !sharing && !titleSized && Blockly.BBasic.playerFixedWidthCode ? Blockly.BBasic.playerFixedWidthCode(player) : null,
       dpcPlusScan: dpcPlus,
       pxeRead: pxe,
       armRows: dpcPlus && varying,

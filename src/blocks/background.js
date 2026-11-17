@@ -181,9 +181,6 @@ export const backgroundGetPixelYVarName = () => 'bgGetPixelY';
 // there's no "only when nested in a function" condition to gate on).
 // The one variable "Playfield area ... is clear" needs: the left column its scan restarts from on every row.
 export const areaClearLeftVarName = () => 'areaClearLeft';
-// The circle block keeps its center, its radius with the row it is on (two nibbles) and the padding of the sides (a nibble each) between the rows it draws
-// (the row drawing routine uses every scratch byte).
-export const circleVarNames = () => ['circleX', 'circleY', 'circleRD', 'circlePadLR', 'circlePadTB'];
 export const collisionPixelColumnVarName = () => 'collisionPixelColumn';
 export const collisionPixelRowVarName = () => 'collisionPixelRow';
 // Pure internal scratch for the "nudged by one cell" candidates the
@@ -609,6 +606,17 @@ const BACKGROUND_PFPIXEL_OPTIONS = [
   [`${FLIP_ICON} Flip`, 'flip'],
 ];
 
+// (How the Draw blocks draw: see generators/bbasic/pf-draw.js.)
+const DRAW_QUEUE_TOOLTIP = 'The drawing is done at the end of the frame, a pixel at a time for as long as the frame has time to spare, so a big ' +
+  'shape is spread over a few frames instead of making the screen roll; the code right after the block still sees the playfield as it was. The ' +
+  'Draw blocks (pixel, lines, area, circle, fill) are drawn one after the other in the order they ran. When too many are waiting, the ones ' +
+  'waiting and this one are drawn at once.';
+
+const BACKGROUND_FILL_OPTIONS = [
+  [`${CHECKBOX_CHECKED_ICON} Fill`, 'on'],
+  [`${CHECKBOX_CLEAR_ICON} Erase`, 'off'],
+];
+
 const BACKGROUND_LINE_DIRECTION_OPTIONS = [
   [`Horizontally`, 'pfhline'],
   [`Vertically`, 'pfvline'],
@@ -873,7 +881,7 @@ Blockly.Blocks['background_fill_circle'] = {
       `same numbers as "Playfield get pixel". A pixel is in the circle when its distance from the center is no more than the radius. ` +
       `Any part of the circle outside the playfield is ignored. The padding is how many columns at the left and at the right of the ` +
       `playfield, and how many rows at the top and at the bottom, the block leaves alone whatever it does (set, clear or flip): 0 draws to the ` +
-      `edges. It can be one number for all the sides or a number for each. It draws a row at a time, so a big circle takes a while. ` +
+      `edges. It can be one number for all the sides or a number for each. ${DRAW_QUEUE_TOOLTIP} ` +
       `Can't be used inside a custom function.`);
   },
 };
@@ -912,7 +920,7 @@ Blockly.Blocks['background_fill_area'] = {
       `a rectangle of the width and height (in playfield pixels) with the column and row in the middle of it, an even width or height having the extra ` +
       `pixel to the right or below; its padding is how many columns at the left and at the right of the playfield, and how many rows at the top and ` +
       `at the bottom, it leaves alone (0 draws to the edges), one number for all the sides or one for each. Any part of the rectangle outside the ` +
-      `playfield is ignored. It draws a row at a time, so a big area takes a while. Can't be used inside a custom function.`);
+      `playfield is ignored. ${DRAW_QUEUE_TOOLTIP} Can't be used inside a custom function.`);
   },
 };
 
@@ -1352,7 +1360,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Changes a pixel of the background`,
+    'tooltip': `Changes a pixel of the background. ${DRAW_QUEUE_TOOLTIP}`,
   },
   // Block for drawing an horizontal/vertical line
   {
@@ -1389,14 +1397,9 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Draws an horizontal/vertical line.`,
+    'tooltip': `Draws an horizontal/vertical line. ${DRAW_QUEUE_TOOLTIP}`,
   },
-  // Block for drawing an arbitrary (diagonal) line between two points - see
-  // generators/bbasic/background.js's  registerBackgroundLineSubroutine
-  // for the runtime Bresenham's-line-algorithm implementation this needs
-  // (the endpoints can be variables, not just fixed numbers known at compile
-  // time, so this can't be pre-flattened into a fixed run of pfpixel calls
-  // the way background_change_hv_line's  straight runs can).
+  // Block for drawing an arbitrary (diagonal) line between two points (Bresenham's, in the drawing engine: see generators/bbasic/pf-draw.js).
   {
     'type': `background_draw_line`,
     'message0': `${BACKGROUND_ICON} Playfield %1 line from X %2 Y %3 to X %4 Y %5`,
@@ -1433,7 +1436,40 @@ Blockly.defineBlocksWithJsonArray([
     'colour': BACKGROUND_COLOR,
     'tooltip': `Draws a straight line of any angle between two playfield points, unlike ` +
       `"Background Horizontally/Vertically pixels", which only draws straight up/down or ` +
-      `left/right.`,
+      `left/right. ${DRAW_QUEUE_TOOLTIP}`,
+  },
+  // The fill (the bucket of the graphic editors) and the blocks that stop it and tell when it is done.
+  {
+    'type': 'background_flood_fill',
+    'message0': `${BACKGROUND_ICON} Playfield %1 from X %2 Y %3`,
+    'args0': [
+      {'type': 'field_dropdown', 'name': 'OPERATION', 'options': BACKGROUND_FILL_OPTIONS},
+      {'type': 'input_value', 'name': 'X', 'check': 'Number'},
+      {'type': 'input_value', 'name': 'Y', 'check': 'Number'},
+    ],
+    'inputsInline': true,
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': BACKGROUND_COLOR,
+    'tooltip': `Fill: sets every playfield pixel that is off and joined to the pixel at X and Y (up, down, left or right, through pixels that are ` +
+      `off), up to the pixels that are on, like the fill tool of the graphic editors. Erase: clears every pixel that is on and joined to it, up ` +
+      `to the pixels that are off. Nothing happens when the pixel at X and Y is already the way the fill makes it. It keeps a few places to come ` +
+      `back to as it goes: a very winding area can be left partly filled (more of them on DPC+). ${DRAW_QUEUE_TOOLTIP}`,
+  },
+  {
+    'type': 'background_flood_fill_stop',
+    'message0': `${BACKGROUND_ICON} Stop playfield fill`,
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': BACKGROUND_COLOR,
+    'tooltip': `Stops the fill being drawn and takes the fills still waiting out of the queue (the other Draw blocks waiting are still drawn).`,
+  },
+  {
+    'type': 'background_flood_fill_done',
+    'message0': `${BACKGROUND_ICON} Playfield fill done`,
+    'output': 'Boolean',
+    'colour': BACKGROUND_COLOR,
+    'tooltip': `True when no fill is being drawn or waiting to be drawn. Can only be used on "if" statements.`,
   },
   // Block for reading the playfield's vertical resolution (row count)
   {

@@ -51,7 +51,7 @@ const DEFAULT_PF_X_OFFSET = 17;
 // partnerFrameVar: for a 16 pixel wide player, the frame byte of the sprite that shows its right half (255 while it is not shown);
 // the box is twice as wide while it is shown. partnerHiddenVar: a bit that also hides it.
 export const buildPlayfieldBoxLines = ({label, xVar, yVar, sizeVar, heightVar: baseHeightVar, resultVar, maxRow, rowDivisor, dpcPlusRows, dpcPlusRowSets, rowFracVar, maxRowVar,
-  blankLines = true, pfXOffset = DEFAULT_PF_X_OFFSET, partnerFrameVar, partnerHiddenVar, directRead = false, objectWidth, yShift = 0, extraHeight = 0, extVar, dpcPlusScan = false, pxeRead = false, armRows = false, quickLastXVar, armBox = false, armGroups = false, feetOf, noCopies = false}) => {
+  blankLines = true, pfXOffset = DEFAULT_PF_X_OFFSET, partnerFrameVar, partnerHiddenVar, directRead = false, objectWidth, yShift = 0, extraHeight = 0, extVar, dpcPlusScan = false, pxeRead = false, armRows = false, quickLastXVar, armBox = false, armGroups = false, feetOf, noCopies = false, fixedWidthCode = null}) => {
   const heightVar = extraHeight ? `(${baseHeightVar} ${extraHeight < 0 ? '-' : '+'} ${Math.abs(extraHeight)})` : baseHeightVar;
   const lab = (name) => `${label}_${name}`;
   const at = (name) => `@ ${lab(name)}`;
@@ -758,9 +758,12 @@ export const buildPlayfieldBoxLines = ({label, xVar, yVar, sizeVar, heightVar: b
       `@${lab('armo')}`, 'sta DF0WRITE',
       `lda #${pfXOffset}`, 'sta DF0WRITE',
     ] : [
-      // Normal width 0, double 1, quad 2 (bits 5 and 6 of the last byte), in temp1; the x in temp2.
-      `lda ${sizeVar}`, 'and #7', 'ldx #0', 'cmp #5', `bne ${lab('armw5')}`, 'ldx #$20', `@${lab('armw5')}`, 'cmp #7', `bne ${lab('armw7')}`, 'ldx #$40', `@${lab('armw7')}`,
-      'stx temp1', ...(partnerFrameVar ? [`lda ${xVar}`, 'sta temp2'] : []),
+      // Normal width 0, double 1, quad 2 (bits 5 and 6 of the last byte), in temp1; the x in temp2. A width that cannot change (fixedWidthCode) is a
+      // number, and without a partner sprite it goes straight to the last byte.
+      ...(fixedWidthCode !== null ? (partnerFrameVar ? [`lda #${fixedWidthCode}`, 'sta temp1'] : []) : [
+        `lda ${sizeVar}`, 'and #7', 'ldx #0', 'cmp #5', `bne ${lab('armw5')}`, 'ldx #$20', `@${lab('armw5')}`, 'cmp #7', `bne ${lab('armw7')}`, 'ldx #$40', `@${lab('armw7')}`,
+        'stx temp1']),
+      ...(partnerFrameVar ? [`lda ${xVar}`, 'sta temp2'] : []),
       ...(partnerFrameVar ? [
         `lda ${partnerFrameVar}`, 'cmp #255', `beq ${lab('armnp')}`,
         ...(partnerHiddenOperand ? [`lda ${partnerHiddenOperand[1]}`, `and #${1 << Number(partnerHiddenOperand[2])}`, `bne ${lab('armnp')}`] : []),
@@ -771,7 +774,9 @@ export const buildPlayfieldBoxLines = ({label, xVar, yVar, sizeVar, heightVar: b
       partnerFrameVar ? 'lda temp2' : `lda ${xVar}`, 'sta DF0WRITE',
       `lda ${yVar}`, 'sta DF0WRITE',
       // (temp1 is 0, $20 or $40: the mask only matters for a byte of flags.)
-      ...(extVar ? [`lda ${extVar}`, 'and #$9F', 'ora temp1'] : ['lda temp1']), 'sta DF0WRITE',
+      ...(fixedWidthCode !== null && !partnerFrameVar ?
+        (extVar ? [`lda ${extVar}`, 'and #$9F', ...(fixedWidthCode ? [`ora #${fixedWidthCode}`] : [])] : [`lda #${fixedWidthCode}`]) :
+        (extVar ? [`lda ${extVar}`, 'and #$9F', 'ora temp1'] : ['lda temp1'])), 'sta DF0WRITE',
     ]),
     'lda #255', 'sta CALLFUNCTION',
     'lda #<(C_function+1)', 'sta DF0LOW', 'lda DF0DATA', 'sta temp4',

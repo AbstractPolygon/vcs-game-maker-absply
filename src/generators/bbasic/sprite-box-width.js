@@ -55,9 +55,10 @@ const boxesOf = (Blockly, name) => ({
 export const BOX_SIZE_WIDTHS = '_boxsizewidths';
 const BOX_COPY_OFFSETS = '_boxcopyoffsets';
 const COPY_OFFSETS = [[0], [0, 16], [0, 32], [0, 16, 32], [0, 64], [0], [0, 32, 64], [0]];
-const boxTables = (copies) => [' asm', `  jmp ${BOX_SIZE_WIDTHS}_end`, BOX_SIZE_WIDTHS, '  .byte 8,8,8,8,8,16,8,32',
+// The tables go after the routine's return (see boxChecksTables in generators/bbasic.js): the routine does not jump over them on every frame.
+const boxTables = (copies) => [' asm', BOX_SIZE_WIDTHS, '  .byte 8,8,8,8,8,16,8,32',
   ...(copies ? [BOX_COPY_OFFSETS, ...COPY_OFFSETS.map((offsets) => `  .byte ${[0, 1, 2, 3].map((i) => (i < offsets.length ? offsets[i] : 255)).join(',')}`)] : []),
-  `${BOX_SIZE_WIDTHS}_end`, 'end'];
+  'end'];
 
 // The assembly that leaves an object's width in A (the right half of a wide player doubles it; with shared partner bytes, the right half that is not
 // drawn as one, bit 6 of its size, does not).
@@ -89,7 +90,7 @@ export const generateBoxChecks = (Blockly) => {
   if (!pairs || !pairs.size) return '';
   const lines = [];
   const kinds = [...pairs].flatMap((key) => key.split('|').map((name) => boxesOf(Blockly, name).kind));
-  if (kinds.some((kind) => !Number.isInteger(kind))) lines.push(...boxTables(kinds.includes('full')));
+  Blockly.BBasic.boxChecksTables = kinds.some((kind) => !Number.isInteger(kind)) ? boxTables(kinds.includes('full')).join('\n') : '';
   // The hit bits of all the pairs are cleared first, a byte at a time (one statement for the bits of a byte, not one for each pair), and each
   // pair sets its bit when its boxes overlap.
   const clears = new Map();
@@ -98,8 +99,36 @@ export const generateBoxChecks = (Blockly) => {
     clears.set(bit[1], (clears.get(bit[1]) || 0) | (1 << Number(bit[2])));
   });
   clears.forEach((mask, name) => lines.push(` ${name} = ${name} & ${255 - mask}`));
-  [...pairs].sort().forEach((key) => {
+  // Pairs one after the other with the same first sprite, one a visibility block can hide: its frame is tested once for all of them (a hidden sprite
+  // has no box, and their hit bits are cleared already).
+  const sorted = [...pairs].sort();
+  const firstOf = (key) => key.split('|')[0];
+  const hideablePlayers = Blockly.BBasic.hideablePlayers || new Set();
+  const groupEnds = new Map();
+  sorted.forEach((key, index) => {
+    const first = firstOf(key);
+    if (!hideablePlayers.has(first) || (index > 0 && firstOf(sorted[index - 1]) === first)) return;
+    let last = index;
+    while (last + 1 < sorted.length && firstOf(sorted[last + 1]) === first) last++;
+    if (last > index) groupEnds.set(index, last);
+  });
+  let groupFirst = null;
+  let groupDone = null;
+  let groupLast = -1;
+  sorted.forEach((key, index) => {
     const [first, second] = key.split('|');
+    if (groupEnds.has(index)) {
+      groupFirst = first;
+      groupLast = groupEnds.get(index);
+      groupDone = `_boxgroup_${Blockly.BBasic.blockNumbers.next('boxgroup')}_done`;
+      lines.push(' asm', `  lda ${first}frame`, '  cmp #255', `  bne ${groupDone}_go`, `  jmp .${groupDone}`, `${groupDone}_go`, 'end');
+    }
+    const endGroup = () => {
+      if (index !== groupLast) return;
+      lines.push(groupDone);
+      groupFirst = null;
+      groupLast = -1;
+    };
     const hit = boxHitRef(Blockly, key);
     const id = Blockly.BBasic.blockNumbers.next(`boxpair`);
     const done = `_boxpair_${id}_done`;
@@ -107,7 +136,7 @@ export const generateBoxChecks = (Blockly) => {
     const a = boxesOf(Blockly, first);
     const b = boxesOf(Blockly, second);
     // A sprite a visibility block can hide (frame 255) has no box while it is hidden.
-    const hideable = [first, second].filter((name) => (Blockly.BBasic.hideablePlayers || new Set()).has(name));
+    const hideable = [first, second].filter((name) => hideablePlayers.has(name) && name !== groupFirst);
     const over = (low, high, lowEnd, fail) => [`  lda ${low}`, '  clc', `  adc ${high}`, `  cmp ${lowEnd}`, `  bcc ${fail}`];
     // (fail: where a test that finds no overlap goes; with the copies the end is past a branch's reach, so a jump next to the tests goes on to it.)
     const head = (fail) => [` rem ${first} and ${second} boxes:`, ' asm',
@@ -124,6 +153,7 @@ export const generateBoxChecks = (Blockly) => {
           ...(Number.isInteger(b.kind) ? [] : [...widthAsm(Blockly, b, second, label('bw')), '  sta temp2']),
           ...over(a.x, operand(a, 'temp1'), b.x, `.${done}`), ...over(b.x, operand(b, 'temp2'), a.x, `.${done}`),
           'end', ` ${hit} = 1`, done);
+      endGroup();
       return;
     }
     // With copies: every box of a against every box of b. temp5 and temp6 are where a's and b's boxes start in the table of the copies (one box, the
@@ -152,6 +182,7 @@ export const generateBoxChecks = (Blockly) => {
         label('none'), `  jmp .${done}`,
         label('hit'),
         'end', ` ${hit} = 1`, done);
+    endGroup();
   });
   return lines.join('\n') + '\n';
 };

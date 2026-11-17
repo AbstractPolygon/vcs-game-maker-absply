@@ -1222,7 +1222,8 @@ const unitRunFrequency = (kind, name) => {
   if (kind === 'subroutineBanks') {
     if (/^_(pfbox|sprite_box|run_once_edge_reset)/.test(name)) return EVERY_FRAME;
     if (ON_COLLISION_NAMES.test(name)) return ON_COLLISION;
-    return /^_background_load/.test(name) ? 0 : 2;
+    // (The setup runs once, as the program starts: see PROGRAM_SETUP_NAME in generators/bbasic.js.)
+    return /^(_background_load|_program_setup$)/.test(name) ? 0 : 2;
   }
   return 2;
 };
@@ -1473,9 +1474,14 @@ const pickPullBackMove = (capacity, config, banks, tried) => {
     subroutineBanks: (name) => BlocklyBB.estimateSubroutineSize(name),
   };
   const found = [];
+  // (Not a subroutine of a family, a hosted one or a wrapper: the calls between the members of a family are plain ones, so a member moved alone is called
+  // in the wrong bank. Platformer Example's _sprite_box_checks, pulled back without the _pass_checks that calls it, ran another bank's bytes and reset the
+  // game. The planner moves a family as one: see planLayoutFromMeasurement.)
+  const inFamily = (kind, name) => kind === 'subroutineBanks' && (!!(BlocklyBB.functionHostedSubroutines || {})[name] ||
+    (BlocklyBB.functionCallWrapperNames || new Set()).has(name));
   Object.keys(scale).forEach((kind) => {
     Object.entries(banks[kind] || {}).forEach(([name, bank]) => {
-      if (bank === primary || tried.has(`pull:${kind}:${name}`) || unitRunFrequency(kind, name) < EVERY_FRAME) return;
+      if (bank === primary || tried.has(`pull:${kind}:${name}`) || unitRunFrequency(kind, name) < EVERY_FRAME || inFamily(kind, name)) return;
       const need = sizeOf[kind](name) * scale[kind] * SQUEEZE_MARGIN;
       if (need <= mainBank.freeBytes) found.push({kind, name, bank, need});
     });

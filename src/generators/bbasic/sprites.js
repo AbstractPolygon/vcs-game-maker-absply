@@ -1958,11 +1958,18 @@ export const generateMissileFireChecks = (Blockly) => {
     );
   });
   // The coprocessor's objects: for each call, the bits of the ones that move this frame (active, and not held back by the throttle) in temp4, the call (none when
-  // none moves), then the bits of the ones that moved (a speed other than 0) in temp4, and for those the off screen check.
+  // none moves), then the bits of the ones that moved (a speed other than 0) in temp4, and for those the off screen check. A call for one object
+  // has the tests of that object go past the call themselves, and its bit as a number.
   for (let first = 0; first < armObjects.length; first += FIRE_BATCH_SIZE) {
     const batch = armObjects.slice(first, first + FIRE_BATCH_SIZE);
     const goLabel = `_missilefire_batch${first}_go`;
     const skipLabel = `_missilefire_batch${first}_skip`;
+    if (batch.length === 1) {
+      const [o] = batch;
+      lines.push(...o.pre, ' asm', ...buildFireBatchCall({objects: [o.object], first, go: '#1', moved: 'temp4'}).map((line) => `       ${line}`), 'end',
+          ...(o.edgeLines.length ? [' if !temp4{0} then goto ' + o.edgeDoneLabel, ...o.edgeLines, o.edgeDoneLabel] : []), o.doneLabel);
+      continue;
+    }
     lines.push(' temp4 = 0');
     batch.forEach((o, k) => lines.push(...o.pre, ' asm', '       lda temp4', `       ora #${1 << k}`, '       sta temp4', 'end', o.doneLabel));
     lines.push(' asm', '       lda temp4', `       bne ${goLabel}`, `       jmp .${skipLabel}`, goLabel,

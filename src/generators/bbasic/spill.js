@@ -141,7 +141,9 @@ const ASM_ACCESS = /^\s*(lda|ldx|ldy|sta|stx|sty|bit|cmp|cpx|cpy|adc|sbc|and|ora
 // The ones that only read the byte for a calculation or a test (the instruction reads it from the data fetcher itself, with the accumulator kept on the
 // stack while the pointer is set: the carry and the overflow flag are not touched before the instruction).
 const ASM_READ_OPS = new Set(['bit', 'cmp', 'cpx', 'cpy', 'adc', 'sbc', 'and', 'ora', 'eor']);
-const ASM_TIMED = /\b(WSYNC|RESP[01MB]|RESM[01]|RESBL|HMOVE|HMCLR|HMP[01]|HMM[01]|HMBL|VSYNC|VBLANK|TIM64T|TIM8T|INTIM|DF6\w*)\b/;
+// A line of an asm block that uses the X register (an instruction naming it, or an indexed address).
+const X_REGISTER = /\b(ldx|stx|inx|dex|tax|txa|tsx|txs|cpx)\b|,\s*x\b/i;
+const ASM_TIMED =/\b(WSYNC|RESP[01MB]|RESM[01]|RESBL|HMOVE|HMCLR|HMP[01]|HMM[01]|HMBL|VSYNC|VBLANK|TIM64T|TIM8T|INTIM|DF6\w*)\b/;
 const ASM_IMPLIED = new Set(['rts', 'rti', 'pha', 'pla', 'php', 'plp', 'tax', 'txa', 'tay', 'tya', 'tsx', 'txs', 'inx', 'iny', 'dex', 'dey', 'asl', 'lsr', 'rol',
   'ror', 'clc', 'sec', 'cli', 'sei', 'cld', 'sed', 'clv', 'nop', 'brk', 'end']);
 const ASM_BRANCH = /^(bcc|bcs|beq|bne|bmi|bpl|bvc|bvs)\s+([.@]?[A-Za-z_]\w*)/i;
@@ -216,7 +218,7 @@ const selfScratch = (shape) => !!shape && shape.type === 'set' && SCRATCH.includ
 // the labels in the two lists below, the others keep what the section before them had.
 const HOT_WEIGHT = 100;
 const HOT_LABELS = /^(main|commongamelogic|_fire_checks|_seek_checks|_lock_checks|_inertia_checks|_platformer_checks|_sprite_box_checks|_pfbox_|_run_once_edge_reset|_poolanim|_bouncestage|_bouncepix|_missilefire|_gravity_checks)/;
-const COLD_LABELS = /^(system_start|title_|gameover_|gameplay_start|_dpc_score_font|resetGameVars|_background_load|_background_rainbow_restore|__dpcplus|fullgameloop|_titlestep)/;
+const COLD_LABELS = /^(_program_setup|system_start|title_|gameover_|gameplay_start|_dpc_score_font|resetGameVars|_background_load|_background_rainbow_restore|__dpcplus|fullgameloop|_titlestep)/;
 // Bytes that hold a value only around a rare event, wherever their code sits: a Function's arguments and result (set at a call, read in its body),
 // and where Find playfield pixel found a pixel (a hit). The section weights above take their code in the main loop for code that runs every frame,
 // so they kept these in the RAM and sent counters that do run every frame (an every N frames event's, Fire's speed) to the display memory: measured
@@ -227,15 +229,55 @@ const weightOf = (name, weight) => (rare(name) ? 1 : weight);
 // The frame counter's tick (the template's first line of commongamelogic) runs on every frame without a test: it counts for four, as a line of
 // the main loop that may be skipped stands for one in about four frames. (The checks of the every N frames events read the counter too.)
 const EVERY_FRAME_LINE = /^\s*framecounter\s*=\s*framecounter\s*\+\s*1\b/;
+// A label that a gosub or goto reaches takes the weight of the lines that reach it (the most of them), not the one of the section the text puts
+// before it: the code the bank layout moves (an animation, a subroutine, a check) sits after whatever unit the layout put before it, and took that
+// unit's weight, so the same code counted as running on every frame in one build and once in another, and any change of the code's size could
+// send a name used on every frame to the display memory. (Repeated for the labels reached from code that a label reached gets its weight from.) A
+// jump inside an if counts for a quarter, as the names of a then-only line do; a label the line before can fall into keeps that weight too. The
+// lines of a Function count as code here (its labels, its gosubs), the Function takes the weight of the lines that call it, and the jmp and jsr
+// of an asm block reach their labels too.
+const isCodeLine = (kind, asm) => kind === 'statement' || (kind === 'block' && !asm);
+const isSectionLabel = (line, kind, asm) => isCodeLine(kind, asm) && /^[A-Za-z_]\w*$/.test(line) && !/^(end|return|asm|else|endif)$/.test(line);
+const REACH = /\b(?:gosub|goto)\s+([A-Za-z_]\w*)/g;
+const ASM_REACH = /^\s*(?:jmp|jsr)\s+\.?([A-Za-z_]\w*)/;
+const FUNCTION_START = /^\s*function\s+([A-Za-z_]\w*)/;
 const lineWeights = (lines) => {
-  let weight = 1;
-  return lines.map(({line, kind}) => {
-    if (kind === 'statement' && /^[A-Za-z_]\w*$/.test(line) && !/^(end|return|asm|else|endif)$/.test(line)) {
-      if (HOT_LABELS.test(line)) weight = HOT_WEIGHT;
-      else if (COLD_LABELS.test(line)) weight = 1;
-    }
-    return kind === 'statement' && EVERY_FRAME_LINE.test(line) ? 4 * HOT_WEIGHT : weight;
-  });
+  const functionNames = new Set(lines.map(({line}) => FUNCTION_START.exec(line)).filter(Boolean).map((match) => match[1]));
+  const callsOf = (line) => [...line.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)].map((match) => match[1]).filter((name) => functionNames.has(name));
+  let reached = new Map();
+  let weights = [];
+  for (let round = 0; round < 6; round++) {
+    let weight = 1;
+    let fallsIn = true;
+    weights = lines.map(({line, kind, asm}) => {
+      const functionStart = FUNCTION_START.exec(line);
+      if (functionStart && reached.has(functionStart[1])) weight = reached.get(functionStart[1]);
+      else if (isSectionLabel(line, kind, asm)) {
+        if (HOT_LABELS.test(line)) weight = HOT_WEIGHT;
+        else if (COLD_LABELS.test(line)) weight = 1;
+        else if (reached.has(line)) weight = Math.max(fallsIn ? weight : 0, reached.get(line));
+      }
+      if (isCodeLine(kind, asm)) fallsIn = !/^(goto|return)\b/.test(line.trim());
+      else if (kind === 'block') fallsIn = true;
+      return kind === 'statement' && EVERY_FRAME_LINE.test(line) ? 4 * HOT_WEIGHT : weight;
+    });
+    const next = new Map();
+    const reach = (label, share) => next.set(label, Math.max(next.get(label) || 0, share));
+    lines.forEach(({line, kind, asm}, i) => {
+      if (kind === 'block' && asm) {
+        const match = ASM_REACH.exec(line);
+        if (match) reach(match[1], weights[i]);
+        return;
+      }
+      if (!isCodeLine(kind, asm)) return;
+      const share = /^if\b/.test(line.trim()) ? Math.max(1, Math.round(weights[i] / 4)) : weights[i];
+      for (const match of line.matchAll(REACH)) reach(match[1], share);
+      callsOf(line).forEach((name) => reach(name, share));
+    });
+    if (next.size === reached.size && [...next].every(([label, value]) => reached.get(label) === value)) break;
+    reached = next;
+  }
+  return weights;
 };
 
 const analyze = (code, names) => {
@@ -542,7 +584,15 @@ export const applySpill = (code, slots) => {
           const loadLines = [`${indent}ld${r} #<(${address})`, `${indent}st${r} DF6LOW`, `${indent}ld${r} #(>(${address})) & $0F`, `${indent}st${r} DF6HI`];
           out.push(...loadLines, `${indent}ld${r} DF6DATA`);
         } else if (ASM_READ_OPS.has(op)) {
-          out.push(`${indent}pha`, ...pointerLines(indent, slot), `${indent}pla`, `${indent}${op} DF6DATA`);
+          // The pointer goes through X when the block never uses X (A, the carry and the overflow flag stay as they are, and the pha and pla, 7 cycles,
+          // are not needed); else the accumulator is kept on the stack.
+          const usesX = entries.some((other) => other.kind === 'block' && other.asm && other.block === entries[at].block && X_REGISTER.test(other.line));
+          if (!usesX && op !== 'cpx') {
+            const address = displayRamSlotAddress(slot);
+            out.push(`${indent}ldx #<(${address})`, `${indent}stx DF6LOW`, `${indent}ldx #(>(${address})) & $0F`, `${indent}stx DF6HI`, `${indent}${op} DF6DATA`);
+          } else {
+            out.push(`${indent}pha`, ...pointerLines(indent, slot), `${indent}pla`, `${indent}${op} DF6DATA`);
+          }
         } else if (op === 'sta') {
           out.push(`${indent}php`, `${indent}pha`, ...pointerLines(indent, slot), `${indent}pla`, `${indent}sta DF6WRITE`, `${indent}plp`);
         } else {
