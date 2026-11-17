@@ -37,15 +37,26 @@ These files stay on the absply repo: leave the `tests` folder out of pushes to o
   a bounce (function 100) against the 6502 lines that do them now.
 - `boxcmp.cjs [trials] [seed]`: the box comparison of two sprites as generateBoxChecks makes it, assembled with dasm.wasm and run on 6502.ts's CPU
   (no ROM, no browser), against a model of the boxes: every kind of box (fixed width, width from the size byte, width and copies from the size
-  byte, the right half of a wide player), every size code, hidden sprites.
+  byte, the right half of a wide player), every size code, hidden sprites; then as many cases of two pairs with the same first sprite (its hidden
+  test made once for both), each pair with its bit.
 - `edgecmp.cjs`: the flag lines of an edge (a switch just switched on, Fire just pressed: edgeFlagLines in src/generators/bbasic/input.js), assembled
   and run on 6502.ts's CPU for every pair of bits and every value of the byte, up and down, against what the batari Basic statements did.
+- `drawcmp.cjs draw_std.bin [frames]`: the standard kernel ROM of tests/projects/draw_std.vcsgm run that many frames (600); its playfield RAM
+  against the same drawing done in JavaScript (the fill a true 4-connected flood fill). Earlier frames show the drawing spread over frames.
+- `stepcost.cjs rom.bin rom.sym.txt [frames]`: the cycles each step of the Draw blocks' engine takes (a call of _pfd_unit), by the kind of work
+  being drawn, with picsame's input: the most and the mean, and the most in timer counts (for STEP_TIMER_COUNTS in src/generators/bbasic/pf-draw.js).
+- `runoncereset.cjs`: the per-frame reset of the DPC+ "Run once" flag bytes (runOnceResetLines in src/utils/dpc-ram-flags.js), run on 6502.ts's
+  CPU with a model of the two data fetchers, 1 to 3 bytes, every value: the fired bits kept only with their touched bit, the touched bits
+  cleared, no other byte of the display RAM changed.
 - `scorecmp.cjs`: the assembly of a Set score block for a value worked out while the game runs (score_set in src/generators/bbasic/score.js),
   assembled and run on 6502.ts's CPU for every byte 0 to 255, against the score it must give (000 and the hundreds, tens and ones).
 - `dfcount.cjs rom.bin [frames] [seed]`: a DPC+ ROM with rollcheck's joystick input: the reads and writes a frame of each variable the build put in
   the display memory (the bytes of the DPC+ stack area, through data fetcher 6), and of all of them.
 - `picsame.cjs a.bin b.bin [frames]`: two ROMs of any kind (standard, DPC+, PXE) run with no input but the reset switch, their pictures compared
   frame by frame (PNG=prefix SHOW=frame writes that frame of each; FIRE=from-to,from-to presses Fire in those frames, to start a game).
+- `bgcolor.cjs rom.bin frame[,frame...]`: the color most of rows 30 to 160 show in those frames (the background), with picsame's input
+  (FIRE as there); EXPECT=rrggbb fails when the last frame shows another. ball2 to ball5, rc1, rc2 of tests/projects after "End title screen":
+  `FIRE=200-210,400-410 EXPECT=328432 node emulator/bgcolor.cjs ball2.bin 300` (the starting background back, not black).
 
 Example (the ball of the Title Screen demo logo, exact on its rows):
 
@@ -61,6 +72,9 @@ node tests/emulator/exactball.cjs tests/out/ball2.json tests/projects/ball2.vcsg
   Function's return value lines get thisbank.
 - `returnasm.cjs`: compiles a short program with the app's batari Basic compiler (preprocess.wasm and 2600basic.wasm with WASI) and checks the
   code of those returns: RTS, JMP BS_return, a load and an RTS.
+- `spillweights.cjs`: the weights the display memory spill (src/generators/bbasic/spill.js, describeSpill) gives a name's uses are the same wherever
+  the bank layout puts the code that uses them: a unit reached by a goto or gosub, a subroutine a Function calls and a label an asm jmp reaches take
+  the weight of the lines that reach them (100 a use from code of every frame, a quarter from inside an if), not the one of the section before them.
 
 ## TIA test ROMs (`tests/tia`)
 
@@ -105,4 +119,7 @@ use 4-pixel tiles for a project with `tileSet.forceNarrow` (`projects/mknarrow.c
   and single color.
 - `projects/scroll_*.vcsgm` (made by `mkscroll.cjs`): Reset playfield scroll on the standard kernel, DPC+ and PXE (see the list at the top of
   `mkscroll.cjs`).
+- `projects/draw_std.vcsgm`, `draw_dpc.vcsgm`, `draw_pxe.vcsgm` (made by `mkdraw.cjs`): every Draw block of Playfield > Utility in a Run once
+  block (straight lines, a line, a fill, a circle, a flipped area, a pixel, a centered area, an erase) and the score set to 777 once
+  "Playfield fill done"; for the drawing engine (src/generators/bbasic/pf-draw.js).
 - `roms/`: the ROMs and symbols last built from them (`resbl.bin` from `tests/tia/mkresbl.cjs`).

@@ -1,7 +1,8 @@
 // usage: node boxcmp.cjs [trials] [seed] -> the box comparison of two sprites as generateBoxChecks makes it (src/generators/bbasic/sprite-box-width.js),
 // assembled with the project's dasm.wasm and run on 6502.ts's CPU, against a model of the boxes, for random sprites: every kind of box (a fixed
 // width, the width from the size byte, the width and the copies from the size byte, the right half of a wide player), every size code, x and y
-// anywhere, hidden sprites. Prints the cases that differ.
+// anywhere, hidden sprites. Then as many cases of two pairs with the same first sprite (player0 with player1 and with player3; their hidden test is made
+// once for both when player0 can be hidden), each pair with its bit. Prints the cases that differ.
 const P = require('../lib/paths.cjs');
 const fs = require('fs');
 const path = require('path');
@@ -16,11 +17,11 @@ const WIDTHS = [8, 8, 8, 8, 8, 16, 8, 32];
 const RAM = {temp1: 0x80, temp2: 0x81, temp3: 0x82, temp4: 0x83, temp5: 0x84, temp6: 0x85, temp7: 0x86, hit: 0x87};
 ['spra', 'sprb', 'sprc'].forEach((name, i) => ['x', 'y', 'height', 'size', 'frame'].forEach((role, k) => { RAM[`${name}${role}`] = 0x90 + i * 8 + k; }));
 
-// The generator, loaded as a module with the flag pool helpers replaced (the hit is bit 0 of `hit`).
+// The generator, loaded as a module with the flag pool helpers replaced (the hit of each pair is the bit of `hit` its place in boxPairOrder gives).
 const loadGenerator = async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'boxcmp-'));
   const src = fs.readFileSync(P.REPO + 'src/generators/bbasic/sprite-box-width.js', 'utf8')
-      .replace(/import \{flagPoolVar, flagPoolBit\} from '\.\/flag-pool';/, "const flagPoolVar = () => 'hit'; const flagPoolBit = () => 0;");
+      .replace(/import \{flagPoolVar, flagPoolBit\} from '\.\/flag-pool';/, "const flagPoolVar = () => 'hit'; const flagPoolBit = (family, bit) => bit;");
   fs.writeFileSync(path.join(dir, 'gen.mjs'), src);
   return import('file://' + path.join(dir, 'gen.mjs').replace(/\\/g, '/'));
 };
@@ -35,8 +36,8 @@ const toAsm = (code) => {
     if (text === 'asm') { inAsm = true; return; }
     if (text === 'end') { inAsm = false; return; }
     if (inAsm) { out.push(/^\s/.test(line) ? `  ${text}` : text); return; }
-    const set = /^hit\{0\} = ([01])$/.exec(text);
-    if (set) { out.push(`  lda #${set[1]}`, '  sta hit'); return; }
+    const set = /^hit\{(\d)\} = 1$/.exec(text);
+    if (set) { out.push('  lda hit', `  ora #${1 << Number(set[1])}`, '  sta hit'); return; }
     // (The hit bits are cleared first, all of a byte with one statement.)
     const clear = /^hit = hit & (\d+)$/.exec(text);
     if (clear) { out.push('  lda hit', `  and #${clear[1]}`, '  sta hit'); return; }
@@ -104,7 +105,8 @@ const modelHit = (a, b, ka, kb, partner, hideable) => {
       // (The generator's pair order is sorted: player0|player1, missile0|missile1, missile0|player1, missile1|player0 ... a is the first name.)
       const sorted = [names.a, names.b].sort();
       const swap = sorted[0] !== names.a;
-      let code = gen.generateBoxChecks(Blockly);
+      // (The tables come after the routine's end: the harness stops at stopHere, which the generated code reaches by the jump below.)
+      let code = gen.generateBoxChecks(Blockly) + ' asm\n  jmp stopHere\nend\n' + (Blockly.BBasic.boxChecksTables || '');
       const rename = (text, from, to) => text.replace(new RegExp(`\\b${from}(x|y|height|size|frame)\\b`, 'g'), `${to}$1`);
       code = rename(rename(rename(code, names.a, 'spra'), names.b, 'sprb'), 'player2', 'sprc');
       const rom = await assemble(toAsm(code), dir);
@@ -138,5 +140,59 @@ const modelHit = (a, b, ka, kb, partner, hideable) => {
     runs++; hits += want;
     if (got !== want && bad++ < 8) console.log(`differ: kinds ${JSON.stringify([ka, kb, withPartner, shared, hideable])} a ${JSON.stringify(a)} b ${JSON.stringify(b)} c ${JSON.stringify(c)}: code ${got} model ${want}`);
   }
-  console.log(`${runs} cases (${hits} overlap by the model), ${bad} differ`);
+  // Two pairs with the same first sprite (no partners): bit 0 player0 with player1 (spra, sprb), bit 1 player0 with player3 (spra, sprc).
+  const playerKinds = [8, 16, 32, 'size', 'full'];
+  let groupBad = 0; let groupRuns = 0;
+  const groupCache = new Map();
+  for (let t = 0; t < Number(trialsText); t++) {
+    const kinds = [0, 1, 2].map(() => playerKinds[rnd(playerKinds.length)]);
+    const hideable = ['a', 'b', 'c'].filter(() => rnd(2) === 0);
+    const key = JSON.stringify([kinds, hideable]);
+    if (!groupCache.has(key)) {
+      const names = {a: 'player0', b: 'player1', c: 'player3'};
+      const order = ['player0|player1', 'player0|player3'];
+      let number = 0;
+      const Blockly = {BBasic: {
+        boxPairs: new Set(order), boxPairOrder: order,
+        boxKinds: new Map([[names.a, kinds[0]], [names.b, kinds[1]], [names.c, kinds[2]]]),
+        widePartners: {}, sharedPartnerVars: {}, hideablePlayers: new Set(hideable.map((side) => names[side])),
+        nameDB_: {getName: (n) => n}, blockNumbers: {next: () => ++number},
+      }, Names: {DEVELOPER_VARIABLE_TYPE: 'dev'}};
+      const rename = (text, from, to) => text.replace(new RegExp(`\\b${from}(x|y|height|size|frame)\\b`, 'g'), `${to}$1`);
+      const generated = gen.generateBoxChecks(Blockly) + ' asm\n  jmp stopHere\nend\n' + (Blockly.BBasic.boxChecksTables || '');
+      const code = rename(rename(rename(generated, 'player0', 'spra'), 'player1', 'sprb'), 'player3', 'sprc');
+      groupCache.set(key, await assemble(toAsm(code), dir));
+    }
+    const rom = groupCache.get(key);
+    const spr = () => ({x: rnd(4) === 0 ? 150 + rnd(106) : rnd(170), y: rnd(200), height: rnd(4) === 0 ? 0 : 1 + rnd(30), size: rnd(256), frame: rnd(4) === 0 ? 255 : rnd(10)});
+    const a = spr(); const b = spr(); const c = spr();
+    [b, c].forEach((o) => {
+      if (rnd(4) !== 0) o.x = (a.x + rnd(110) - 30) & 255;
+      if (rnd(4) !== 0) o.y = (a.y + rnd(24) - 12) & 255;
+    });
+    [a, b, c].forEach((o, i) => {
+      if (Number.isInteger(kinds[i])) o.size &= 0xF8;
+    });
+    const mem = new Uint8Array(65536);
+    mem.set(rom, 0xF000);
+    const put = (name, o) => ['x', 'y', 'height', 'size', 'frame'].forEach((role) => { mem[RAM[`${name}${role}`]] = o[role]; });
+    put('spra', a); put('sprb', b); put('sprc', c);
+    mem[RAM.hit] = 0xAA;
+    const bus = {read: (addr) => mem[addr & 0xffff], write: (addr, v) => { mem[addr & 0xffff] = v; }, peek: (addr) => mem[addr & 0xffff], readWord: (addr) => mem[addr] | (mem[addr + 1] << 8)};
+    const cpu = new CpuFactory(CpuFactory.Type.stateMachine).create(bus);
+    cpu.reset();
+    let steps = 0;
+    while (steps++ < 200000) {
+      cpu.cycle();
+      if (cpu.getLastInstructionPointer() === 0xFF00) break;
+    }
+    const got = mem[RAM.hit] & 3;
+    // (modelHit's 'a' and 'b' are the two sprites of the pair it is given.)
+    const pairHideable = (first, second) => [...(hideable.includes(first) ? ['a'] : []), ...(hideable.includes(second) ? ['b'] : [])];
+    const want = modelHit(a, b, kinds[0], kinds[1], null, pairHideable('a', 'b')) | (modelHit(a, c, kinds[0], kinds[2], null, pairHideable('a', 'c')) << 1);
+    groupRuns++;
+    if (got !== want && groupBad++ < 8) console.log(`differ (two pairs): ${key} a ${JSON.stringify(a)} b ${JSON.stringify(b)} c ${JSON.stringify(c)}: code ${got} model ${want}`);
+  }
+  console.log(`${runs} cases (${hits} overlap by the model), ${bad} differ; two pairs: ${groupRuns} cases, ${groupBad} differ`);
+  process.exit(bad || groupBad ? 1 : 0);
 })();

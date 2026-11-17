@@ -9,7 +9,8 @@ const crlf = s.includes('\r\n');
 if (crlf) s = s.replace(/\r\n/g, '\n');
 const a = '      const compiledResult = await assembleBatariBasic(compiled.mainAsm, compiled.workDir, log);\n';
 if (s.split(a).length < 2) throw new Error('anchor');
-s = s.split(a).join('      window.__vcsAsm = compiled.mainAsm; // TEMP-DEBUG remove\n' + a);
+// (The bB text of that build too, for tests/browser/loadsym.cjs: the last compile is not always the one assembled, see hook_bb.cjs.)
+s = s.split(a).join('      window.__vcsAsm = compiled.mainAsm; window.__vcsBbAtAsm = window.__vcsBb; // TEMP-DEBUG remove\n' + a);
 if (crlf) s = s.replace(/\n/g, '\r\n');
 fs.writeFileSync(p, s);
 console.log('asm hook on');

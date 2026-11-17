@@ -16,7 +16,7 @@ module.exports = async ({send, evaluate, sleep, APP}) => {
   const sym = await evaluate("window.__vcsSymText || ''"); const asmText = await evaluate("window.__vcsAsm || ''"); if (asmText) fs.writeFileSync(process.env.ROMOUT.replace(/.bin$/, '.asm.txt'), asmText);
   if (sym) fs.writeFileSync(process.env.ROMOUT.replace(/\.bin$/, '.sym.txt'), sym);
   // (The bB text, with tests/hooks/hook_bb.cjs on.)
-  const bb = await evaluate("window.__vcsBb || ''");
+  const bb = await evaluate("window.__vcsBbAtAsm || window.__vcsBb || ''");
   if (bb) fs.writeFileSync(process.env.ROMOUT.replace(/\.bin$/, '.bb.txt'), bb);
   console.log('saved', !!base64, sym.length);
 };
