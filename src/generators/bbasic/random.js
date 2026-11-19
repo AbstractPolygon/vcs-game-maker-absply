@@ -77,9 +77,11 @@ export default (Blockly) => {
     // DPC+ has a 32-bit generator in the chip: its four seed bytes are set through RWRITE0-3 (no byte of "rand" can be
     // written, it is the chip's register). The seed is the first byte and its complement the second, so they are never
     // all zero (which would stop the generator), and the other two are fixed.
+    // The second number (0 to 255, 0 when none is plugged in) is the other two bytes: $32 and $36 with it 0, as they always were.
     if (config.kernel === 'dpcplus') {
-      return `temp1 = ${clampedSeed}\n` + ['asm', ' lda temp1', ' sta RWRITE0', ' eor #$FF', ' sta RWRITE1', ' lda #$32', ' sta RWRITE2',
-        ' lda #$36', ' sta RWRITE3', '@end'].join('\n') + '\n';
+      const seed2 = Blockly.BBasic.valueToCode(block, 'SEED2', Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
+      return `temp1 = (${seed2}) & 255\n` + ['asm', ' lda temp1', ' eor #$32', ' sta RWRITE2', ' lda temp1', ' eor #$FF', ' eor #$C9', ' sta RWRITE3', '@end'].join('\n') + '\n' +
+        `temp1 = ${clampedSeed}\n` + ['asm', ' lda temp1', ' sta RWRITE0', ' eor #$FF', ' sta RWRITE1', '@end'].join('\n') + '\n';
     }
     return `temp1 = ${clampedSeed}\n` +
       `rand = temp1\n` +

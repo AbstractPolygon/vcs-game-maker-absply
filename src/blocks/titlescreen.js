@@ -623,8 +623,7 @@ Blockly.Blocks['titlescreen_draw'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Draws the chosen Title Screen tab page to the TV. Call this ' +
-      'repeatedly (e.g. every frame of "Title screen update") for as long as you want it shown.');
+    this.setTooltip('Draws the chosen Title Screen page. Call it every frame to keep it shown.');
   },
 };
 
@@ -637,11 +636,7 @@ Blockly.Blocks['titlescreen_end'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Stops the Title Screen Kernel and shows the regular game screen from the next ' +
-      'frame on, while staying in "Title screen update": the rest of the event keeps running every ' +
-      'frame, drawn the way gameplay is. Blocks after this one still run this frame, ' +
-      '"Draw title screen" blocks do nothing once it has run, and "Title screen start" turns the ' +
-      'kernel back on. Only works inside "Title screen update".');
+    this.setTooltip('Stops the Title Screen Kernel and shows the regular game screen from the next frame; the event keeps running. Blocks after this still run this frame. "Title screen start" turns the kernel back on. Only works inside "Title screen update".');
   },
 };
 
@@ -653,10 +648,7 @@ Blockly.Blocks['titlescreen_start'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Starts the title screen over, the way a change of game state to the title screen does: the ' +
-      'Title Screen Kernel draws again (after "End title screen" stopped it), the variables and flags of the title screen ' +
-      'are set back, and the blocks of "Title screen start" run again before "Title screen update" ' +
-      'carries on. The blocks after this one do not run. Does nothing inside "Title screen start".');
+    this.setTooltip('Restarts the title screen: the kernel draws again, the title screen variables and flags are reset, and "Title screen start" runs again. Blocks after this do not run. Does nothing inside "Title screen start".');
   },
 };
 
@@ -700,10 +692,7 @@ Blockly.Blocks['titlescreen_card_color_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Changes the color of a single-color Title Screen graphic (48x1, or a single color 48x2 or 96x2) while the title ' +
-      'screen is showing, for text that blinks or cycles colors. "Title screen start" sets it back to ' +
-      'the color chosen on the Title tab. Graphics with a color for every row keep ' +
-      'the colors drawn on the Title tab.');
+    this.setTooltip('Changes the color of a single-color graphic (48x1, or single color 48x2 or 96x2) while the title screen shows. "Title screen start" resets it. Graphics with a color for every row keep the Title tab colors.');
   },
 };
 
@@ -723,11 +712,7 @@ Blockly.Blocks['titlescreen_card_color_fade'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Starts fading the color of a Title Screen graphic toward the given color over roughly that many ' +
-      'frames: the same hue, with the brightness climbing or dropping from where it is. It only needs to run once, and ' +
-      'keeps going by itself while the title screen shows. "Title screen start" sets the color back to the one chosen on ' +
-      'the Title tab. A 48x2 graphic with a color for every row fades every frame of its animation from the row colors of its first ' +
-      'frame, and needs a color from the color picker block and a number of frames typed in.');
+    this.setTooltip('Fades a graphic\'s color toward the given color over about that many frames. It keeps going by itself once started; "Title screen start" resets it. A 48x2 graphic with a color for every row fades from its first frame\'s row colors and needs a color picker block and a typed-in number of frames.');
   },
 };
 
@@ -745,10 +730,7 @@ Blockly.Blocks['titlescreen_box_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Shows or hides the colored area behind a 48-wide Title Screen graphic (the Title tab\'s ' +
-      '"Picture background"): right behind the picture, off, or across the screen. "Title screen ' +
-      'start" sets it back to what the Title tab says. Use "Set title screen graphic picture background ' +
-      'color" for its color.');
+    this.setTooltip('Shows or hides the area behind a 48-wide graphic (the Title tab\'s "Picture background"): right behind the picture, off, or across the screen. "Title screen start" resets it.');
   },
 };
 
@@ -763,10 +745,7 @@ Blockly.Blocks['titlescreen_box_color_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Changes the color of the area behind a 48-wide Title Screen graphic while the title ' +
-      'screen is showing. It only shows where the picture background is switched on (see "Set title ' +
-      'screen graphic picture background to", or the Title tab). "Title screen start" sets it back to ' +
-      'the Title tab\'s color.');
+    this.setTooltip('Changes the color of the area behind a 48-wide graphic. Only shows where the picture background is on. "Title screen start" resets it.');
   },
 };
 
@@ -790,11 +769,7 @@ Blockly.Blocks['titlescreen_card_frame_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Jumps a Title Screen graphic with more than one frame to the chosen frame (0 is ' +
-      'the first). With "hold it" off the graphic goes on playing from that frame; with it on the ' +
-      'graphic stays on that frame, until another block of this kind with "hold it" off sets it ' +
-      'going again or "Title screen start" runs. "Then" says what happens after the chosen frame: ' +
-      '"loop" keeps playing round and round, "play once" plays to the last frame and stays there.');
+    this.setTooltip('Jumps a multi-frame graphic to the chosen frame (0 is the first). "Hold it" off keeps playing from that frame; on, it stays there until another block with it off or "Title screen start". "Then": "loop" keeps playing, "play once" stops on the last frame.');
   },
 };
 
@@ -811,10 +786,7 @@ Blockly.Blocks['titlescreen_card_animate'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Starts the animation of a Title Screen graphic with more than one frame from the ' +
-      'beginning: forward from the first frame, or in reverse from the last one, and releases it if ' +
-      'a "Set title screen graphic to frame" block was holding it. "Then" says what happens at the end: ' +
-      '"loop" goes round again, "play once" stays on the last frame reached (the first frame, in reverse).');
+    this.setTooltip('Starts a multi-frame graphic\'s animation from the beginning, forward or in reverse, and releases a hold. "Then": "loop" goes round again, "play once" stays on the last frame reached.');
   },
 };
 
@@ -828,9 +800,7 @@ Blockly.Blocks['titlescreen_bg_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Changes the background color of the title screen while it is showing, for every ' +
-      'page, instead of the color chosen for the page on the Title tab (for fades and flashes). ' +
-      '"Reset title screen background color" and "Title screen start" go back to the page colors.');
+    this.setTooltip('Changes the title screen background color on every page, replacing the page colors. "Reset title screen background color" and "Title screen start" restore them.');
   },
 };
 
@@ -841,8 +811,7 @@ Blockly.Blocks['titlescreen_bg_reset'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Goes back to the background color chosen for each page on the Title tab, after ' +
-      '"Set title screen background color".');
+    this.setTooltip('Restores the background colors chosen for each page on the Title tab.');
   },
 };
 
@@ -893,12 +862,7 @@ Blockly.Blocks['titlescreen_scroll_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Scrolls a Title Screen graphic that has its "Window height" set ' +
-      'smaller than one frame\'s height - 0 shows the very top/first rows, increasing it scrolls ' +
-      'further down/through the frame. If the graphic has more than one animation frame, they ' +
-      'keep playing back automatically by themselves schedule while this scrolls within whichever ' +
-      'frame is currently showing. Only graphics with scrolling enabled (Title Screen tab) appear ' +
-      'in the dropdown.');
+    this.setTooltip('Scrolls a graphic whose "Window height" is smaller than its frame: 0 shows the top rows, higher values scroll down. Animation frames keep playing. Only graphics with scrolling enabled are listed.');
   },
 };
 
@@ -914,11 +878,7 @@ Blockly.Blocks['titlescreen_window_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Changes how many rows a scrolling Title Screen graphic shows at once (its window), while the title screen runs: 1 to the height of one ' +
-      'frame of the graphic. The window starts at the "Window height" set in the Title tab and keeps its top row where it is; if the new window would run ' +
-      'past the bottom of the picture, the scroll position moves up so that it does not. The graphics below on the page move up or down with it (a page shows ' +
-      'about 200 lines). Only graphics with a "Window height" set smaller than the picture (Title tab) appear in the dropdown. A graphic that has this block ' +
-      'takes a byte of memory and a few bytes of code more.');
+    this.setTooltip('Changes how many rows a scrolling graphic shows (1 to one frame\'s height) and keeps its top row; the scroll position moves up if the window would pass the bottom. Graphics below move with it. Needs a "Window height" smaller than the picture; costs a byte of memory and a few bytes of code.');
   },
 };
 
@@ -937,11 +897,7 @@ Blockly.Blocks['titlescreen_scroll_by'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Moves a scrolling Title Screen graphic up or down by the given number of rows from ' +
-      'its current position (use "Set title screen scroll position" to start anywhere). With "stop at ' +
-      'edge" on, scrolling halts when the top of the graphic reaches the top of its window, or the ' +
-      'bottom of the graphic reaches the bottom of its window. With more than one animation frame, ' +
-      'the edge is that of the frame currently showing.');
+    this.setTooltip('Moves a scrolling graphic up or down by the given rows. With "stop at edge" on, it stops when the graphic\'s top or bottom reaches the window\'s; with several animation frames the edge is the current frame\'s.');
   },
 };
 
@@ -957,8 +913,7 @@ Blockly.Blocks['titlescreen_animation_finished'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Runs the connected blocks once each time a Title Screen graphic with more than one ' +
-      'frame finishes its animation: every time round when it loops, once when it plays once.');
+    this.setTooltip('Runs once each time a multi-frame graphic finishes its animation: every loop, or once if it plays once.');
   },
 };
 
@@ -973,9 +928,7 @@ Blockly.Blocks['titlescreen_scroll_edge_reached'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Runs the connected blocks once, each time a "Scroll title screen graphic" block with ' +
-      '"stop at edge" on lands on the top or bottom edge of that graphic. Setting the position directly ' +
-      'does not count.');
+    this.setTooltip('Runs once each time a "Scroll title screen graphic" block with "stop at edge" on lands on an edge. Setting the position directly does not count.');
   },
 };
 
@@ -1004,13 +957,6 @@ Blockly.Blocks['titlescreen_player_frame_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Jumps the player sprite of the Title tab to a frame of its chosen Player 0/1 animation ' +
-      '(0 = the first frame; with a Player sprites card on several pages, the card of the page that is drawn). An animation with several frames plays by itself on the title screen, using ' +
-      'the duration of each frame; this block only moves it to a frame, and it carries on from there: ' +
-      '"loop" keeps playing round and round, "play once" plays to the last frame and stays there. ' +
-      'An animation with one frame stays where it is. Position it with the normal ' +
-      '"Player 0/1 set X/Y" blocks - the title screen sprite is the same hardware sprite, just ' +
-      'drawn by the title screen kernel instead of the normal game kernel while a title screen ' +
-      'is being shown.');
+    this.setTooltip('Jumps the Title tab\'s player sprite to a frame of its Player 0/1 animation (0 is the first; with cards on several pages, the drawn page\'s). The animation then carries on: "loop" keeps playing, "play once" stops on the last frame. A one-frame animation stays. Position it with the "Player 0/1 set X/Y" blocks.');
   },
 };

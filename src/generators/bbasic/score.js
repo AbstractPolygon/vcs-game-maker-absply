@@ -7,9 +7,11 @@ import {cycleScoreOn, isPxe} from '../../utils/pxe';
 import {colorByteToBuildBBasic, scoreColorByteOf} from '../../utils/palette';
 import {dpcPlusRowLinesFor, pfRowDivisorFor} from '../../utils/playfield-coords';
 import {dpcPlusPfresOf, effectiveBackgroundRows} from '../../blocks/background';
-import {scoreBarUnitsVarName, scoreLineHueVarName} from '../../blocks/score';
+import {scoreBarUnitsVarName, scoreLineHueVarName, scoreSideValueVarName} from '../../blocks/score';
 import {isInsideFunctionBody} from '../../utils/function-body';
 import {dpcPlusScoreFillAsm} from '../../utils/dpc-score-colors';
+import {scoreLayoutFile, scoreLayoutKeysOf, scoreLayoutLeftUnit, SCORE_LAYOUT_FLAGS_FAMILY} from './score-layout';
+import {flagPoolVar, flagPoolBit} from './flag-pool';
 
 // The literal bB identifier itself (not an internal "_xyz" bookkeeping
 // name), reserved directly through the normal dev var pool when the Text
@@ -252,6 +254,152 @@ export default (Blockly) => {
     const isNegativeConstant = /^\s*-\s*\d+\s*$/.test(argument0);
     const operator = isNegativeConstant ? '' : '+';
     return `score = score ${operator} ${argument0}\n`;
+  };
+
+  // Two score layouts (Score tab, see score-layout.js): the score is still one BCD number of three bytes (score, score+1, score+2: two digits each),
+  // and each side is some of its digits. For each layout and side: the pieces that make up the side (a byte, or a nibble of one: mask 'F0' for the
+  // high digit of the byte or '0F' for the low one) and the bytes to clear for a Set.
+  const SCORE_SIDES = {
+    '3+3': {
+      left: {parts: [{byte: 1}, {byte: 2, mask: 'F0'}], clear: ['lda #0', 'sta score', 'lda score+1', 'and #$0F', 'sta score+1']},
+      right: {parts: [{byte: 2, mask: '0F'}, {byte: 3}], clear: ['lda score+1', 'and #$F0', 'sta score+1', 'lda #0', 'sta score+2']},
+    },
+    '4+2': {
+      left: {parts: [{byte: 1}, {byte: 2}], clear: ['lda #0', 'sta score', 'sta score+1']},
+      right: {parts: [{byte: 3}], clear: ['lda #0', 'sta score+2']},
+    },
+    '5+1': {
+      left: {parts: [{byte: 1}, {byte: 2}, {byte: 3, mask: 'F0'}], clear: ['lda #0', 'sta score', 'sta score+1', 'lda score+2', 'and #$0F', 'sta score+2']},
+      right: {parts: [{byte: 3, mask: '0F'}], clear: ['lda score+2', 'and #$F0', 'sta score+2']},
+    },
+  };
+  // The two score layouts in the ROM (the Score tab's first, then the ones Set score layout blocks name); none where the score is one score.
+  Blockly.BBasic.scoreLayoutKeys = function() {
+    const config = (useConfigurationStorage() && useConfigurationStorage().value) || {};
+    if (this.isTextMinikernelActive && this.isTextMinikernelActive()) return [];
+    return scoreLayoutKeysOf(config, [...(this.scoreLayoutsUsed || [])]);
+  };
+  const twoScoreLayoutsOrNote = (block) => {
+    const config = (useConfigurationStorage() && useConfigurationStorage().value) || {};
+    const keys = Blockly.BBasic.scoreLayoutKeys();
+    if (!keys.length) {
+      appendCompileLog('The Score left and Score right blocks need a two score layout (Score tab, standard kernel); they do nothing now.', 'info');
+      return null;
+    }
+    Blockly.BBasic.definitions_['score_digit_aliases'] = scoreDigitAliases(config.showVariableComments ?? false);
+    return keys;
+  };
+  // The code of a block for each layout in the ROM: with one layout the code itself, with several a test of the layout showing before each.
+  const forEachScoreLayout = (keys, lines) => {
+    if (keys.length === 1) return lines(keys[0]);
+    const flags = Blockly.BBasic.nameDB_.getName(flagPoolVar(SCORE_LAYOUT_FLAGS_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+    const id = Blockly.BBasic.blockNumbers.next('scorelayout');
+    const done = `_scorelayout_${id}_done`;
+    const out = [];
+    keys.slice(1).forEach((key, i) => out.push(`if ${flags}{${flagPoolBit(SCORE_LAYOUT_FLAGS_FAMILY, i)}} then goto _scorelayout_${id}_${i + 1}`));
+    out.push(lines(keys[0]), `goto ${done}`);
+    keys.slice(1).forEach((key, i) => out.push(`@ _scorelayout_${id}_${i + 1}`, lines(key), `goto ${done}`));
+    out.push(`@ ${done}`);
+    return out.join('\n');
+  };
+  // Adds to (or subtracts from) one side of the score N times (N up to 255): one point of the left score is 1000, 100 or 10 of the score (the right: 1),
+  // and a side that is at its largest score (or 0) is left as it is, so the score of one side never carries into the other.
+  const scoreSideChangeLines = (layout, side, amount, blockNumber) => {
+    const {parts} = SCORE_SIDES[layout][side];
+    const unit = side === 'left' ? scoreLayoutLeftUnit(layout) : 1;
+    const negative = /^\s*-\s*\d+\s*$/.test(amount);
+    const count = negative ? amount.replace(/[-\s]/g, '') : amount;
+    const loop = `_scoreside_${blockNumber}_loop`;
+    const done = `_scoreside_${blockNumber}_done`;
+    // (The lines of the limit check are written so that a piece that differs from the limit sends the code on.)
+    const limit = [];
+    const kind = negative ? 'zero' : 'max';
+    parts.forEach((part, i) => {
+      const name = `scorebyte${part.byte}`;
+      const value = kind === 'max' ? (part.mask ? (part.mask === 'F0' ? '$90' : '$09') : '$99') : '$00';
+      if (part.mask) limit.push(`temp4 = ${name} & $${part.mask}`);
+      limit.push(`if ${part.mask ? 'temp4' : name} <> ${value} then goto _scoreside_${blockNumber}_go`);
+    });
+    return [
+      `temp3 = ${count}`,
+      `@ ${loop}`,
+      `if temp3 = 0 then goto ${done}`,
+      ...limit,
+      `goto ${done}`,
+      `@ _scoreside_${blockNumber}_go`,
+      `score = score ${negative ? '-' : '+'} ${unit}`,
+      'temp3 = temp3 - 1',
+      `goto ${loop}`,
+      `@ ${done}`,
+    ].join('\n');
+  };
+  const scoreSideClearLines = (layout, side) => ['asm', ...SCORE_SIDES[layout][side].clear, '@end'].join('\n');
+  ['left', 'right'].forEach((side) => {
+    Blockly.BBasic[`score_${side}_change`] = function(block) {
+      const keys = twoScoreLayoutsOrNote(block);
+      if (!keys) return '';
+      const amount = Blockly.BBasic.valueToCode(block, 'DELTA', Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
+      return forEachScoreLayout(keys, (layout) => scoreSideChangeLines(layout, side, amount, Blockly.BBasic.blockNumbers.next('scoreside'))) + '\n';
+    };
+    Blockly.BBasic[`score_${side}_set`] = function(block) {
+      const keys = twoScoreLayoutsOrNote(block);
+      if (!keys) return '';
+      const amount = Blockly.BBasic.valueToCode(block, 'VALUE', Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
+      return forEachScoreLayout(keys, (layout) => scoreSideClearLines(layout, side) + '\n' +
+        scoreSideChangeLines(layout, side, amount, Blockly.BBasic.blockNumbers.next('scoreside'))) + '\n';
+    };
+  });
+
+  // Score left and Score right as numbers (0 to 255, a larger score reads 255): the digits of the side, most significant first, are added up as
+  // value = value * 10 + digit, stopping at 255 when the next step would pass it. The lines before the last are hoisted in front of whatever uses the value
+  // (see scrub_ in generators/bbasic.js). The value and the digit are in temp5, temp6 and temp4 (a byte each inside a custom Function, where temp1 to temp6
+  // hold the arguments).
+  const scoreSideDigitExpressions = (layout, side) => SCORE_SIDES[layout][side].parts.flatMap((part) => {
+    const alias = `scorebyte${part.byte}`;
+    if (part.mask === 'F0') return [`${alias} / 16`];
+    if (part.mask === '0F') return [`${alias} & $0F`];
+    return [`${alias} / 16`, `${alias} & $0F`];
+  });
+  ['left', 'right'].forEach((side) => {
+    Blockly.BBasic[`score_${side}_get`] = function(block) {
+      const keys = twoScoreLayoutsOrNote(block);
+      if (!keys) return ['0', Blockly.BBasic.ORDER_ATOMIC];
+      const inFunction = isInsideFunctionBody(block);
+      const slot = (name, temp) => (inFunction ? Blockly.BBasic.superchipRwPairs[scoreSideValueVarName(name)] : {read: temp, write: temp});
+      const value = slot(side === 'left' ? 'Left' : 'Right', side === 'left' ? 'temp5' : 'temp6');
+      const digit = slot('Digit', 'temp4');
+      const lines = (layout) => {
+        const id = Blockly.BBasic.blockNumbers.next('scorevalue');
+        return [
+          `${value.write} = 0`,
+          ...scoreSideDigitExpressions(layout, side).flatMap((expression) => [
+            `${digit.write} = ${expression}`,
+            `if ${value.read} > 25 then goto _scorevalue_${id}_max`,
+            `if ${value.read} = 25 && ${digit.read} > 5 then goto _scorevalue_${id}_max`,
+            `${value.write} = ${value.read} * 10 + ${digit.read}`,
+          ]),
+          `goto _scorevalue_${id}_done`,
+          `@ _scorevalue_${id}_max`,
+          `${value.write} = 255`,
+          `@ _scorevalue_${id}_done`,
+        ].join('\n');
+      };
+      return [forEachScoreLayout(keys, lines) + '\n' + value.read, Blockly.BBasic.ORDER_ATOMIC];
+    };
+  });
+
+  // Set score layout: shows another of the two score layouts in the ROM (the one picked here is in it because this block names it). Only a project
+  // with a two score layout on the Score tab can switch (a project with one score has no minikernel to switch from).
+  Blockly.BBasic['score_layout_set'] = function(block) {
+    const keys = Blockly.BBasic.scoreLayoutKeys();
+    if (!keys.length) {
+      appendCompileLog('The Set score layout block needs a two score layout on the Score tab (standard kernel); it does nothing now.', 'info');
+      return '';
+    }
+    const at = keys.indexOf(block.getFieldValue('LAYOUT'));
+    if (at < 0 || keys.length < 2) return '';
+    const flags = Blockly.BBasic.nameDB_.getName(flagPoolVar(SCORE_LAYOUT_FLAGS_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+    return keys.slice(1).map((key, i) => `${flags}{${flagPoolBit(SCORE_LAYOUT_FLAGS_FAMILY, i)}} = ${at === i + 1 ? 1 : 0}\n`).join('');
   };
 
   // Points the score code at the table of the chosen font: both tables are in one page of ROM (see
@@ -510,6 +658,8 @@ export default (Blockly) => {
     if (this.isTextMinikernelActive()) return '';
     const configurationStorage = useConfigurationStorage();
     const config = (configurationStorage && configurationStorage.value) || {};
+    // A two score layout has its minikernel (see scoreLayoutBkColorLines): this one would define the label twice.
+    if (scoreLayoutFile(config)) return '';
     // With the score hidden there is no score row to color (the kernel still calls the routine, which would only cost a line).
     if (!(config.showScore ?? true)) return '';
     // The DPC+ kernel draws its score without a minikernel (its colors come from "scorecolors:"), and the
@@ -534,6 +684,16 @@ export default (Blockly) => {
       '       rts',
       'end',
     ].join('\n');
+  };
+
+  // The lines that set the score row's background color at the start of a two score layout's minikernel (batari's files do not set it): the same
+  // as the routine above, put in front of the minikernel's code.
+  Blockly.BBasic.scoreLayoutBkColorLines = function() {
+    const config = (useConfigurationStorage() && useConfigurationStorage().value) || {};
+    const colorLine = this.scoreBkColorIsBackground(config.scoreBkColor) ?
+      ' lda backgroundrealcolor' :
+      ` lda #${colorByteToBuildBBasic(this.resolveScoreBkColorByte(config.scoreBkColor))}`;
+    return [' sta WSYNC', colorLine, ' sta COLUBK'].join('\n');
   };
 
   // scorebkcolor's  RAM home when the Text Minikernel IS active. Used to

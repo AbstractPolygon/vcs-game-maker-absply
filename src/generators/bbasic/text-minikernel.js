@@ -7,7 +7,8 @@ import {useConfigurationStorage} from '../../hooks/project';
 import {colorByteToBuildBBasic} from '../../utils/palette';
 import {fixedFreeVariable} from '../../utils/fixed-vars';
 import {resolveBlinkMask} from '../../utils/text-font';
-import {flagPoolVar} from './flag-pool';
+import {flagPoolVar, flagPoolBit} from './flag-pool';
+import {SCORE_LAYOUTS, SCORE_LAYOUT_FLAGS_FAMILY, scoreLayoutDispatcherAsm} from './score-layout';
 import {TEXT_MESSAGE_LENGTH, CHAR_TO_GLYPH, listTextStringsForBuild,
   resolveTextMaxDisplayWidth} from '../../blocks/text-strings';
 import {functionCallDiscardVarName} from '../../blocks/function';
@@ -53,6 +54,8 @@ export const textClearTimerVarName = () => 'textClearTimer';
 // A "Blink text" block: the state (bits 0-4 the blinks left, bit 5 forever, bit 6 clear the text when done, bit 7 the text is hidden now) and the
 // color the text had (put back when it shows again).
 export const textBlinkVarName = () => 'textBlink';
+// One bit of the flag pool, 1 for the frame after the blinking is done (what "When text blinking is done" reads).
+export const TEXT_BLINK_DONE_FAMILY = 'textBlinkDone';
 // The text kernel called by the Title Screen kernel returns to that bank by hand (see posttextkernel in text12a.asm): this flag, bit 0 of a
 // pooled byte (so the assembly code can set it with INC and clear it with DEC, in the cycles of the load and store it replaces), says
 // the call came from there.
@@ -791,8 +794,26 @@ export default (Blockly) => {
     return lines.join('\n') + '\n';
   };
 
+  // Runs the blocks inside in the one frame the blinking is done.
+  Blockly.BBasic['text_minikernel_blink_done'] = function(block) {
+    markTextMinikernelUsed();
+    const body = Blockly.BBasic.statementToCode(block, 'DO').trim();
+    if (!Blockly.BBasic.textBlinkUsed) return '';
+    const pulse = `${Blockly.BBasic.nameDB_.getName(flagPoolVar(TEXT_BLINK_DONE_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE)}{${flagPoolBit(TEXT_BLINK_DONE_FAMILY, 0)}}`;
+    const number = Blockly.BBasic.blockNumbers.next();
+    return `
+if ${pulse} then goto _blinkdone_${number}_run
+goto _blinkdone_${number}_end
+@ _blinkdone_${number}_run
+${body}
+@ _blinkdone_${number}_end
+`;
+  };
+
   Blockly.BBasic.generateTextBlinkChecks = function() {
     if (!this.textBlinkUsed) return '';
+    const pulse = this.textBlinkDoneUsed ?
+      `${this.nameDB_.getName(flagPoolVar(TEXT_BLINK_DONE_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE)}{${flagPoolBit(TEXT_BLINK_DONE_FAMILY, 0)}}` : null;
     const state = this.nameDB_.getName(textBlinkVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
     const saved = this.nameDB_.getName(textBlinkColorVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
     const mask = resolveBlinkMask(((useConfigurationStorage() || {}).value || {}).textScrollCursorBlinkSpeed) || '$10';
@@ -800,6 +821,7 @@ export default (Blockly) => {
     const show = '_textblink_show';
     const over = '_textblink_over';
     return [
+      ...(pulse ? [` ${pulse} = 0`] : []),
       ` temp1 = ${state} & 63`,
       ` if temp1 = 0 then goto ${done}`,
       ` temp1 = framecounter & ${mask}`,
@@ -821,6 +843,7 @@ export default (Blockly) => {
       ...this.textClearCode().split('\n').filter(Boolean).map((line) => ` ${line}`),
       over,
       ` ${state} = 0`,
+      ...(pulse ? [` ${pulse} = 1`] : []),
       done,
     ].join('\n') + '\n';
   };
@@ -924,6 +947,13 @@ export default (Blockly) => {
       const varName = Blockly.BBasic.nameDB_.getName(
           textRow2ColorVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
       return `${varName} = ${argument0}\n`;
+    }
+    // While the text blinks, a color set in the off phase (the text is hidden in the background color) is the color the blink puts back: it goes to the saved
+    // color and the text stays hidden; in the on phase the color is set as it is (the next off phase saves it).
+    if (Blockly.BBasic.textBlinkUsed) {
+      const state = Blockly.BBasic.nameDB_.getName(textBlinkVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+      const saved = Blockly.BBasic.nameDB_.getName(textBlinkColorVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+      return `temp1 = ${argument0}\nif ${state}{7} then ${saved} = temp1\nif !${state}{7} then TextColor = temp1\n`;
     }
     return `TextColor = ${argument0}\n`;
   };
@@ -1323,9 +1353,84 @@ export default (Blockly) => {
     return kernelBank >= 4 ? kernelBank - 1 : 0;
   };
 
+  // The code of a minikernel (the text one, or batari's two score ones) in the last bank, the kernel's, as the standard kernel calls it from there.
+  Blockly.BBasic.wrapInKernelBank = function(block) {
+    const configurationStorage = useConfigurationStorage();
+    const config = (configurationStorage && configurationStorage.value) || {};
+    const kernelBank = KERNEL_BANK_BY_ROMSIZE[config.kernel === 'dpcplus' ? 'dpcplus' : config.romSize];
+    if (!kernelBank) return block;
+
+    // 2600basic's  per-bank bookkeeping (the space-left tracking that
+    // produced the "bytes left in bank N" figures used to find kernelBank in
+    // the first place) needs every bank up to kernelBank to be visited at
+    // least once, in order - confirmed by reproducing the real failure: with
+    // nothing else in this project using banks 2/3 on a 16k+ ROM, jumping
+    // straight to "bank <kernelBank>" (skipping the banks in between) made
+    // DASM fail with a cascade of "Unknown Mnemonic 'jmp BS_jsr'"/"BS_return"
+    // errors - harmless empty "bank N ... bank 1" placeholders for every
+    // skipped bank fixed it. Bank 1 itself doesn't need one (it's always
+    // visited - the whole rest of the program lives there).
+    //
+    // Any bank the auto-relocation system (see hooks/rom.js) has actually
+    // put real content in is skipped here, NOT given an empty placeholder on
+    // top of that - generateRelocatedSections already declares "bank N ...
+    // bank 1" for it with real content inside. Confirmed directly as a real
+    // bug otherwise: declaring the same bank a second time, non-
+    // contiguously (an empty placeholder here, real content later),
+    // corrupts DASM's address tracking for it (reported as "Origin Reverse-
+    // indexed" - see generateRelocatedSections' comment on this same
+    // failure mode).
+    //
+    // But that's not the only bank generateRelocatedSections already
+    // declares - with the Text Minikernel active, its gap-fill (see its
+    // "banksBeforeGapFill"/"gapFillBanks" comment) ALSO declares an empty
+    // placeholder, contiguously, for every bank from 2 up through whichever
+    // bank holds the highest-numbered real relocated unit
+    // (highestUsedRelocationBankNumber, see its comment) - even ones
+    // nothing landed in. Skipping only banks with REAL content (usedBanks,
+    // above) and then separately placeholder-filling from 2 here duplicated
+    // THOSE gap banks a second time too, non-contiguously - the exact same
+    // corruption class, just for an empty-vs-empty pair instead of an
+    // empty-vs-real one. Confirmed directly as a real bug via a reported
+    // build failure (cascading "Unknown Mnemonic" errors, only once Fine-
+    // mode inertia's extra code pushed something unrelated - music - out to
+    // a high enough bank for this overlap to exist at all): starting this
+    // loop after whatever generateRelocatedSections already covers, instead
+    // of always at 2, leaves every bank declared exactly once.
+    const usedBanks = Blockly.BBasic.usedRelocationBankNumbers();
+    const primaryBank = Blockly.BBasic.primaryBank();
+    // DPC+ only (primaryBank is 2 only for DPC+, 1 for every other kernel) -
+    // see generateRelocatedSections' identical "Harmony cart fix"
+    // comment in bbasic.js for the real docs citation.
+    const harmonyCartFix = primaryBank === 2 && Blockly.BBasic.harmonyCartFixOn() ? '\n temp1=temp1' : '';
+    const skippedBankPlaceholders = [];
+    // Closing tag is always a literal "bank 1", never primaryBank() - see
+    // generateRelocatedSections' identical comment (statements.c's
+    // newbank() treats "bank 1" as a genuine no-op, but bank 2 has real
+    // side effects for DPC+ that a bare closer must never re-trigger).
+    const gapFillStart = Math.max(primaryBank + 1, Blockly.BBasic.highestUsedRelocationBankNumber() + 1);
+    for (let bank = gapFillStart; bank < kernelBank; bank++) {
+      if (!usedBanks.has(bank)) skippedBankPlaceholders.push(` bank ${bank}${harmonyCartFix}\n bank 1`);
+    }
+
+    // (The units that were placed in this bank follow the minikernel's code: see generateRelocatedSections.)
+    const topUnits = config.kernel === 'dpcplus' ? `\n${Blockly.BBasic.TOP_BANK_UNITS_MARKER}` : '';
+    return `${skippedBankPlaceholders.join('\n')}\n bank ${kernelBank}${harmonyCartFix}\n${block}${topUnits}\n bank 1`;
+  };
+
   Blockly.BBasic.generateTextMinikernel = function() {
     this.textBankBody = '';
-    if (!this.isTextMinikernelActive()) return '';
+    // Two score layout (see score-layout.js): the score minikernel goes where the text one would.
+    if (!this.isTextMinikernelActive()) {
+      const keys = this.scoreLayoutKeys();
+      if (!keys.length) return '';
+      const inlines = keys.map((key) => ` inline ${SCORE_LAYOUTS[key].file}`);
+      if (keys.length === 1) return this.wrapInKernelBank(inlines[0]);
+      // Several layouts: the kernel calls minikernel, which jumps to the routine of the layout showing.
+      const flags = this.nameDB_.getName(flagPoolVar(SCORE_LAYOUT_FLAGS_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+      const bits = keys.slice(1).map((_, i) => flagPoolBit(SCORE_LAYOUT_FLAGS_FAMILY, i));
+      return this.wrapInKernelBank([...inlines, ' asm', scoreLayoutDispatcherAsm(keys, flags, bits), 'end'].join(String.fromCharCode(10)));
+    }
 
     // Row 0: reserved blank - TextIndex lives in RAM the standard kernel
     // clears to 0 at power-on, and stays 0 until some block explicitly
@@ -1429,67 +1534,7 @@ export default (Blockly) => {
       ...(Blockly.BBasic.rainbowTablesTopBank ? ['', Blockly.BBasic.rainbowTablesAsm] : []),
     ].join('\n');
 
-    const configurationStorage = useConfigurationStorage();
-    const config = (configurationStorage && configurationStorage.value) || {};
-    const kernelBank = KERNEL_BANK_BY_ROMSIZE[config.kernel === 'dpcplus' ? 'dpcplus' : config.romSize];
-    if (!kernelBank) return block;
-
-    // 2600basic's  per-bank bookkeeping (the space-left tracking that
-    // produced the "bytes left in bank N" figures used to find kernelBank in
-    // the first place) needs every bank up to kernelBank to be visited at
-    // least once, in order - confirmed by reproducing the real failure: with
-    // nothing else in this project using banks 2/3 on a 16k+ ROM, jumping
-    // straight to "bank <kernelBank>" (skipping the banks in between) made
-    // DASM fail with a cascade of "Unknown Mnemonic 'jmp BS_jsr'"/"BS_return"
-    // errors - harmless empty "bank N ... bank 1" placeholders for every
-    // skipped bank fixed it. Bank 1 itself doesn't need one (it's always
-    // visited - the whole rest of the program lives there).
-    //
-    // Any bank the auto-relocation system (see hooks/rom.js) has actually
-    // put real content in is skipped here, NOT given an empty placeholder on
-    // top of that - generateRelocatedSections already declares "bank N ...
-    // bank 1" for it with real content inside. Confirmed directly as a real
-    // bug otherwise: declaring the same bank a second time, non-
-    // contiguously (an empty placeholder here, real content later),
-    // corrupts DASM's address tracking for it (reported as "Origin Reverse-
-    // indexed" - see generateRelocatedSections' comment on this same
-    // failure mode).
-    //
-    // But that's not the only bank generateRelocatedSections already
-    // declares - with the Text Minikernel active, its gap-fill (see its
-    // "banksBeforeGapFill"/"gapFillBanks" comment) ALSO declares an empty
-    // placeholder, contiguously, for every bank from 2 up through whichever
-    // bank holds the highest-numbered real relocated unit
-    // (highestUsedRelocationBankNumber, see its comment) - even ones
-    // nothing landed in. Skipping only banks with REAL content (usedBanks,
-    // above) and then separately placeholder-filling from 2 here duplicated
-    // THOSE gap banks a second time too, non-contiguously - the exact same
-    // corruption class, just for an empty-vs-empty pair instead of an
-    // empty-vs-real one. Confirmed directly as a real bug via a reported
-    // build failure (cascading "Unknown Mnemonic" errors, only once Fine-
-    // mode inertia's extra code pushed something unrelated - music - out to
-    // a high enough bank for this overlap to exist at all): starting this
-    // loop after whatever generateRelocatedSections already covers, instead
-    // of always at 2, leaves every bank declared exactly once.
-    const usedBanks = Blockly.BBasic.usedRelocationBankNumbers();
-    const primaryBank = Blockly.BBasic.primaryBank();
-    // DPC+ only (primaryBank is 2 only for DPC+, 1 for every other kernel) -
-    // see generateRelocatedSections' own identical "Harmony cart fix"
-    // comment in bbasic.js for the real docs citation.
-    const harmonyCartFix = primaryBank === 2 && Blockly.BBasic.harmonyCartFixOn() ? '\n temp1=temp1' : '';
-    const skippedBankPlaceholders = [];
-    // Closing tag is always a literal "bank 1", never primaryBank() - see
-    // generateRelocatedSections' identical comment (statements.c's
-    // newbank() treats "bank 1" as a genuine no-op, but bank 2 has real
-    // side effects for DPC+ that a bare closer must never re-trigger).
-    const gapFillStart = Math.max(primaryBank + 1, Blockly.BBasic.highestUsedRelocationBankNumber() + 1);
-    for (let bank = gapFillStart; bank < kernelBank; bank++) {
-      if (!usedBanks.has(bank)) skippedBankPlaceholders.push(` bank ${bank}${harmonyCartFix}\n bank 1`);
-    }
-
-    // (The units that were placed in this bank follow the minikernel's code: see generateRelocatedSections.)
-    const topUnits = config.kernel === 'dpcplus' ? `\n${Blockly.BBasic.TOP_BANK_UNITS_MARKER}` : '';
-    return `${skippedBankPlaceholders.join('\n')}\n bank ${kernelBank}${harmonyCartFix}\n${block}${topUnits}\n bank 1`;
+    return this.wrapInKernelBank(block);
   };
 
   // The PXE kernel has no Text Minikernel yet (the one here switches banks): its blocks make no code.

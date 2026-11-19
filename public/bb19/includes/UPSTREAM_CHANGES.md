@@ -242,3 +242,14 @@ change is made by the module named, only for the projects that need it:
 - `score_graphics.asm`: the score fonts (`src/generators/score-fonts.js`, `src/utils/score-font.js`).
 - The Text Minikernel's files (`text12a.asm`, `text12b.asm` and the DPC+ text kernel): fonts, line colors, the scroll cursor, the title text color
   (`src/utils/text-font.js`, `src/hooks/rom.js` around `siblingFiles`).
+
+## Score minikernels (added files, no kernel file changed)
+
+`public/bb19/score-minikernel/score33.asm`, `score42.asm` and `score51.asm` are batari's score minikernels (two scores: 3 + 3, 4 + 2 and 5 + 1 digits), from his post
+"A few new score kernels" (2008-04-20, https://forums.atariage.com/topic/124520-a-few-new-score-kernels/, `scoreformats.zip`). The files are kept byte for byte as
+posted. The standard kernel calls a routine named `minikernel` at the start of the score row when `noscore` is set (`ifconst minikernel` in `std_kernel.asm`, no
+change to it); the files define that routine, and are inlined in the kernel's bank for a project that picks a two score layout on the Score tab (`score-layout.js`,
+`generateTextMinikernel` in `text-minikernel.js`, `siblingFiles` in `src/hooks/rom.js`). Two things are done to the text in memory, as for the text kernel: the lines that
+set the background color of the score row (`sta WSYNC`, `lda backgroundrealcolor` or the chosen color, `sta COLUBK`) are put after the `minikernel` label, because the files
+do not set it, and the project's `minikernel` routine for the score row color is not written (the label would be defined twice). The files keep working with the
+standard kernel only (DPC+ and PXE draw the score another way, so the setting is off there). `includes-manifest.json` is not affected: no file of `includes/` changed.

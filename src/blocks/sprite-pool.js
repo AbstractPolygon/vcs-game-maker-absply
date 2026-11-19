@@ -1,4 +1,5 @@
 import * as Blockly from 'blockly/core';
+import {registerExtension} from './extension';
 
 import {PLAYER_ICON} from './icon';
 import {useConfigurationStorage} from '../hooks/project';
@@ -125,8 +126,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': SPRITE_POOL_COLOUR,
     'extensions': ['sprite_pool_warning'],
-    'tooltip': 'Makes a sprite pool: gives the players from the first to the last the id, so the other Sprite pool blocks only name the id. Put it once, anywhere ' +
-      '(System start is a good place); it does nothing while the game runs. Two pools should not share a player.',
+    'tooltip': 'Gives the players from the first to the last the id, so the other Sprite pool blocks only name the id. Put it once, anywhere (System start is a good place); it does nothing while the game runs. Two pools should not share a player.',
   },
   {
     'type': 'sprite_pool_spawn',
@@ -142,9 +142,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': SPRITE_POOL_COLOUR,
     'extensions': ['sprite_pool_warning', 'sprite_pool_id_shadow'],
-    'tooltip': 'Takes the first free (hidden) sprite of the pool, shows it and runs the blocks inside with it as the "pool sprite" (choose that in a ' +
-      'Player block\'s player list). Set its position and look with those blocks. When every sprite of the pool is in use the blocks under "if no sprite is ' +
-      'free" run instead. The blocks inside are built once for each sprite of the pool. Hide the pool at the start of the game with "Release all sprites in pool".',
+    'tooltip': 'Takes the first free (hidden) sprite of the pool, shows it and runs the blocks inside with it as the "pool sprite" (choose that in a Player block\'s player list). When every sprite is in use the blocks under "if no sprite is free" run instead. The blocks inside are built once for each sprite of the pool. Hide the pool at the start of the game with "Release all sprites in pool".',
   },
   {
     'type': 'sprite_pool_each',
@@ -158,8 +156,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': SPRITE_POOL_COLOUR,
     'extensions': ['sprite_pool_warning', 'sprite_pool_id_shadow'],
-    'tooltip': 'Runs the blocks inside once for each sprite of the pool that is shown, with that sprite as the "pool sprite" (choose that in a ' +
-      'Player block\'s player list). The blocks inside are built once for each sprite of the pool.',
+    'tooltip': 'Runs the blocks inside once for each shown sprite of the pool, with it as the "pool sprite" (choose that in a Player block\'s player list). The blocks inside are built once for each sprite of the pool.',
   },
   {
     'type': 'sprite_pool_release',
@@ -168,7 +165,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SPRITE_POOL_COLOUR,
-    'tooltip': 'Hides the pool sprite, so the pool can hand it out again. Only inside a Sprite pool block. Move it away also puts it at y 200, below the picture, on DPC+ (y 0 on PXE).',
+    'tooltip': 'Hides the pool sprite so the pool can hand it out again. Only inside a Sprite pool block. Move it away also puts it at y 200 on DPC+ (y 0 on PXE).',
   },
   {
     'type': 'sprite_pool_release_player',
@@ -182,8 +179,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': SPRITE_POOL_COLOUR,
     'extensions': ['sprite_pool_warning', 'sprite_pool_id_shadow'],
-    'tooltip': 'Makes one sprite of the pool free again (it is hidden), from anywhere: a collision or any other block, not only inside a Sprite pool block. The pool can ' +
-      'hand it out again. The player has to be one of the players of the pool with that id. Move it away also puts it at y 200, below the picture, on DPC+ (y 0 on PXE).',
+    'tooltip': 'Frees and hides one sprite of the pool, from anywhere (not only inside a Sprite pool block). The player has to be one of the players of the pool with that id. Move it away also puts it at y 200 on DPC+ (y 0 on PXE).',
   },
   {
     'type': 'sprite_pool_release_all',
@@ -196,7 +192,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': SPRITE_POOL_COLOUR,
     'extensions': ['sprite_pool_warning', 'sprite_pool_id_shadow'],
-    'tooltip': 'Hides every sprite of the pool, so all of them are free. Use it at the start of the game. Move them away also puts them at y 200, below the picture, on DPC+ (y 0 on PXE).',
+    'tooltip': 'Hides every sprite of the pool; use it at the start of the game. Move them away also puts them at y 200 on DPC+ (y 0 on PXE).',
   },
   {
     'type': 'sprite_pool_full',
@@ -207,7 +203,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Boolean',
     'colour': SPRITE_POOL_COLOUR,
     'extensions': ['sprite_pool_warning', 'sprite_pool_id_shadow'],
-    'tooltip': 'True while every sprite of the pool is shown (none is free to spawn in).',
+    'tooltip': 'True while no sprite of the pool is free.',
   },
   {
     'type': 'sprite_pool_free',
@@ -218,13 +214,13 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Boolean',
     'colour': SPRITE_POOL_COLOUR,
     'extensions': ['sprite_pool_warning', 'sprite_pool_id_shadow'],
-    'tooltip': 'True while at least one sprite of the pool is hidden, free to spawn in. Plug it into an If block to spawn only when there is room.',
+    'tooltip': 'True while at least one sprite of the pool is hidden. Use it in an If block to spawn only when there is room.',
   },
 ]);
 
 // The id input of a block that names a pool starts with a Number block (1) in it, wherever the block comes from (the toolbox, its search, a copy): a block that a
 // saved project has gets the number block it was saved with in its place.
-Blockly.Extensions.register('sprite_pool_id_shadow', function() {
+registerExtension('sprite_pool_id_shadow', function() {
   // eslint-disable-next-line no-invalid-this
   const input = this.getInput('ID');
   if (!input || !input.connection) return;
@@ -235,7 +231,7 @@ Blockly.Extensions.register('sprite_pool_id_shadow', function() {
   }
 });
 
-Blockly.Extensions.register('sprite_pool_warning', function() {
+registerExtension('sprite_pool_warning', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   block.setOnChange(() => poolWarning(block));

@@ -13,6 +13,7 @@
 
 <script>
 import Handlebars from 'handlebars';
+import {scoreLayoutOf} from '../generators/bbasic/score-layout';
 import Blockly from 'blockly';
 
 import BlocklyComponent from './BlocklyComponent.vue';
@@ -138,6 +139,8 @@ const buildToolboxXml = (enablePlayer0SpriteColors, enablePlayer1SpriteColors, k
     spritePoolOn: !!kernelIsDpcPlus || isPxe((useConfigurationStorage() || {}).value),
     // The playfield tilemap (Options tab: DPC+ and the standard kernel, not PXE).
     tilemapOn: !isPxe((useConfigurationStorage() || {}).value) && !!((useConfigurationStorage() || {}).value || {}).dpcPlusTilemap,
+    // The Score left and Score right blocks (Score tab: Score layout with two scores).
+    scoreLayoutOn: scoreLayoutOf((useConfigurationStorage() || {}).value || {}) !== 'normal',
   });
 
 export default {

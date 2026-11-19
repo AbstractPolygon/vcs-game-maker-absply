@@ -23,6 +23,15 @@
           class="score-font-select"
         />
         <v-select
+          v-model="scoreLayout"
+          :items="scoreLayoutOptions"
+          :disabled="scoreLayoutUnavailable"
+          label="Score layout"
+          :title="scoreLayoutUnavailable ? 'Two scores are only on the standard kernel.' : 'One score, or two scores side by side (batari\'s score minikernels). The score is still one number: add to the left score with Score change by 1000, 100 or 10 and to the right with 1, or use the Score left and Score right blocks. Not with the Text Minikernel.'"
+          hide-details
+          class="score-padding-field"
+        />
+        <v-select
           v-model="scorePaddingLines"
           :items="[0, 1, 2]"
           label="Add score padding"
@@ -64,7 +73,7 @@
         />
         <v-checkbox
           v-model="fiveScoreDigits"
-          :disabled="cycleScoreOn"
+          :disabled="cycleScoreOn || twoScoreLayoutOn"
           label="5 score digits"
           title="Draws the score with 5 digits instead of 6: the standard and DPC+ kernels, and the Text Minikernel's score digits, leave the leftmost digit out (a score of up to 99999 shows in full), centered."
           hide-details
@@ -189,7 +198,8 @@
   </v-card>
 </template>
 <script>
-import {cycleScoreOn as isCycleScoreOn} from '../utils/pxe';
+import {cycleScoreOn as isCycleScoreOn, isPxe as isPxeConfig} from '../utils/pxe';
+import {SCORE_LAYOUTS, scoreLayoutOf} from '../generators/bbasic/score-layout';
 import {computed, defineComponent, ref, watch} from '@vue/composition-api';
 
 import ColorSwatchPicker from '../components/ColorSwatchPicker.vue';
@@ -485,6 +495,26 @@ export default defineComponent({
     // On: 5 digits, the standard and DPC+ kernels leave the leftmost digit blank (const score5digits); off (default): 6.
     // The cycle score (Options tab) always shows six digits, so the switch is off and cannot be turned on while it is on.
     const cycleScoreOn = computed(() => isCycleScoreOn(configurationStorage.value || {}));
+    // Two score layouts (batari's score minikernels, see generators/bbasic/score-layout.js): the standard kernel only.
+    const scoreLayoutOptions = Object.entries(SCORE_LAYOUTS).map(([value, {label}]) => ({text: label, value}));
+    // (A two score layout has its digits: the 5 digit setting does not apply to it.)
+    const twoScoreLayoutOn = computed(() => scoreLayoutOf(configurationStorage.value || {}) !== 'normal');
+    const scoreLayoutUnavailable = computed(() => {
+      const configuration = configurationStorage.value || {};
+      return configuration.kernel === 'dpcplus' || isPxeConfig(configuration);
+    });
+    const scoreLayout = computed({
+      get() {
+        const value = (configurationStorage.value || {}).scoreLayout;
+        return SCORE_LAYOUTS[value] ? value : 'normal';
+      },
+      set(value) {
+        configurationStorage.value = {
+          ...(configurationStorage.value || {}),
+          scoreLayout: value,
+        };
+      },
+    });
     const fiveScoreDigits = computed({
       get() {
         const configuration = configurationStorage.value || {};
@@ -689,6 +719,10 @@ export default defineComponent({
       digitWidth,
       extraGlyphsEnabled,
       scorePaddingLines,
+      scoreLayout,
+      scoreLayoutOptions,
+      scoreLayoutUnavailable,
+      twoScoreLayoutOn,
       fiveScoreDigits,
       cycleScoreOn,
       fontIsEdited,

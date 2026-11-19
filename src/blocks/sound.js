@@ -87,6 +87,6 @@ Blockly.Blocks['simple_sound_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour('rgb(156, 39, 176)');
-    this.setTooltip('Starts playing a simple sound. Ticked: the sound plays again each time it ends, until another sound takes its channel or a Stop sound block.');
+    this.setTooltip('Starts a simple sound. Ticked: it repeats each time it ends, until another sound takes its channel or a Stop sound block.');
   },
 };

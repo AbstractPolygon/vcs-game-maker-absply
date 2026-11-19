@@ -28,7 +28,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Number',
     'icon': DICE_ICON,
     'colour': 'purple',
-    'tooltip': `Generates a random number between 1 and 255.`,
+    'tooltip': `A random number from 1 to 255.`,
   },
 ]);
 
@@ -47,7 +47,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Number',
     'icon': DICE_ICON,
     'colour': 'purple',
-    'tooltip': `Generates a random number between the given numbers.`,
+    'tooltip': `A random number between the given numbers.`,
   },
 ]);
 
@@ -68,22 +68,25 @@ Blockly.defineBlocksWithJsonArray([
 Blockly.defineBlocksWithJsonArray([
   {
     'type': `random_seed_set`,
-    'message0': `Set random seed to %1`,
+    'message0': `Set random seed to %1 and %2`,
     'args0': [
       {
         'type': 'input_value',
         'name': 'SEED',
         'check': 'Number',
       },
+      {
+        'type': 'input_value',
+        'name': 'SEED2',
+        'check': 'Number',
+      },
     ],
+    'inputsInline': true,
     'previousStatement': null,
     'nextStatement': null,
     'icon': DICE_ICON,
     'colour': 'purple',
-    'tooltip': `Reseeds the random number generator, so "Random" blocks stop producing the exact same ` +
-      `sequence every time the game starts. Clamped to a real byte (0-255) regardless of what's plugged in. ` +
-      `A good spot for this is somewhere the value naturally differs between playthroughs, e.g. how many ` +
-      `frames the title screen has been showing when the player presses Fire.`,
+    'tooltip': `Reseeds the random number generator so "Random" blocks do not repeat the same sequence every start. Clamped to 0-255. Seed it with a value that differs between playthroughs. The second number is for DPC+ only (0-255): it fills the other two bytes of the 32-bit generator, so DPC+ has 65536 starts; 0 and other kernels ignore it.`,
   },
 ]);
 
@@ -100,8 +103,6 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Number',
     'icon': DICE_ICON,
     'colour': 'purple',
-    'tooltip': `A random number from the first number to the second, both included, each equally likely (numbers up to 255; if the ` +
-      `first is bigger than the second they swap places). It takes a few steps to work out, so a block that runs every frame is ` +
-      `better off with one of the quicker "Random" blocks when a power of two range is enough.`,
+    'tooltip': `A random number from the first number to the second, both included (up to 255; swapped if the first is bigger). Slow: use a quicker "Random" block when a power of two range is enough.`,
   },
 ]);

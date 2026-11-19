@@ -2,12 +2,24 @@
 
 import {pfMaxColumn} from '../../utils/playfield-coords';
 import {buildCircleArmCall, ensureArmProgram} from './offset-arm';
+import {flagPoolVar, flagPoolBit} from './flag-pool';
+
+// Terrain done: one bit of the flag pool for each side (0 bottom, 1 top, 2 left, 3 right) and one (4) for every terrain finished. Set when a terrain
+// is finished, cleared at the end of the frame after.
+export const PFD_TERRAIN_DONE_FAMILY = 'pfdTerrainDone';
+export const PFD_TERRAIN_DONE_BITS = [0, 1, 2, 3, 4];
+const terrainDoneName = (Blockly) => Blockly.BBasic.nameDB_.getName(flagPoolVar(PFD_TERRAIN_DONE_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+const terrainDoneMask = (index) => 1 << flagPoolBit(PFD_TERRAIN_DONE_FAMILY, index);
+const terrainDoneAllMask = () => PFD_TERRAIN_DONE_BITS.reduce((mask, index) => mask | terrainDoneMask(index), 0);
 
 // The Draw blocks of Playfield > Utility (a pixel, a straight line, a line, an area, a circle and the fill) share one drawing engine: a block puts
 // its work in a queue, and at the end of each frame's code (the end of commongamelogic, the last code before drawscreen waits for the timer) the
 // engine draws a pixel at a time for as long as the frame has time to spare, so a big shape is spread over frames instead of making the frame too
 // long (the screen would roll). The work runs in the order the blocks gave it; a block that finds the queue full has the work before it finished
 // at once and is drawn at once itself, so nothing is lost and the order is kept.
+//
+// The engine only sets, clears and flips playfield pixels (and reads them, for the fill): it never writes a color register, a color table or a color
+// variable, so no Draw block, the terrain one included, changes the playfield's colors. (Checked on the generated code of all three kernels.)
 //
 // The bytes (as few as it takes, shared by every kind of work):
 //   the state: bits 7-5 the kind of the work being drawn (0: none), bits 4-3 what is done to the pixels (0 set, 1 clear, 2 flip; the fill: 0 fill,
@@ -25,24 +37,26 @@ import {buildCircleArmCall, ensureArmProgram} from './offset-arm';
 // (The bytes are reserved with reserveDevVarRW: with Superchip they go to its RAM, where the write and the read have different names.)
 
 export const PF_DRAW_BLOCK_TYPES = ['background_change_pixel', 'background_change_hv_line', 'background_fill_area', 'background_draw_line',
-  'background_fill_circle', 'background_flood_fill'];
+  'background_fill_circle', 'background_flood_fill', 'background_generate_terrain'];
 export const pfDrawKindOf = (block) => {
   switch (block.type) {
     case 'background_change_pixel': return 'pixel';
     case 'background_change_hv_line': return block.getFieldValue('DIRECTION') === 'pfvline' ? 'vline' : 'hline';
     case 'background_fill_area': return block.getFieldValue('MODE') === 'CENTER' ? 'carea' : 'area';
     case 'background_draw_line': return 'line';
+    case 'background_generate_terrain': return 'terrain';
     case 'background_fill_circle': return 'circle';
     case 'background_flood_fill': return 'fill';
     default: return null;
   }
 };
-const KIND_NUMBER = {pixel: 1, hline: 2, vline: 3, area: 4, carea: 4, line: 5, circle: 6, fill: 7};
-const KINDS_BY_NUMBER = ['none', 'pixel', 'hline', 'vline', 'area', 'line', 'circle', 'fill'];
+// (A horizontal and a vertical straight line are one kind: bit 2 of the header says vertical.)
+const KIND_NUMBER = {pixel: 1, hline: 2, vline: 2, terrain: 3, area: 4, carea: 4, line: 5, circle: 6, fill: 7};
+const KINDS_BY_NUMBER = ['none', 'pixel', 'sline', 'terrain', 'area', 'line', 'circle', 'fill'];
 const OPERATION_NUMBER = {on: 0, off: 1, flip: 2};
 // The numbers a kind's record holds and the work bytes it keeps while it is drawn (at most five numbers: the record is read into temp1 to temp6).
-const RECORD_NUMBERS = {pixel: 2, hline: 3, vline: 3, area: 4, carea: 4, line: 4, circle: 5, fill: 2};
-const WORK_BYTES = {pixel: 0, hline: 3, vline: 3, area: 5, carea: 5, line: 7, circle: 7, fill: 3};
+const RECORD_NUMBERS = {pixel: 2, hline: 3, vline: 3, terrain: 5, area: 4, carea: 4, line: 4, circle: 5, fill: 2};
+const WORK_BYTES = {pixel: 0, hline: 3, vline: 3, terrain: 10, area: 5, carea: 5, line: 7, circle: 7, fill: 3};
 // The records of the queue and the seeds of the fill. The standard kernel without Superchip has the least RAM: one record waiting and two seeds.
 const queueRecordsFor = (config, superchip, displayRam) => (displayRam ? 4 : superchip ? 3 : config.pxe ? 2 : 1);
 const seedSlotsFor = (config, superchip) => (superchip || config.pxe ? 4 : 2);
@@ -58,7 +72,7 @@ const SEED_OFFSET = 128;
 // pixel 139, a straight line 167, an area 174, a line 221, a circle 370, the fill 555; DPC+ (the records in the display RAM) a record starting 461
 // (the coprocessor's circle), a straight line 178, an area 181, a line 219, the fill 662. The first number is a record starting: what the kinds the
 // project uses take to start.
-const STEP_TIMER_COUNTS = {standard: [5, 4, 4, 4, 4, 5, 7, 10], dpcplus: [7, 4, 4, 4, 4, 5, 5, 11]};
+const STEP_TIMER_COUNTS = {standard: [5, 4, 4, 8, 4, 5, 7, 10], dpcplus: [7, 4, 4, 8, 4, 5, 5, 11]};
 const startCounts = (config, kinds) => {
   if (config.kernel === 'dpcplus') return kinds.has('circle') ? 9 : STEP_TIMER_COUNTS.dpcplus[0];
   return [...kinds].every((kind) => kind === 'pixel') ? 4 : STEP_TIMER_COUNTS.standard[0];
@@ -82,21 +96,27 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
   }
   const displayRam = isDpcPlus(config);
   const armCircle = displayRam;
+  // A circle block with "over several frames" ticked on DPC+ is drawn by the steps, row by row from the center, as on the other kernels (flag bit 0 of its header).
+  const circleSpread = armCircle && blocks.some((block) => block.type === 'background_fill_circle' && block.getFieldValue('SPREAD') === 'TRUE');
   const seeds = kinds.has('fill') && !displayRam ? seedSlotsFor(config, superchip) : 0;
-  const workBytes = Math.max(kinds.has('fill') ? FILL_KEEPS + 2 * seeds : 0, ...[...kinds].map((kind) => (kind === 'circle' && armCircle ? 0 : WORK_BYTES[kind])));
+  const workBytes = Math.max(kinds.has('fill') ? FILL_KEEPS + 2 * seeds : 0, ...[...kinds].map((kind) => (kind === 'circle' && armCircle && !circleSpread ? 0 : WORK_BYTES[kind])));
   const recordBytes = 1 + Math.max(...[...kinds].map((kind) => RECORD_NUMBERS[kind]));
   const records = queueRecordsFor(config, superchip, displayRam);
   const state = reserveDevVarRW('pfdState', 'playfield drawing: the kind of work being drawn, its operation and its steps');
+  // 1 for the one frame after terrain was finished (see Playfield terrain done).
+  const terrainDone = blocks.some((block) => block.type === 'background_generate_terrain_done' || block.type === 'background_when_terrain_done') ?
+    {family: PFD_TERRAIN_DONE_FAMILY} : null;
   const work = Array.from({length: workBytes}, (_, i) => reserveDevVarRW(`pfdWork${i}`, 'playfield drawing: what the work being drawn keeps'));
   const queue = displayRam ? null : Array.from({length: records}, (_, r) => Array.from({length: recordBytes}, (_, i) =>
     reserveDevVarRW(`pfdQueue${r}_${i}`, 'playfield drawing: a waiting Draw block\'s record')));
   const seedBytes = Array.from({length: seeds}, (_, s) => [work[FILL_KEEPS + 2 * s], work[FILL_KEEPS + 2 * s + 1]]);
-  Blockly.BBasic.pfDraw = {kinds, state, work, queue, records, recordBytes, seeds: seedBytes, displayRam, armCircle, config, superchip};
+  Blockly.BBasic.pfDraw = {kinds, state, terrainDone, work, queue, records, recordBytes, seeds: seedBytes, displayRam, armCircle, circleSpread, config, superchip};
   // (The operations the blocks use: the plotting routine and the circle's calls have only those.)
   const drawBlocks = blocks.filter((block) => pfDrawKindOf(block));
   Blockly.BBasic.pfDrawOperations = new Set(drawBlocks.map((block) => block.getFieldValue('OPERATION') || 'on'));
   Blockly.BBasic.pfDrawCircleOperations = new Set(drawBlocks.filter((block) => block.type === 'background_fill_circle').map((block) => block.getFieldValue('OPERATION')));
   Blockly.BBasic.pfDrawFillControls = blocks.some((block) => block.type === 'background_flood_fill_stop' || block.type === 'background_flood_fill_done');
+  Blockly.BBasic.pfDrawTerrainDone = blocks.some((block) => block.type === 'background_generate_terrain_done' || block.type === 'background_when_terrain_done');
 };
 
 // Where the records are: the lines that read and write them (byte i of record r), for separate bytes or the display RAM.
@@ -138,7 +158,7 @@ const recordStore = (pfDraw) => {
 // The engine, one subroutine with its entries (see the comment at the top).
 const buildEngine = (Blockly) => {
   const pfDraw = Blockly.BBasic.pfDraw;
-  const {kinds, state: S, work: W, records, seeds: P, displayRam, armCircle, config} = pfDraw;
+  const {kinds, state: S, work: W, records, seeds: P, displayRam, armCircle, circleSpread, config} = pfDraw;
   const store = recordStore(pfDraw);
   const maxRow = Blockly.BBasic.maxRowText(config);
   const maxColumn = pfMaxColumn(config);
@@ -170,6 +190,7 @@ const buildEngine = (Blockly) => {
         'return');
   } else {
     const need = [startCounts(config, kinds), ...STEP_TIMER_COUNTS[config.kernel === 'dpcplus' ? 'dpcplus' : 'standard'].slice(1)];
+    if (circleSpread) need[6] = STEP_TIMER_COUNTS.standard[6];
     add(label('step'),
         ['asm', `lda ${S.read}`, 'lsr', 'lsr', 'lsr', 'lsr', 'lsr', 'tax', 'lda INTIM', 'cmp _pfd_need,x', 'bcs ._pfd_stgo', '@end'].join('\n'),
         'return',
@@ -216,10 +237,11 @@ const buildEngine = (Blockly) => {
   add(label('subd'),
       `if ${S.read} >= 32 then return`,
       `if ${S.read} = 1 then goto _pfd_flush`,
-      ...(armCircle && has('circle') ? [...header(0), 'temp1 = temp1 / 32', `if temp1 <> ${KIND_NUMBER.circle} then goto _pfd_deq`, set(S, 2), 'return'] : []),
+      ...(armCircle && has('circle') ? [...header(0), ...(circleSpread ? ['temp2 = temp1'] : []), 'temp1 = temp1 / 32', `if temp1 <> ${KIND_NUMBER.circle} then goto _pfd_deq`,
+        ...(circleSpread ? ['if temp2{0} then goto _pfd_deq'] : []), set(S, 2), 'return'] : []),
       'goto _pfd_deq');
   // A step of the work being drawn; with none, the first record waiting starts.
-  const unitTargets = KINDS_BY_NUMBER.map((kind, n) => (n && used(n) && kind !== 'pixel' && !(kind === 'circle' && armCircle) ? `_pfd_u${n}` : '_pfd_unone'));
+  const unitTargets = KINDS_BY_NUMBER.map((kind, n) => (n && used(n) && kind !== 'pixel' && !(kind === 'circle' && armCircle && !circleSpread) ? `_pfd_u${n}` : '_pfd_unone'));
   add(label('unit'),
       `if ${S.read} < 32 then goto _pfd_deq`,
       `temp1 = ${S.read} / 32`,
@@ -235,7 +257,7 @@ const buildEngine = (Blockly) => {
   add(label('deq'),
       ...store.load(0),
       'if temp1 = 0 then goto _pfd_anone',
-      `${S.write} = temp1 & 248`,
+      `${S.write} = temp1`,
       'temp1 = temp1 / 32',
       `on temp1 goto ${actTargets.join(' ')}`,
       label('anone'),
@@ -276,13 +298,297 @@ const buildEngine = (Blockly) => {
   // A pixel is drawn as it starts.
   if (has('pixel')) add(label('a1'), 'temp1 = temp2', 'temp2 = temp3', 'gosub _pfd_plot', 'goto _pfd_anone');
   // A straight line: x, y and the pixels left (0 draws nothing).
-  [['hline', 2, 0], ['vline', 3, 1]].forEach(([kind, n, axis]) => {
-    if (!has(kind)) return;
-    add(label(`a${n}`), ...fromRecord(3), 'if temp4 = 0 then goto _pfd_anone', 'goto _pfd_shift',
-        label(`u${n}`), `temp1 = ${W[0].read}`, `temp2 = ${W[1].read}`, 'gosub _pfd_plot',
+  if (has('hline') || has('vline')) {
+    add(label('a2'), ...fromRecord(3), 'if temp4 = 0 then goto _pfd_anone', 'goto _pfd_shift',
+        label('u2'), `temp1 = ${W[0].read}`, `temp2 = ${W[1].read}`, 'gosub _pfd_plot',
         set(W[2], `${W[2].read} - 1`), `if ${W[2].read} = 0 then goto _pfd_unone`,
-        set(W[axis], `${W[axis].read} + 1`), 'return thisbank');
-  });
+        ...(has('vline') && has('hline') ? [`if ${S.read}{2} then goto _pfd_u2v`, set(W[0], `${W[0].read} + 1`), 'return thisbank', label('u2v'),
+          set(W[1], `${W[1].read} + 1`)] : [set(W[has('vline') ? 1 : 0], `${W[has('vline') ? 1 : 0].read} + 1`)]),
+        'return thisbank');
+  }
+  // Terrain (the Generate terrain block): the ground along an edge, one pixel a step. The record: the least and the most height, the roughness (0 to 8) and
+  // the overhangs (0 to 4). The side is in bits 1-0 of the state (0 bottom, 1 top, 2 left, 3 right), the direction the ground is heading in bit 2 (0 shallower,
+  // 1 deeper). Kept while it is drawn: the position along the edge, the height there, the range, the pixel of the line being drawn, the terrain's
+  // random numbers (see below), the roughness and the overhangs together (roughness * 8 + overhangs) and the overhang being made: the pixels of the line it
+  // leaves out (a nibble, a quarter of the height, up to 15) and the positions it still goes on for (a nibble).
+  // The height starts in the middle of the range and keeps heading the way it went, so the hills flow: from a random 0 to 7, 0 turns it round, 1 up to twice
+  // the roughness move it a pixel and the others leave it where it is (roughness 0 is flat); at the limit of the range it turns round. A run of 2 to 5 positions is an overhang or a cave. An overhang
+  // starts where the ground is getting shallower and keeps the height it started at as a ledge (1 pixel thick, and 1 more for every 16 of its height) over the
+  // ground when that falls away, so the top of a hill leans out over a void; a cave has a gap in the middle of the line (a quarter of the height, up to 15
+  // pixels), under the surface. A run starts at a position with a chance of 3 times the overhangs (or 4 times the caves) in 16, where the ground is more than 3 high (8
+  // or more for a cave). The overhangs and the caves are packed in the fifth number of the record: overhangs + caves * 16. The ledge is the tenth work byte.
+  if (has('terrain')) {
+    const [pos, depth, least, most, pixel, seed, params, over, caves, ledge] = W;
+    add(label('a3'), set(pos, 0), set(pixel, 0), set(least, 'temp2'), set(most, 'temp3'), set(over, 0), set(ledge, 0),
+        // The fifth number of the record is the overhangs, the caves and tile packed: overhangs + caves * 16 + 128 for tile. The caves byte keeps the caves in bits 0-2,
+        // tile in bit 3 and the slope of the ground (see _pfd_u3sl) in bits 4-7.
+        'temp1 = temp5 & 127',
+        'temp1 = temp1 / 16',
+        'if temp1 > 4 then temp1 = 4',
+        'if temp5 > 127 then temp1 = temp1 + 8',
+        set(caves, 'temp1'),
+        'temp5 = temp5 & 15',
+        'if temp4 > 8 then temp4 = 8',
+        'if temp5 > 4 then temp5 = 4',
+        'temp1 = temp4 * 8',
+        set(params, 'temp1 + temp5'),
+        `if ${least.read} <= ${most.read} then goto _pfd_a3o`,
+        'temp1 = temp2', set(least, 'temp3'), set(most, 'temp1'),
+        label('a3o'),
+        `if ${S.read}{1} then goto _pfd_a3h`,
+        'temp5 = ' + maxRow + ' + 1',
+        `if ${most.read} > temp5 then ${most.write} = temp5`,
+        'goto _pfd_a3m',
+        label('a3h'),
+        `if ${most.read} > ${maxColumn + 1} then ${most.write} = ${maxColumn + 1}`,
+        label('a3m'),
+        `if ${least.read} > ${most.read} then ${least.write} = ${most.read}`,
+        `if ${most.read} = 0 then goto _pfd_a3z`,
+        set(depth, `(${least.read} + ${most.read}) / 2`),
+        // The terrain's random numbers: a separate sequence (8 bit xorshift, shifts 1, 1 and 2: it goes through all 255 values), started from the project's
+        // random number (the one Set random seed sets, which every block that uses random numbers shares) as it was when the block ran (the fifth number of the
+        // record), so the same seed makes the same terrain whatever else uses random numbers, and whenever it starts.
+        set(seed, 'temp6'),
+        `if ${seed.read} = 0 then ${seed.write} = 1`,
+        `if ${seed.read}{0} then ${S.write} = ${S.read} | 4`,
+        'gosub _pfd_u3sl',
+        'goto _pfd_shift',
+        // A finished terrain makes Terrain done true for a frame only when no other terrain is waiting (the one being drawn left the queue when it started).
+        label('u3z'),
+        ...(pfDraw.terrainDone ? ['gosub _pfd_tzdone'] : []),
+        'goto _pfd_unone',
+        label('a3z'),
+        ...(pfDraw.terrainDone ? ['gosub _pfd_tzdone'] : []),
+        'goto _pfd_anone',
+        ...(pfDraw.terrainDone ? [label('tzdone'),
+          // The side that finished sets its bit (1 bottom, 2 top, 4 left, 8 right); bit 16 is for every terrain finished.
+          `temp1 = ${S.read} & 3`, `temp2 = ${terrainDoneMask(0)}`, `if temp1 = 1 then temp2 = ${terrainDoneMask(1)}`, `if temp1 = 2 then temp2 = ${terrainDoneMask(2)}`,
+          `if temp1 = 3 then temp2 = ${terrainDoneMask(3)}`,
+          `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | temp2`,
+          ...Array.from({length: pfDraw.records}, (_, i) => [...header(i), 'temp1 = temp1 / 32', `if temp1 = ${KIND_NUMBER.terrain} then return thisbank`]).flat(),
+          `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | ${terrainDoneMask(4)}`, 'return thisbank'] : []),
+        // The slope of the ground until the next turn, in the high bits of the caves byte: an eighth of the range, half of it a quarter of the time, double it
+        // another quarter (the hills are not all the same), 1 at the least and 15 at the most.
+        label('u3sl'),
+        `temp1 = (${most.read} - ${least.read}) / 8`,
+        'temp2 = ' + seed.read + ' / 8',
+        'temp2 = temp2 & 3',
+        'if temp2 = 0 then temp1 = temp1 / 2',
+        'if temp2 = 3 then temp1 = temp1 + temp1',
+        'if temp1 = 0 then temp1 = 1',
+        'if temp1 > 15 then temp1 = 15',
+        'temp1 = temp1 * 16',
+        set(caves, `(${caves.read} & 15) + temp1`),
+        'return thisbank',
+        label('u3'),
+        `if ${pixel.read} >= ${depth.read} then goto _pfd_u3x`,
+        label('u3m'),
+        `if ${S.read}{1} then goto _pfd_u3h`,
+        `temp1 = ${pos.read}`,
+        `if ${S.read}{0} then temp2 = ${pixel.read} else temp2 = ${maxRow} - ${pixel.read}`,
+        'goto _pfd_u3p',
+        label('u3h'),
+        `temp2 = ${pos.read}`,
+        `if ${S.read}{0} then temp1 = ${maxColumn} - ${pixel.read} else temp1 = ${pixel.read}`,
+        label('u3p'),
+        'gosub _pfd_plot',
+        set(pixel, `${pixel.read} + 1`),
+        // A cave (bit 6 of the roughness and overhangs): at half the height the pixels of the gap are jumped over.
+        `if ${params.read}{7} then goto _pfd_u3c`,
+        'return thisbank',
+        label('u3c'),
+        // (The gap of this position, in the high bits of over, is centered on the one of the whole cave, in the ledge byte: the ends of a cave are rounded.)
+        `temp1 = ${over.read} / 16`,
+        `temp2 = ${ledge.read} - temp1`,
+        'temp2 = temp2 / 2',
+        `temp3 = ${depth.read} / 2`,
+        'temp3 = temp3 + temp2',
+        `if ${pixel.read} <> temp3 then return thisbank`,
+        set(pixel, `${pixel.read} + temp1`),
+        'return thisbank',
+        // The line is drawn to the ground. An overhang (a ledge that is not 0) goes on over the void, if the ground fell since it started, with the ledge: the pixels
+        // below the top it started at (1 and 1 more for every 16 of its height, and 1 more for each position the overhang still goes on for).
+        label('u3x'),
+        `if ${params.read}{7} then goto _pfd_u3n`,
+        `temp1 = ${ledge.read}`,
+        'if temp1 = 0 then goto _pfd_u3n',
+        `if ${pixel.read} >= temp1 then goto _pfd_u3n`,
+        `temp2 = ${ledge.read} / 16`,
+        'temp2 = temp2 + 1',
+        // (The ledge is thicker where it leaves the hill and thinner toward its tip: the positions the overhang goes on for are added to it.)
+        `temp3 = ${over.read} & 15`,
+        'temp2 = temp2 + temp3',
+        'temp2 = temp1 - temp2',
+        'if temp2 > temp1 then temp2 = 0',
+        `if ${pixel.read} < temp2 then ${pixel.write} = temp2`,
+        'goto _pfd_u3m',
+        // The next position.
+        label('u3n'),
+        set(pos, `${pos.read} + 1`),
+        `if ${S.read}{1} then goto _pfd_u3e`,
+        `if ${pos.read} > ${maxColumn} then goto _pfd_u3z`,
+        'goto _pfd_u3s',
+        label('u3e'),
+        `if ${pos.read} > ${maxRow} then goto _pfd_u3z`,
+        label('u3s'),
+        'temp5 = ' + seed.read + ' * 2',
+        set(seed, `${seed.read} ^ temp5`),
+        'temp5 = ' + seed.read + ' / 2',
+        set(seed, `${seed.read} ^ temp5`),
+        'temp5 = ' + seed.read + ' * 4',
+        set(seed, `${seed.read} ^ temp5`),
+        // Tile: the ground moves as it likes while it can still get back to the height it started at (the middle of the range) by the last position, going at most a
+        // power of two of rows near its slope in each position; when it is further from it than that it moves back by what is missing: the edge ends where it began and
+        // is repeated without a step, and without a long flat stretch or a straight run (the walk is only held at its limit).
+        `if !${caves.read}{3} then goto _pfd_u3nt`,
+        `if ${S.read}{1} then temp3 = ${maxRow} else temp3 = ${maxColumn}`,
+        `temp1 = temp3 - ${pos.read}`,
+        `temp3 = ${caves.read} / 16`,
+        'if temp3 >= 2 then temp1 = temp1 + temp1',
+        'if temp3 >= 4 then temp1 = temp1 + temp1',
+        'if temp3 >= 8 then temp1 = temp1 + temp1',
+        `temp4 = ${least.read} + ${most.read}`,
+        'temp4 = temp4 / 2',
+        `if ${depth.read} > temp4 then temp5 = ${depth.read} - temp4 else temp5 = temp4 - ${depth.read}`,
+        'if temp5 <= temp1 then goto _pfd_u3nt',
+        'temp5 = temp5 - temp1',
+        `if ${depth.read} > temp4 then goto _pfd_u3tu`,
+        set(depth, `${depth.read} + temp5`),
+        set(S, `${S.read} | 4`),
+        'goto _pfd_u3k',
+        label('u3tu'),
+        set(depth, `${depth.read} - temp5`),
+        set(S, `${S.read} & 251`),
+        'goto _pfd_u3k',
+        label('u3nt'),
+        'temp5 = ' + seed.read + ' / 32',
+        'temp6 = ' + params.read + ' & 127',
+        'temp6 = temp6 / 8',
+        'temp6 = temp6 * 2',
+        // Turns: a random 0 of the 8 turns the ground round (and a new slope), and from roughness 3 on a random 0 to 7 below the roughness less 2 does too.
+        'if temp5 = 0 then goto _pfd_u3f',
+        'if temp6 < 6 then goto _pfd_u3q2',
+        'temp1 = ' + seed.read + ' & 7',
+        'temp2 = temp6 / 2',
+        'temp2 = temp2 - 2',
+        'if temp1 < temp2 then goto _pfd_u3f',
+        label('u3q2'),
+        'if temp5 > temp6 then goto _pfd_u3k',
+        label('u3mv'),
+        // A move is the slope of the hill (see _pfd_u3sl), a row a quarter of the time and half of it a quarter of the time (so the edge is not always in big steps), held inside the range.
+        `temp1 = ${caves.read} / 16`,
+        'if temp1 = 0 then temp1 = 1',
+        'temp2 = ' + seed.read + ' / 4',
+        'temp2 = temp2 & 3',
+        'if temp2 = 1 then temp1 = temp1 / 2',
+        'if temp2 = 0 then temp1 = 1',
+        'if temp1 = 0 then temp1 = 1',
+        `if ${S.read}{2} then goto _pfd_u3d`,
+        `if ${depth.read} <= ${least.read} then goto _pfd_u3t`,
+        `temp2 = ${depth.read} - ${least.read}`,
+        'if temp2 < temp1 then temp1 = temp2',
+        set(depth, `${depth.read} - temp1`),
+        'goto _pfd_u3k',
+        // (At the limit of the range the ground turns and moves away from it in the same position: no flat stretch along the limit. A range of one height has nowhere to go.)
+        label('u3t'),
+        `if ${least.read} >= ${most.read} then goto _pfd_u3k`,
+        set(S, `${S.read} | 4`),
+        'gosub _pfd_u3sl',
+        'goto _pfd_u3mv',
+        label('u3d'),
+        `if ${depth.read} >= ${most.read} then goto _pfd_u3b`,
+        `temp2 = ${most.read} - ${depth.read}`,
+        'if temp2 < temp1 then temp1 = temp2',
+        set(depth, `${depth.read} + temp1`),
+        'goto _pfd_u3k',
+        label('u3b'),
+        `if ${least.read} >= ${most.read} then goto _pfd_u3k`,
+        set(S, `${S.read} & 251`),
+        'gosub _pfd_u3sl',
+        'goto _pfd_u3mv',
+        // A turn that would head back to the limit the ground has just come from is left out (until it is two slopes away), so the ground does not stay along the limit
+        // as a flat stretch: it rounds off at the top and the bottom.
+        label('u3f'),
+        `temp1 = ${caves.read} / 16`,
+        'temp1 = temp1 + temp1',
+        `if ${S.read}{2} then goto _pfd_u3fb`,
+        `temp2 = ${most.read} - ${depth.read}`,
+        'if temp2 < temp1 then goto _pfd_u3fs',
+        'goto _pfd_u3fl',
+        label('u3fb'),
+        `temp2 = ${depth.read} - ${least.read}`,
+        'if temp2 < temp1 then goto _pfd_u3fs',
+        'goto _pfd_u3fl',
+        // (A turn that is left out: from the random 0 of the 8 the ground stays as it is, from the extra turns of a high roughness it goes on with its move.)
+        label('u3fs'),
+        'if temp5 = 0 then goto _pfd_u3k',
+        'goto _pfd_u3q2',
+        label('u3fl'),
+        set(S, `${S.read} ^ 4`),
+        'gosub _pfd_u3sl',
+        // The line of this position starts at pixel 0 (a run of an overhang or a cave jumps over its gap while the line is drawn).
+        label('u3k'),
+        set(pixel, 0),
+        `if ${over.read} <> 0 then goto _pfd_u3r`,
+        'temp1 = ' + params.read + ' & 7',
+        'if temp1 = 0 then goto _pfd_u3v',
+        `if ${depth.read} <= 3 then return thisbank`,
+        // (The chance of a start is 3 times the overhangs in 16: 19%, 37%, 56% and 75% for 1 to 4.)
+        'temp1 = temp1 + temp1 + temp1',
+        'temp2 = ' + seed.read + ' & 15',
+        'if temp2 >= temp1 then goto _pfd_u3v',
+        // An overhang starts where the ground is getting shallower, at the height it has: the ledge over what the ground drops to.
+        `if ${S.read}{2} then goto _pfd_u3v`,
+        set(ledge, depth.read),
+        'temp4 = ' + seed.read + ' / 4',
+        'temp4 = temp4 & 3',
+        'temp4 = temp4 + 3',
+        set(over, 'temp4 + 16'),
+        'goto _pfd_u3r',
+        // A cave starts instead, with the same chance from the caves value, where the ground is 8 or more high: the gap is in the middle of the line.
+        label('u3v'),
+        `temp1 = ${caves.read} & 7`,
+        'if temp1 = 0 then return thisbank',
+        `if ${depth.read} < 8 then return thisbank`,
+        'temp1 = temp1 * 4',
+        'temp2 = ' + seed.read + ' / 16',
+        'if temp2 >= temp1 then return thisbank',
+        set(params, `${params.read} | 128`),
+        // A cave: a quarter of the height (plus 1 half the time, at most 15) pixels left out, for 2 to 5 positions.
+        'temp3 = ' + depth.read + ' / 4',
+        'temp1 = ' + seed.read + ' / 16',
+        'temp1 = temp1 & 1',
+        'temp3 = temp3 + temp1',
+        'if temp3 > 15 then temp3 = 15',
+        'if temp3 = 0 then temp3 = 1',
+        set(ledge, 'temp3'),
+        'temp4 = ' + seed.read + ' / 4',
+        'temp4 = temp4 & 3',
+        'temp4 = temp4 + 2',
+        set(over, 'temp4'),
+        label('u3r'),
+        `if (${over.read} & 15) <> 0 then goto _pfd_u3q`,
+        set(over, 0),
+        set(ledge, 0),
+        set(params, `${params.read} & 127`),
+        'return thisbank',
+        label('u3q'),
+        set(over, `${over.read} - 1`),
+        `if !${params.read}{7} then return thisbank`,
+        // A cave: the gap of the first and the last position is half of the gap of the cave (the high bits of over are 0 until the first one is set).
+        `temp1 = ${over.read} & 15`,
+        `temp2 = ${ledge.read}`,
+        `temp3 = ${over.read} / 16`,
+        'if temp3 = 0 then goto _pfd_u3q3',
+        'if temp1 <> 0 then goto _pfd_u3q4',
+        label('u3q3'),
+        'temp2 = temp2 / 2',
+        'if temp2 = 0 then temp2 = 1',
+        label('u3q4'),
+        'temp2 = temp2 * 16',
+        set(over, 'temp1 + temp2'),
+        'return thisbank');
+  }
   // An area: the first column, the row, the last column, the last row, and the column being drawn. The corners in order and held to the playfield.
   if (has('area') || has('carea')) {
     add(label('a4'), ...fromRecord(4),
@@ -340,17 +646,18 @@ const buildEngine = (Blockly) => {
     const call = (operation) => buildCircleArmCall({operation, cx: 'temp2', cy: 'temp3', radius: 'temp4',
       padLeft: 'temp5\nand #15', padRight: 'temp5\nlsr\nlsr\nlsr\nlsr', padTop: 'temp6\nand #15', padBottom: 'temp6\nlsr\nlsr\nlsr\nlsr',
       last: `#${groupRows ? '191' : maxRow}`});
-    add(label('a6'));
+    add(label('a6'), ...(circleSpread ? [`if ${S.read}{0} then goto _pfd_a6s`] : []));
     circleOperations.slice(0, -1).forEach((operation) => add(
         `if !${S.read}{${operation === 'flip' ? 4 : 3}} then goto _pfd_a6${operation}`, call(operation), 'goto _pfd_anone', label(`a6${operation}`)));
     add(call(circleOperations[circleOperations.length - 1]), 'goto _pfd_anone');
-  } else if (has('circle')) {
+  }
+  if (has('circle') && (!armCircle || circleSpread)) {
     // Elsewhere (as the circle block always drew it, row by row from the center row outwards, the row below and then the row above): the center,
     // the radius (low nibble) and the distance of the row from the center (high nibble), the padding (as the record has it), the column being
     // drawn and the last column of the row. State bit 2: a row is being drawn; bit 1: the row above.
     const [cx, cy, rd, padLR, padTB, column, end] = W;
     const squares = Array.from({length: 16}, (_, i) => i * i).join(',');
-    add(label('a6'), ...fromRecord(5),
+    add(label(armCircle ? 'a6s' : 'a6'), ...fromRecord(5),
         `if ${rd.read} > 15 then ${rd.write} = 15`, 'goto _pfd_shift',
         label('u6'),
         `if ${S.read}{2} then goto _pfd_u6p`,
@@ -520,6 +827,7 @@ const buildEngine = (Blockly) => {
     for (let r = 0; r < records; r++) add(...header(r), 'temp1 = temp1 / 32', `if temp1 = ${KIND_NUMBER.fill} then temp6 = 0`);
     add('return');
   }
+  // Terrain done (temp6 1): no terrain is drawn or waiting.
   // One side of a centered area (the columns or the rows): the center in temp3, the width or height in temp4, the padding of the low and the high
   // side in temp5 and temp6, the last column or row in temp2; the first and the last of the side come back in temp3 and temp4 (temp3 more than
   // temp4 when nothing is left), worked out as the area block always did.
@@ -557,30 +865,32 @@ const callEngine = (Blockly, entry) =>
 // The line for the end of commongamelogic: the steps of the frame.
 export const generatePfDrawStep = (Blockly) => {
   if (!ensurePfDraw(Blockly)) return '';
-  return [` if ${Blockly.BBasic.pfDraw.state.read} = 0 then goto _pfd_idle`,
+  const done = Blockly.BBasic.pfDraw.terrainDone;
+  // (The pulse of Playfield terrain done is cleared here, at the end of the frame that saw it, before the steps that may set it again.)
+  return [...(done ? [` ${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} & ${255 ^ terrainDoneAllMask()}`] : []), ` if ${Blockly.BBasic.pfDraw.state.read} = 0 then goto _pfd_idle`,
     ` gosub _pfd_step${Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.primaryBank ? Blockly.BBasic.primaryBank() : 1,
         Blockly.BBasic.getSubroutineBank(PF_DRAW_SUBROUTINE))}`, '_pfd_idle'].join('\n');
 };
 
-const headerOf = (kind, operation) => KIND_NUMBER[kind] * 32 + OPERATION_NUMBER[operation] * 8;
+const headerOf = (kind, operation, flags = 0) => KIND_NUMBER[kind] * 32 + OPERATION_NUMBER[operation] * 8 + flags;
 // A Draw block's code: room in the queue, its record written into the last record (a number at a time, each worked out straight into its byte, or
 // on DPC+ into temp6 and from there into the display RAM: working one out uses temp1 and temp2 at the most), then the submit. kind: see
 // pfDrawKindOf; operation: on, off or flip (the fill: on fills, off erases); numbers: the code of each number, in the order of the kind's record.
-export const pfDrawBlockCode = (Blockly, kind, operation, numbers) => {
+export const pfDrawBlockCode = (Blockly, kind, operation, numbers, flags = 0) => {
   if (!ensurePfDraw(Blockly)) return '';
   const store = recordStore(Blockly.BBasic.pfDraw);
-  return [callEngine(Blockly, 'room'), ...numbers.flatMap((code, i) => store.write(i + 1, code)), ...store.write(0, headerOf(kind, operation)),
+  return [callEngine(Blockly, 'room'), ...numbers.flatMap((code, i) => store.write(i + 1, code)), ...store.write(0, headerOf(kind, operation, flags)),
     callEngine(Blockly, 'submit')].join('\n') + '\n';
 };
 
 // The circle: the center and the radius as numbers, the padding packed two to a byte (left and right, top and bottom, 15 at the most each).
-export const pfDrawCircleCode = (Blockly, operation, cx, cy, radius, padLeft, padRight, padTop, padBottom) => {
+export const pfDrawCircleCode = (Blockly, operation, cx, cy, radius, padLeft, padRight, padTop, padBottom, spread = false) => {
   if (!ensurePfDraw(Blockly)) return '';
   const store = recordStore(Blockly.BBasic.pfDraw);
   const pack = (low, high, i) => [`temp3 = ${low}`, `temp4 = ${high}`, 'if temp3 > 15 then temp3 = 15', 'if temp4 > 15 then temp4 = 15',
     'temp4 = temp4 * 16', ...store.write(i, 'temp3 | temp4')];
   return [callEngine(Blockly, 'room'), ...store.write(1, cx), ...store.write(2, cy), ...store.write(3, radius),
-    ...pack(padLeft, padRight, 4), ...pack(padTop, padBottom, 5), ...store.write(0, headerOf('circle', operation)), callEngine(Blockly, 'submit')].join('\n') + '\n';
+    ...pack(padLeft, padRight, 4), ...pack(padTop, padBottom, 5), ...store.write(0, headerOf('circle', operation, spread ? 1 : 0)), callEngine(Blockly, 'submit')].join('\n') + '\n';
 };
 
 // The centered area: each side worked out by _pfd_axis into the corners of an area record (nothing is submitted when a side has nothing left).
@@ -598,4 +908,7 @@ export const pfDrawCenteredAreaCode = (Blockly, operation, cx, cy, width, height
 };
 
 export const pfDrawStopFillCode = (Blockly) => (ensurePfDraw(Blockly) ? callEngine(Blockly, 'stopfill') + '\n' : '');
+// (index: the bit, 0 to 3 a side and 4 for every terrain.)
+export const pfDrawTerrainDoneCode = (Blockly, index = 4) => (ensurePfDraw(Blockly) && Blockly.BBasic.pfDraw.terrainDone ?
+  `(${terrainDoneName(Blockly)} & ${terrainDoneMask(index)})` : '0');
 export const pfDrawFillDoneCode = (Blockly) => (ensurePfDraw(Blockly) ? `${callEngine(Blockly, 'filldone')}\ntemp6` : '1');

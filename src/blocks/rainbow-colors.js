@@ -1,4 +1,4 @@
-import * as Blockly from 'blockly/core';
+import {registerExtension} from './extension';
 
 import {HUE_ANY, hueOptions} from '../generators/bbasic/rainbow-range';
 
@@ -15,7 +15,7 @@ export const rainbowRangeArgs = () => [
 
 // The three fields of the older span of hues are hidden until a block has one (a saved project that set it): the colors range replaces it. Choosing "any hue" in
 // either dropdown ends the span (see rainbowRangeOf) and hides them again.
-Blockly.Extensions.register('rainbow_legacy_hues', function() {
+registerExtension('rainbow_legacy_hues', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   const fields = ['HUELABEL', 'HUEFROM', 'HUETO'].map((name) => block.getField(name));

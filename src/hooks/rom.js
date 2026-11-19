@@ -26,6 +26,7 @@ import {patchArmProgramAddress, fillArmProgram} from '../generators/bbasic/offse
 import {getDpcPlusNoScoreSiblingFiles} from '../utils/dpc-noscore';
 import {getDpcPlusSquishSiblingFiles} from '../utils/dpc-squish';
 import {getDpcPlusAudioSiblingFiles} from '../generators/bbasic/dpcplus-audio';
+import {SCORE_LAYOUTS, withScoreLayoutBkColor, withScoreLayoutLabels} from '../generators/bbasic/score-layout';
 import {getExtendedScoreGraphics, getTextMinikernelSiblingFiles, getDpcPlusTextMinikernelSiblingFiles, textLineColorsOf, withTextLineColors12b,
   dpcPlusTextScreenLines} from '../generators/bbasic/text-minikernel-files';
 import {getTitleScreenSiblingFiles} from '../generators/bbasic/titlescreen-files';
@@ -1766,6 +1767,18 @@ export const buildRom = async () => {
 
 // Whether the last build failed because the code does not fit the banks (the one failure a different way of making the code can put right).
 let lastBuildFailedForFit = false;
+// The two score layouts' minikernels (batari's files, see generators/bbasic/score-layout.js) go in the kernel's bank like the text minikernel: the Score tab's layout
+// and the ones Set score layout blocks name. With several, each file's labels get the layout's name (generateTextMinikernel adds the dispatcher).
+const addScoreLayoutFiles = async (siblingFiles, generator) => {
+  const keys = generator.scoreLayoutKeys();
+  for (const key of keys) {
+    const file = SCORE_LAYOUTS[key].file;
+    let text = await fetch(`bb19/score-minikernel/${file}`).then((response) => response.text());
+    if (keys.length > 1) text = withScoreLayoutLabels(text, key);
+    siblingFiles[file] = withScoreLayoutBkColor(text, generator);
+  }
+};
+
 const buildRomInner = async () => {
   lastBuildFailedForFit = false;
   // (The names the kernels' assembly uses: the variables the spill may take from var0 to var8 must not be among them, see spillInternalVariables.)
@@ -1967,6 +1980,8 @@ const buildRomInner = async () => {
       // "inline"-a-real-file mechanism was confirmed to break once relocated
       // to a bank other than 1.
       Object.assign(siblingFiles, BlocklyBB.playerAnimAsmFiles || {});
+      // A two score layout: batari's score minikernel (see generators/bbasic/score-layout.js), inlined in the kernel's bank like the text minikernel.
+      await addScoreLayoutFiles(siblingFiles, BlocklyBB);
       if (BlocklyBB.usesDivMulRoutine() && fastMathOn(configurationStorage.value || {})) {
         Object.assign(siblingFiles, await getFastMathSiblingFiles(config.kernel));
       }
@@ -3114,6 +3129,8 @@ const buildPreviewRom = async ({name, xml, titleScreen = false, configOverride =
         siblingFiles['text12b.asm'] = withTextLineColors12b(siblingFiles['text12b.asm'], textLineColorsOf(configurationStorage.value));
       }
       Object.assign(siblingFiles, BlocklyBB.playerAnimAsmFiles || {});
+      // A two score layout: batari's score minikernel (see generators/bbasic/score-layout.js), inlined in the kernel's bank like the text minikernel.
+      await addScoreLayoutFiles(siblingFiles, BlocklyBB);
       if (BlocklyBB.usesDivMulRoutine() && fastMathOn(configurationStorage.value || {})) {
         Object.assign(siblingFiles, await getFastMathSiblingFiles((configurationStorage.value || {}).kernel));
       }

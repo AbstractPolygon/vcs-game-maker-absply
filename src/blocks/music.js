@@ -314,8 +314,7 @@ Blockly.Blocks['music_play_song'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Starts (or restarts) playback of a song created on the Music tab. ' +
-      'When Loop is unchecked, the song plays once and stops instead of repeating.');
+    this.setTooltip('Starts (or restarts) a song from the Music tab. With Loop unchecked it plays once and stops.');
   },
 };
 
@@ -339,9 +338,7 @@ Blockly.Blocks['music_play_song_by_id'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Same as "Play song", but picks the song by ID (a variable or computed value, ' +
-      'not a fixed choice) - using this anywhere in the project makes every song available to pick ' +
-      'from at runtime. When Loop is unchecked, the song plays once and stops instead of repeating.');
+    this.setTooltip('Same as "Play song", but picks the song by ID (a variable or computed value). Using it makes every song available at runtime.');
   },
 };
 
@@ -360,9 +357,7 @@ Blockly.Blocks['music_song_playing'] = {
         .appendField('is playing');
     this.setOutput(true, 'Boolean');
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('True while the named song specifically is the one currently playing (including ' +
-      'while paused) - false if it was never started, already stopped, or a DIFFERENT song is playing ' +
-      'instead.');
+    this.setTooltip('True while the named song is the one playing (also while paused); false if it never started, stopped, or another song is playing.');
   },
 };
 
@@ -383,9 +378,7 @@ Blockly.Blocks['music_song_playing_by_number'] = {
     this.setInputsInline(true);
     this.setOutput(true, 'Boolean');
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Same as "Song ... is playing", but picks the song by ID (a variable or computed ' +
-      'value, not a fixed choice) - using this anywhere in the project makes every song count toward ' +
-      'this check.');
+    this.setTooltip('Same as "Song ... is playing", but picks the song by ID (a variable or computed value); every song counts toward the check.');
   },
 };
 
@@ -400,8 +393,7 @@ Blockly.Blocks['music_stop_song'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Immediately stops whatever song is currently playing. A subsequent "Play song" ' +
-      'restarts it from the beginning - unlike Pause below, there\'s no way to resume from here.');
+    this.setTooltip('Stops the song at once. "Play song" restarts it from the beginning; it cannot be resumed.');
   },
 };
 
@@ -420,9 +412,7 @@ Blockly.Blocks['music_pause_song'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Freezes music playback exactly where it is (the currently sounding notes hold, ' +
-      'they don\'t go silent) until "Unpause music" runs. Unlike "Stop music", playback position isn\'t ' +
-      'lost - resuming continues the song from where it was paused, not from the beginning.');
+    this.setTooltip('Freezes the music where it is (sounding notes hold) until "Unpause music" runs; unlike "Stop music", it then resumes from the same place.');
   },
 };
 
@@ -436,8 +426,7 @@ Blockly.Blocks['music_unpause_song'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Resumes music playback frozen by "Pause music", continuing exactly where it left ' +
-      'off. Has no effect if music isn\'t currently paused.');
+    this.setTooltip('Resumes music frozen by "Pause music". No effect if not paused.');
   },
 };
 
@@ -453,8 +442,7 @@ Blockly.Blocks['music_song_stopped'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Runs the connected blocks once, the moment a song played with Loop unchecked ' +
-      'reaches its natural end. Never triggers for a looping song, or from the Stop block.');
+    this.setTooltip('Runs once when a song played with Loop unchecked reaches its end. Never for a looping song or a Stop block.');
   },
 };
 
@@ -477,8 +465,7 @@ Blockly.Blocks['music_song_stopped_by_id'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Same as "When song has stopped playing", but only fires when the NAMED song ' +
-      'specifically is the one that stopped, not any other song.');
+    this.setTooltip('Same as "When song has stopped playing", but only when the named song stopped.');
   },
 };
 
@@ -498,9 +485,7 @@ Blockly.Blocks['music_song_stopped_by_number'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Same as "When song has stopped playing", but picks the song by ID (a variable or ' +
-      'computed value, not a fixed choice), and only fires when that specific song is the one that ' +
-      'stopped, not any other song.');
+    this.setTooltip('Same as "When song has stopped playing", but picks the song by ID (a variable or computed value) and only fires when that song stopped.');
   },
 };
 
@@ -518,9 +503,7 @@ Blockly.Blocks['music_sequence_chip_finished'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Runs the connected blocks once, the moment ANY Sequence chip (any song) finishes ' +
-      'its configured repeat count and the song moves on. Doesn\'t distinguish which chip - see ' +
-      '"When sequence chip [ID] has finished playing" for that.');
+    this.setTooltip('Runs once when any Sequence chip of any song finishes its repeat count and the song moves on. For a chosen chip use "When sequence chip [ID] has finished playing".');
   },
 };
 
@@ -552,10 +535,7 @@ Blockly.Blocks['music_sequence_chip_finished_by_id'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Runs the connected blocks once, the moment the chosen song\'s Sequence chip in this ' +
-      'position finishes its configured repeat count and the song moves on - read the position off ' +
-      'the small "ID: N" badge next to that chip in the Sequence list (1 = first chip; changes if you ' +
-      'reorder, insert, or delete chips before it). Does nothing if that song doesn\'t have that many chips.');
+    this.setTooltip('Runs once when the Sequence chip of the chosen song at this position finishes its repeat count and the song moves on. The position is the "ID: N" badge on the chip in the Sequence list (1 is first; it changes if chips before it are reordered, inserted or deleted). Does nothing if the song has fewer chips.');
   },
 };
 
@@ -580,11 +560,7 @@ Blockly.Blocks['music_sequence_chip_finished_current_song'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Runs the connected blocks once, the moment whichever song is CURRENTLY playing ' +
-      'reaches a Sequence chip in this position and finishes its configured repeat count - checks ' +
-      'every song that has a chip in this position, not just one fixed song. Read the position off the ' +
-      'small "ID: N" badge next to that chip in the Sequence list (1 = first chip; changes if you reorder, ' +
-      'insert, or delete chips before it). Does nothing if no song has that many chips.');
+    this.setTooltip('Runs once when the song now playing finishes its Sequence chip at this position, for any song that has one. The position is the "ID: N" badge on the chip in the Sequence list (1 is first; it changes if chips before it are reordered, inserted or deleted). Does nothing if no song has that many chips.');
   },
 };
 
@@ -609,10 +585,7 @@ Blockly.Blocks['music_sequence_chip_playing_by_id'] = {
         .appendField('is playing');
     this.setOutput(true, 'Boolean');
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('True for as long as the chosen song is the one currently playing (including while ' +
-      'paused) AND its Sequence position is at this chip - read the position off the small "ID: N" ' +
-      'badge next to that chip in the Sequence list (1 = first chip; changes if you reorder, insert, or ' +
-      'delete chips before it). False if that song doesn\'t have that many chips.');
+    this.setTooltip('True while the chosen song is playing (also while paused) and its Sequence position is at this chip (the "ID: N" badge on the chip in the Sequence list (1 is first; it changes if chips before it are reordered, inserted or deleted)). False if the song has fewer chips.');
   },
 };
 
@@ -628,11 +601,7 @@ Blockly.Blocks['music_sequence_chip_playing_current_song'] = {
         .appendField('is playing (current song)');
     this.setOutput(true, 'Boolean');
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('True for as long as whichever song is CURRENTLY playing has its Sequence ' +
-      'position at a chip in this position - checks every song that has a chip in this position, not just ' +
-      'one fixed song. Read the position off the small "ID: N" badge next to that chip in the Sequence ' +
-      'list (1 = first chip; changes if you reorder, insert, or delete chips before it). False if no song ' +
-      'has that many chips, or nothing is playing.');
+    this.setTooltip('True while the song now playing is at a Sequence chip in this position, for any song that has one (the "ID: N" badge on the chip in the Sequence list (1 is first; it changes if chips before it are reordered, inserted or deleted)). False if no song has that many chips or nothing is playing.');
   },
 };
 
@@ -656,10 +625,7 @@ Blockly.Blocks['music_note_played'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Runs the connected blocks once every time any channel starts a new note using ' +
-      'this instrument (a Sound tab preset), on any track or song that uses it. Up to 14 distinct ' +
-      'instruments can be watched this way project-wide (counting both this block and "When a note is ' +
-      'played by instrument ID").');
+    this.setTooltip('Runs once every time any channel starts a note with this instrument (a Sound tab preset), on any track or song. At most 14 instruments can be watched project-wide (counting this block and "When a note is played by instrument ID").');
   },
 };
 
@@ -676,8 +642,7 @@ Blockly.Blocks['music_note_played_by_id'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(MUSIC_COLOR);
-    this.setTooltip('Same as "When a note is played by instrument", just chosen by typing its ID ' +
-      'number (see the ID badge on its card on the Sound tab) instead of picking it from a dropdown.');
+    this.setTooltip('Same as "When a note is played by instrument", but chosen by typing its ID (the ID badge on its card on the Sound tab).');
   },
 };
 

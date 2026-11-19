@@ -18,8 +18,7 @@ Blockly.Blocks['subroutine_define'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SUBROUTINE_COLOR);
-    this.setTooltip('Defines a named, reusable block of code. Call it from anywhere ' +
-      'with a "Call" block.');
+    this.setTooltip('Defines a reusable block of code. Call it with a "Call" block.');
   },
 };
 
@@ -226,8 +225,7 @@ Blockly.Blocks['subroutine_call'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SUBROUTINE_COLOR);
-    this.setTooltip('Runs a subroutine defined with a "Subroutine" block, then continues ' +
-      'after this block once it finishes.');
+    this.setTooltip('Runs a subroutine, then continues after this block.');
     if (this.workspace) ensureSubroutineCallListener(this.workspace);
   },
 };

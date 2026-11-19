@@ -112,8 +112,7 @@ Blockly.Blocks['data_get_element'] = {
         .appendField('at index');
     this.setOutput(true, 'Number');
     this.setColour(DATA_COLOR);
-    this.setTooltip('Reads a value out of a read-only data table set up on the Data tab. ' +
-      'The table can only be read, not written to.');
+    this.setTooltip('Reads a value from a read-only data table.');
   },
 };
 
@@ -126,8 +125,7 @@ Blockly.Blocks['data_table_size'] = {
         .appendField(new Blockly.FieldDropdown(buildDataTableOptions), 'TABLE');
     this.setOutput(true, 'Number');
     this.setColour(DATA_COLOR);
-    this.setTooltip('The number of values in a data table set up on the Data tab. ' +
-      'Its last index is one less than this.');
+    this.setTooltip('The number of values in a data table. The last index is one less.');
   },
 };
 
@@ -141,8 +139,7 @@ Blockly.Blocks['data_table_size_by_id'] = {
     this.setInputsInline(true);
     this.setOutput(true, 'Number');
     this.setColour(DATA_COLOR);
-    this.setTooltip('The number of values in a data table, chosen by its ID number (see the ID badge on ' +
-      'its card on the Data tab). A table with 256 values reports 255 when the ID is not a plain number.');
+    this.setTooltip('The number of values in the table with this ID (the ID badge on its Data tab card). A table with 256 values reports 255 when the ID is not a plain number.');
   },
 };
 
@@ -170,9 +167,7 @@ Blockly.Blocks['data_get_element_by_id'] = {
     this.setInputsInline(true);
     this.setOutput(true, 'Number');
     this.setColour(DATA_COLOR);
-    this.setTooltip('Reads a value out of a read-only data table, chosen by its ID number ' +
-      '(see the ID badge on its card on the Data tab, plugged in as a plain number here) instead ' +
-      'of picking it from a dropdown. The table can only be read, not written to.');
+    this.setTooltip('Reads a value from a read-only data table chosen by ID (the ID badge on its Data tab card, a plain number).');
   },
 };
 
@@ -195,8 +190,7 @@ Blockly.Blocks['data_get_bit'] = {
         .appendField('at index');
     this.setOutput(true, 'Boolean');
     this.setColour(DATA_COLOR);
-    this.setTooltip('Checks a single bit (0-7) of a value read out of a read-only data table ' +
-      'set up on the Data tab - lets one byte pack up to 8 true/false flags.');
+    this.setTooltip('Checks one bit (0-7) of a value read from a read-only data table.');
   },
 };
 
@@ -220,8 +214,6 @@ Blockly.Blocks['data_get_bit_by_id'] = {
     this.setInputsInline(true);
     this.setOutput(true, 'Boolean');
     this.setColour(DATA_COLOR);
-    this.setTooltip('Checks a single bit (0-7) of a value read out of a read-only data table, ' +
-      'chosen by its ID number (see the ID badge on its card on the Data tab, plugged in as ' +
-      'a plain number here) instead of picking it from a dropdown.');
+    this.setTooltip('Checks one bit (0-7) of a value read from a read-only data table chosen by ID (the ID badge on its Data tab card, a plain number).');
   },
 };

@@ -437,6 +437,10 @@ export const leanSixteenths = (speed) => ({
   other: Math.round(speed * LEAN_OTHER_PER_SPEED * 16),
 });
 export const missileFireFracVarName = (index) => `missileFireFrac${index}`;
+// Any direction (the Fire block's third choice, a heading of 0-255 for a full turn): the leftover 32nds of a pixel of each axis, a byte each for the object, and the
+// byte the playfield checked movement keeps its step heading in (shared by the objects: only one moves at a time).
+export const missileFireAnyFracVarName = (name, axis) => `${name}FireFrac${axis.toUpperCase()}`;
+export const fireAnyHeadVarName = () => 'fireAnyHead';
 // Which objects need their leftover sixteenths kept (16 directions, with a speed that is not a fixed
 // number or movement that is throttled), in the order missile0, missile1, ball. Each takes a
 // byte: the low nibble is the main axis's leftover and the high nibble the other axis's, and the
@@ -573,7 +577,10 @@ export const OBJECT_GRAVITY_FLAGS_FAMILY = 'objectGravityFlags';
 export const objectGravityFlagsVarName = () => flagPoolVar(OBJECT_GRAVITY_FLAGS_FAMILY);
 export const objectGravityBit = (name) => flagPoolBit(OBJECT_GRAVITY_FLAGS_FAMILY, spriteOwnBit(name));
 export const objectGravitySpeedVarName = (name) => `${name}GravitySpeed`;
-export const OBJECT_GRAVITY_FIELDS = ['mask', 'max', 'keep'];
+export const OBJECT_GRAVITY_FIELDS = ['pull', 'max', 'keep', 'angle'];
+// One byte for each object: the eighths of a pixel of the fall speed (bits 0 to 2) and the eighths of a pixel of position not moved yet (bits 3 to 5).
+export const objectGravityFineVarName = (name) => `${name}GravityFine`;
+export const objectGravityFracVarName = (name, axis) => `${name}GravityFrac${axis}`;
 export const objectGravityFieldVarName = (name, field) => `${name}Gravity${field[0].toUpperCase()}${field.slice(1)}`;
 // The value of a number every Gravity block of the object gives alike (a number block), else undefined: it is a byte then.
 export const objectGravityConstant = (Blockly, name, field) => {
@@ -806,7 +813,7 @@ export const reserveRainbowColorDevVars = (reserveDevVar, reserveDevVarRW, usedF
 // automatically whenever Superchip is off, pfres is too high, or the r/w
 // pool is already full, so this is free real-var savings on Superchip
 // builds with no fallback risk.
-export const reserveMissileFireDevVars = (reserveDevVar, reserveDevVarRW, usedFor, used16, usedPfCheck, usedThrottle, constSpeed, usedEven) => {
+export const reserveMissileFireDevVars = (reserveDevVar, reserveDevVarRW, usedFor, used16, usedPfCheck, usedThrottle, constSpeed, usedEven, usedAny) => {
   if (!usedFor || !usedFor.size) return;
   reserveDevVar(missileFireFlagsVarName(), undefined, 'shared active-bit byte for fired missiles');
   if (usedPfCheck && usedPfCheck.size) reserveDevVarRW(fireCellVarName(), 'playfield cell a fired object started its frame in (while it moves)');
@@ -830,8 +837,19 @@ export const reserveMissileFireDevVars = (reserveDevVar, reserveDevVarRW, usedFo
           'this missile\'s "throttle movement" countdown reset value');
     }
   });
+  // Any direction: the leftover 32nds of a pixel of both axes, a byte each.
+  if (usedAny && usedAny.size) {
+    usedFor.forEach((name) => {
+      if (!usedAny.has(name)) return;
+      reserveDevVarRW(missileFireAnyFracVarName(name, 'x'), 'fired object (any direction): leftover 32nds of a pixel of x');
+      reserveDevVarRW(missileFireAnyFracVarName(name, 'y'), 'fired object (any direction): leftover 32nds of a pixel of y');
+    });
+    if ([...usedAny].some((name) => usedFor.has(name) && usedPfCheck && usedPfCheck.has(name))) {
+      reserveDevVar(fireAnyHeadVarName(), undefined, 'step heading of the playfield checked movement of a fired object (any direction)');
+    }
+  }
   // The leftover sixteenths of a pixel of the halfway directions, a byte for each object.
-  const slots = missileFireFracSlots(usedFor, used16, usedPfCheck, usedThrottle, constSpeed);
+  const slots = missileFireFracSlots([...usedFor].filter((name) => !(usedAny && usedAny.has(name))), used16, usedPfCheck, usedThrottle, constSpeed);
   for (let index = 0; index < slots.size; index++) {
     reserveDevVarRW(missileFireFracVarName(index),
         'fired object: leftover sixteenths of a pixel of the halfway directions');
@@ -1479,6 +1497,11 @@ const stretchRow = (i) => {
   if (i % 4 === 2) return {big: 2, main: 26, minor: 16};
   return Math.abs(y) === 2 ? {big: 2, main: 33, minor: 9} : {big: 1, main: 21, minor: 14};
 };
+// Any direction: a quarter turn of a sine, 65 entries (the angle in 256ths of a turn, 0 to 64), in 32nds of the speed (32 * sin); the other quarters are this one
+// read backwards and negated. The second table has the 1.625 times of the vertical stretch of DPC+ in it (a pixel is about 1.6 lines wide on a TV).
+const SINE_QUARTER = Array.from({length: 65}, (_, i) => Math.round(32 * Math.sin((i * Math.PI) / 128)));
+const SINE_QUARTER_STRETCH = Array.from({length: 65}, (_, i) => Math.round(52 * Math.sin((i * Math.PI) / 128)));
+const FIRE_ANY_TABLES = {sin: '_fire_tab_sinq', sinStretch: '_fire_tab_sinqs'};
 const fireTables = (Blockly) => {
   const sign = (v) => (v > 0 ? 1 : v < 0 ? 255 : 0);
   const minorOf = (step, other) => Math.abs(step) === 1 && Math.abs(other) === 2;
@@ -1492,10 +1515,14 @@ const fireTables = (Blockly) => {
   return [
     ' asm',
     '       jmp _fire_tables_end',
-    ...pair(FIRE_TABLES.mainx, FIRE_TABLES.mainy, (x, y) => (x && !minorOf(x, y) ? sign(x) : 0)),
-    ...pair(FIRE_TABLES.minx, FIRE_TABLES.miny, (x, y) => (x && minorOf(x, y) ? sign(x) : 0)),
-    ...pair(FIRE_TABLES.sx, FIRE_TABLES.sy, (x) => sign(x)),
-    FIRE_TABLES.big, row((x, y) => (Math.abs(x) === 2 ? 1 : 0) | (Math.abs(y) === 2 ? 2 : 0)),
+    ...(Blockly.BBasic.fireSineUsed ? [FIRE_ANY_TABLES.sin, `       .byte ${SINE_QUARTER.join(',')}`] : []),
+    ...(Blockly.BBasic.fireSineStretchUsed ? [FIRE_ANY_TABLES.sinStretch, `       .byte ${SINE_QUARTER_STRETCH.join(',')}`] : []),
+    ...(!Blockly.BBasic.fireTablesUsed ? [] : [
+      ...pair(FIRE_TABLES.mainx, FIRE_TABLES.mainy, (x, y) => (x && !minorOf(x, y) ? sign(x) : 0)),
+      ...pair(FIRE_TABLES.minx, FIRE_TABLES.miny, (x, y) => (x && minorOf(x, y) ? sign(x) : 0)),
+      ...pair(FIRE_TABLES.sx, FIRE_TABLES.sy, (x) => sign(x)),
+      FIRE_TABLES.big, row((x, y) => (Math.abs(x) === 2 ? 1 : 0) | (Math.abs(y) === 2 ? 2 : 0)),
+    ]),
     ...(Blockly.BBasic.fireStretchTablesUsed ? [
       FIRE_TABLES.stretchbig, '       .byte ' + DIRECTION16_STEPS.map((_, i) => stretchRow(i).big).join(','),
       FIRE_TABLES.stretchmain, '       .byte ' + DIRECTION16_STEPS.map((_, i) => stretchRow(i).main).join(','),
@@ -1511,6 +1538,68 @@ const fireTables = (Blockly) => {
   ];
 };
 
+// Any direction. The heading (the object's byte) is a full turn of 256, clockwise from up (64 right, 128 down, 192 left). Each frame an axis moves by speed times
+// the sine of the heading (x) or of the heading less a quarter turn (y, up is minus), from the quarter turn table (SINE_QUARTER, in 32nds of a pixel): the table
+// is read at the heading within its quarter, backwards in the odd quarters, and the result is negative in the second half of the turn. The leftover 32nds of each
+// axis are kept in a byte, so a slow shot still moves the pixels it adds up to. One axis, in assembly (temp6 and temp7 work bytes, A the result):
+//   'apply': the pixels are added to or taken off the object's coordinate; 'store': the signed number of pixels goes to the byte named by dest.
+// Under DPC+ (stretch) the vertical axis takes the table with the 1.625 times of the stretch and adds in 16 bits (up to 12 pixels a frame).
+const anyAxisAsm = ({name, coord = name, axis, dirVar, speedOperand, fracPair, stretch, mode, dest, table = FIRE_ANY_TABLES.sin}) => {
+  const l = (part) => `_missilefire_${name}_any${axis}${part}${mode === 'store' ? 's' : ''}`;
+  const wide = stretch && axis === 'y';
+  const lines = [`       lda ${dirVar}`];
+  if (axis === 'y') lines.push('       sec', '       sbc #64');
+  lines.push('       sta temp7', '       and #$40', `       beq ${l('e')}`, '       lda temp7', '       and #$3F', '       eor #$3F', '       tay', '       iny', `       jmp ${l('t')}`,
+      l('e'), '       lda temp7', '       and #$3F', '       tay', l('t'), `       lda ${wide ? FIRE_ANY_TABLES.sinStretch : table},y`);
+  const constant = /^#\d+$/.test(speedOperand) ? Number(speedOperand.slice(1)) : null;
+  if (wide) {
+    lines.push('       sta temp6', '       lda #0', '       tax', `       ldy ${speedOperand}`, `       beq ${l('md')}`, l('ml'), '       clc', '       adc temp6', `       bcc ${l('mn')}`, '       inx',
+        l('mn'), '       dey', `       bne ${l('ml')}`, l('md'), '       clc', `       adc ${fracPair.read}`, `       bcc ${l('mf')}`, '       inx', l('mf'),
+        '       sta temp6', '       and #$1F', `       sta ${fracPair.write}`, '       lda temp6', '       lsr', '       lsr', '       lsr', '       lsr', '       lsr', '       cpx #0',
+        `       beq ${l('mp')}`, '       clc', '       adc #8', l('mp'));
+  } else {
+    if (constant === null) {
+      lines.push('       sta temp6', '       lda #0', `       ldy ${speedOperand}`, `       beq ${l('md')}`, l('ml'), '       clc', '       adc temp6', '       dey', `       bne ${l('ml')}`, l('md'));
+    } else {
+      // A speed that is a number: the table value times it in a few shifts and adds.
+      lines.push(...({
+        1: [], 2: ['       asl'], 3: ['       sta temp6', '       asl', '       clc', '       adc temp6'], 4: ['       asl', '       asl'],
+        5: ['       sta temp6', '       asl', '       asl', '       clc', '       adc temp6'], 6: ['       asl', '       sta temp6', '       asl', '       clc', '       adc temp6'],
+        7: ['       sta temp6', '       asl', '       asl', '       asl', '       sec', '       sbc temp6'],
+      }[Math.min(7, Math.max(1, constant))]));
+    }
+    lines.push('       clc', `       adc ${fracPair.read}`, '       sta temp6', '       and #$1F', `       sta ${fracPair.write}`, '       lda temp6', '       lsr', '       lsr', '       lsr', '       lsr', '       lsr');
+  }
+  if (mode === 'apply') {
+    lines.push('       bit temp7', `       bmi ${l('n')}`, '       clc', `       adc ${coord}${axis}`, `       jmp ${l('s')}`, l('n'), '       sta temp6', `       lda ${coord}${axis}`, '       sec', '       sbc temp6',
+        l('s'), `       sta ${coord}${axis}`);
+  } else {
+    lines.push('       bit temp7', `       bpl ${l('s')}`, '       eor #$FF', '       clc', '       adc #1', l('s'), `       sta ${dest}`);
+  }
+  return lines;
+};
+
+// The playfield checked movement of an any direction object works from the heading of one of the odd (halfway) directions of 16 and the pixels of its main and
+// other axis, so that it can use the tables and the stepping of the 16 directions (see buildPlayfieldCheckedMovement): given the pixels of the axes (signed, in
+// temp1 for x and temp2 for y) this puts the larger amount in temp3, the smaller in temp4, and in headVar the halfway direction whose main axis is the larger
+// one, with the signs of the two axes (1 up and a little right, 3 right and a little up, 5 right and a little down, 7 down and a little right, 9, 11, 13, 15 on).
+const anyHeadAsm = (name, headVar) => {
+  const l = (part) => `_missilefire_${name}_anyh${part}`;
+  return [
+    '       lda temp1', `       bpl ${l('xp')}`, '       eor #$FF', '       clc', '       adc #1', l('xp'), '       sta temp3',
+    '       lda temp2', `       bpl ${l('yp')}`, '       eor #$FF', '       clc', '       adc #1', l('yp'), '       sta temp4',
+    '       cmp temp3', `       bcs ${l('ym')}`,
+    // x is the main axis: right (3 up, 5 down) or left (13 up or level, 11 down)
+    '       lda temp1', `       bmi ${l('xl')}`, '       lda temp2', `       bmi ${l('r3')}`, '       lda #5', `       jmp ${l('d')}`, l('r3'), '       lda #3', `       jmp ${l('d')}`,
+    l('xl'), '       lda temp2', `       bmi ${l('l13')}`, `       beq ${l('l13')}`, '       lda #11', `       jmp ${l('d')}`, l('l13'), '       lda #13', `       jmp ${l('d')}`,
+    // y is the main axis: the amounts swap places; down (7 right, 9 left) or up (1 right, 15 left)
+    l('ym'), '       lda temp3', '       ldx temp4', '       stx temp3', '       sta temp4', '       lda temp2', `       bmi ${l('yu')}`, '       lda temp1', `       bmi ${l('d9')}`,
+    '       lda #7', `       jmp ${l('d')}`, l('d9'), '       lda #9', `       jmp ${l('d')}`,
+    l('yu'), '       lda temp1', `       bmi ${l('u15')}`, '       lda #1', `       jmp ${l('d')}`, l('u15'), '       lda #15',
+    l('d'), `       sta ${headVar}`,
+  ];
+};
+
 // "Check playfield while moving": the object moves one pixel at a time and, after each pixel,
 // looks at the playfield cell it is in; the first lit cell ends the frame's movement there. The
 // object then overlaps that playfield pixel when the frame is drawn, so the hardware collision
@@ -1521,7 +1610,7 @@ const fireTables = (Blockly) => {
 // over those steps (temp5 collects the share of a pixel, against temp6, the number of steps). The
 // caller works temp3 and temp4 out first (the "lean lines" in generateMissileFireChecks): temp3
 // is the speed for every other direction.
-const buildPlayfieldCheckedMovement = ({Blockly, name, is16, dirVar, speedVar, stepsVar, stretch}) => {
+const buildPlayfieldCheckedMovement = ({Blockly, name, is16, dirVar, speedVar, stepsVar, stretch, anyDirVar = null}) => {
   const configurationStorage = useConfigurationStorage();
   const config = (configurationStorage && configurationStorage.value) || {};
   const maxRow = Blockly.BBasic.maxRowText(config);
@@ -1575,7 +1664,9 @@ const buildPlayfieldCheckedMovement = ({Blockly, name, is16, dirVar, speedVar, s
       // An object held in a wall by all the stages of the Bounce, which has been turned from the heading it had (the low bits of the stage byte) by the last of them, is
       // let move on: it was held in a wall along which it moved. One whose heading is still the one it had (a game that aims it at the wall every frame) is held.
       ` if !${stagePair.read}{4} then goto ${label(`undo${tag}`)}`, ` if !${stagePair.read}{5} then goto ${label(`undo${tag}`)}`,
-      ` temp1 = ${dirVar} ^ ${stagePair.read}`, ' temp1 = temp1 & 15', ` if temp1 = 0 then goto ${label(`undo${tag}`)}`, ` goto ${label(`skip${tag}`)}`, label(`same${tag}`)] :
+      // (An any direction heading is compared by the nearest of 16 directions, which is what the stage byte keeps.)
+      ...(anyDirVar ? [` temp1 = ${anyDirVar} + 8`, ' temp1 = temp1 / 16', ' temp1 = temp1 ^ ' + stagePair.read] : [` temp1 = ${dirVar} ^ ${stagePair.read}`]),
+      ' temp1 = temp1 & 15', ` if temp1 = 0 then goto ${label(`undo${tag}`)}`, ` goto ${label(`skip${tag}`)}`, label(`same${tag}`)] :
       [` if temp1 <> ${cellPair.read} then goto ${label(`undo${tag}`)}`]),
     // In the cell it started in the object only crawls, a step a frame, until a Bounce has turned it (its stage, bits 4 and 5 of the stage byte, is not 0): the
     // Bounce looks at the collision a frame late, and an object let loose in the cell with its old heading came out on the far side of a thin wall.
@@ -1625,6 +1716,8 @@ const buildPlayfieldCheckedMovement = ({Blockly, name, is16, dirVar, speedVar, s
   const minorKind = is16 || stretch;
   const count = is16 ? 16 : 8;
   if (minorKind) {
+    // (An any direction object can have no whole pixel to move this frame.)
+    if (anyDirVar) lines.push(` if temp3 = 0 then goto ${label('end')}`);
     lines.push(' temp6 = temp3', ' temp5 = 0', label('sub'), ...stepCode('main', count, 'm'));
     // The other axis of a halfway direction moves on some of the steps. The cell is looked at after the main axis moved and again
     // after the other one did: with both axes moving at once the object could slip through the corner between two lit cells that
@@ -1702,11 +1795,14 @@ export const generateMissileFireChecks = (Blockly) => {
   // The first y below the picture: the standard kernel draws 192 lines, DPC+ 212.
   const bottomY = (useConfigurationStorage().value || {}).kernel === 'dpcplus' ? 212 : 192;
   const offscreenVar = offscreenUsed.size ? resolveVar(fireOffscreenFlagsVarName()) : null;
-  const fracSlots = missileFireFracSlots(used, used16, usedPfCheck);
+  const usedAny = Blockly.BBasic.missileFireAnyUsedFor || new Set();
+  const fracSlots = missileFireFracSlots([...used].filter((name) => !usedAny.has(name)), used16, usedPfCheck);
   const fireConfig = (useConfigurationStorage() && useConfigurationStorage().value) || {};
   const lines = [];
   Blockly.BBasic.fireTablesUsed = false;
   Blockly.BBasic.fireStretchTablesUsed = false;
+  Blockly.BBasic.fireSineUsed = false;
+  Blockly.BBasic.fireSineStretchUsed = false;
   // The objects moved on the coprocessor: after the others, FIRE_BATCH_SIZE to a call (see the end of this function).
   const armObjects = [];
   ['missile0', 'missile1', 'ball', ...[...used].filter((name) => /^player([0-9]|1[0-6])$/.test(name))].forEach((name) => {
@@ -1722,6 +1818,7 @@ export const generateMissileFireChecks = (Blockly) => {
     const throttleResetPair = resolveRW(missileFireThrottleResetVarName(name));
     const throttled = !!throttlePair;
     const is16 = used16 && used16.has(name);
+    const isAny = usedAny.has(name);
     const pfChecked = usedPfCheck.has(name);
     const armConfig = (useConfigurationStorage().value || {});
     const armRowDivisor = Blockly.BBasic.rowDivisorText(armConfig, true);
@@ -1732,12 +1829,12 @@ export const generateMissileFireChecks = (Blockly) => {
     const evenPair = (Blockly.BBasic.missileFireEvenUsedFor || new Set()).has(name) ? resolveRW(missileFireEvenVarName(name)) : null;
     // (A byte the coprocessor gives back is one name, read and written: the RAM of DPC+ has no separate addresses for the two.)
     const onePlace = (pair) => !pair || (plainName(pair.read) && pair.read === pair.write);
-    const fireArm = pfChecked && !!armConfig.enableFireCoprocessor && armConfig.kernel === 'dpcplus' && !armConfig.pxe && plainName(dirVar) &&
+    const fireArm = !isAny && pfChecked && !!armConfig.enableFireCoprocessor && armConfig.kernel === 'dpcplus' && !armConfig.pxe && plainName(dirVar) &&
       (constSpeed !== undefined || plainName(speedVar)) && onePlace(armStagePair) && onePlace(armFracPair) && onePlace(evenPair) && !Blockly.BBasic.dpcPlusGroupFracVars && !pfScrollColumns(armConfig) &&
       /^\d+$/.test(String(armRowDivisor)) && Number(armRowDivisor) < 256 && /^\d+$/.test(String(armMaxRow));
     // (Rows a whole number of lines that does not divide 256: the lines, with bit 6 of the flags, and the coprocessor divides by them.)
     const fireRowDiv = fireArm && 256 % Number(armRowDivisor) !== 0;
-    const stretch = fireStretches(fireConfig, name, usedPfCheck) && (!pfChecked || fireArm);
+    const stretch = !isAny && fireStretches(fireConfig, name, usedPfCheck) && (!pfChecked || fireArm);
 
     // Every "if dirVar = N then ..." line only ever conditions the ONE
     // statement right after "then" (see this function's long-standing
@@ -1761,7 +1858,7 @@ export const generateMissileFireChecks = (Blockly) => {
     // temp4, worked out each frame by the lines before the dispatch (see leanLines).
     // One step along each axis from the tables of the direction (see fireTables): the sign of the axis and which amount it takes (the speed, or temp3 and temp4
     // for the two axes of a halfway direction, worked out by the lines before this): about 90 bytes for every direction, where a handler for each took 300.
-    if (!fireArm) Blockly.BBasic.fireTablesUsed = true;
+    if (!fireArm && !isAny) Blockly.BBasic.fireTablesUsed = true;
     if (stretch && !fireArm) Blockly.BBasic.fireStretchTablesUsed = true;
     const bigTable = stretch ? FIRE_TABLES.stretchbig : FIRE_TABLES.big;
     const axisAsm = (axis) => {
@@ -1806,6 +1903,26 @@ export const generateMissileFireChecks = (Blockly) => {
       dispatchEnd,
       'end',
     ];
+    // Any direction (see anyAxisAsm): the pixels of each axis from the sine of the heading; an object that checks the playfield takes them as the steps of a halfway
+    // direction of 16 (anyHeadAsm). Not on the coprocessor (its program has the 8 and 16 direction steps in it); the stretch of DPC+ only where the 6502 moves
+    // the object without the pixel by pixel check, as for the other directions.
+    const anyLines = [];
+    if (isAny) {
+      const anyFrac = {x: resolveRW(missileFireAnyFracVarName(name, 'x')), y: resolveRW(missileFireAnyFracVarName(name, 'y'))};
+      const anySpeed = constSpeed !== undefined ? `#${constSpeed}` : speedVar;
+      const anyStretch = fireConfig.kernel === 'dpcplus' && !fireConfig.pxe && !pfChecked;
+      Blockly.BBasic.fireSineUsed = true;
+      if (anyStretch) Blockly.BBasic.fireSineStretchUsed = true;
+      const axis = (which, mode, dest) => anyAxisAsm({name, axis: which, dirVar, speedOperand: anySpeed, fracPair: anyFrac[which], stretch: anyStretch, mode, dest});
+      if (!pfChecked) {
+        anyLines.push(' asm', ...axis('x', 'apply'), ...axis('y', 'apply'), 'end');
+      } else {
+        Blockly.BBasic.fireTablesUsed = true;
+        const headVar = resolveVar(fireAnyHeadVarName());
+        anyLines.push(' asm', ...axis('x', 'store', 'temp1'), ...axis('y', 'store', 'temp2'), ...anyHeadAsm(name, headVar), 'end',
+            ...buildPlayfieldCheckedMovement({Blockly, name, is16: true, dirVar: headVar, speedVar, stepsVar: 'temp3', stretch: false, anyDirVar: dirVar}));
+      }
+    }
     // The steps of a halfway direction (see stepLine), skipped for the other directions.
     const leanDone = `_missilefire_${name}_leandone`;
     const leanLines = [];
@@ -1930,16 +2047,17 @@ export const generateMissileFireChecks = (Blockly) => {
         ...(evenPair ? [` if (${dirVar} & ${is16 ? 3 : 1}) <> 0 then goto _missilefire_${name}_evengo`,
           ` temp1 = ${speedVar} * 7`, ` temp2 = ${evenPair.read} & 15`, ' temp1 = temp1 + temp2', ' temp2 = temp1 / 16', ' temp1 = temp1 & 15',
           ' temp3 = temp2 * 16', ` ${evenPair.write} = temp1 | temp3`, ` ${speedVar} = ${speedVar} + temp2`, `_missilefire_${name}_evengo`] : []),
-        ...(stretch ? stretchLines : is16 ? leanLines : []),
-        ...(pfChecked ?
-          buildPlayfieldCheckedMovement({
-            Blockly, name, is16, dirVar, speedVar,
-            // temp3 survives the playfield reads (only temp1/temp2 are overwritten),
-            // so the sub-step counter needs no variable.
-            stepsVar: 'temp3',
-            stretch,
-          }) :
-          dispatch),
+        ...(isAny ? anyLines : [
+          ...(stretch ? stretchLines : is16 ? leanLines : []),
+          ...(pfChecked ?
+            buildPlayfieldCheckedMovement({
+              Blockly, name, is16, dirVar, speedVar,
+              // temp3 survives the playfield reads (only temp1/temp2 are overwritten),
+              // so the sub-step counter needs no variable.
+              stepsVar: 'temp3',
+              stretch,
+            }) :
+            dispatch)]),
         ...(evenPair ? [` temp1 = ${evenPair.read} / 16`, ` ${speedVar} = ${speedVar} - temp1`, ` ${evenPair.write} = ${evenPair.read} & 15`] : []),
         // Off-screen (standard NTSC playfield bounds) stops the movement -
         // clears the active bit so this missile's  dispatch above is
@@ -1979,7 +2097,7 @@ export const generateMissileFireChecks = (Blockly) => {
     });
     lines.push(skipLabel);
   }
-  return [...(Blockly.BBasic.fireTablesUsed ? fireTables(Blockly) : []), ...lines].join('\n') + '\n';
+  return [...(Blockly.BBasic.fireTablesUsed || Blockly.BBasic.fireSineUsed ? fireTables(Blockly) : []), ...lines].join('\n') + '\n';
 };
 
 // Spliced into commongamelogic right alongside generateMissileFireChecks
@@ -2263,10 +2381,15 @@ export const reserveGravityDevVars = (Blockly, reserveDevVar, reserveDevVarRW, u
   if (!usedFor || !usedFor.size) return;
   reserveDevVar(objectGravityFlagsVarName(), undefined, 'shared active-bit byte for objects with gravity');
   usedFor.forEach((name) => {
-    reserveDevVarRW(objectGravitySpeedVarName(name), 'fall speed of this object with gravity (signed, pixels a frame)');
+    reserveDevVarRW(objectGravitySpeedVarName(name), 'fall speed of this object with gravity (signed, whole pixels a frame)');
+    reserveDevVarRW(objectGravityFineVarName(name), 'gravity of this object: the eighths of a pixel of its fall speed (bits 0-2) and of its position (bits 3-5)');
     OBJECT_GRAVITY_FIELDS.forEach((field) => {
       if (objectGravityConstant(Blockly, name, field) === undefined) reserveDevVarRW(objectGravityFieldVarName(name, field), `gravity of this object: ${field}`);
     });
+    // A direction other than down: the leftover 32nds of each axis.
+    if (objectGravityConstant(Blockly, name, 'angle') !== 128) {
+      ['X', 'Y'].forEach((axis) => reserveDevVarRW(objectGravityFracVarName(name, axis), `gravity of this object: the leftover 32nds of ${axis.toLowerCase()}`));
+    }
   });
 };
 
@@ -2305,9 +2428,11 @@ const buildGravityBounceAsm = (Blockly, name, label, at = '@') => {
   const speed = Blockly.BBasic.superchipRwPairs[objectGravitySpeedVarName(name)];
   const keep = objectGravityConstant(Blockly, name, 'keep');
   const keepOperand = gravityOperand(Blockly, name, 'keep');
+  const fine = Blockly.BBasic.superchipRwPairs[objectGravityFineVarName(name)];
   const negate = ['       lda ' + speed.read, '       eor #$FF', '       clc', '       adc #1', '       sta ' + speed.write];
   // The object takes back the move of the fall speed it just made (it is in the wall by that much), so that it is out of it when it goes the other way.
-  const stepBack = ['       lda ' + name + 'y', '       sec', '       sbc ' + speed.read, '       sta ' + name + 'y'];
+  // (The eighths of a pixel of the fall speed are dropped by a bounce: the whole pixels turn round.)
+  const stepBack = ['       lda ' + name + 'y', '       sec', '       sbc ' + speed.read, '       sta ' + name + 'y', '       lda ' + fine.read, '       and #$F8', '       sta ' + fine.write];
   if (keep === 4) return [...stepBack, ...negate, ...stopAtRest];
   const dispatch = keep === undefined ? [
     '       sta temp1', '       lda ' + keepOperand, '       cmp #3', '       beq ' + label + 'k3', '       cmp #2', '       beq ' + label + 'k2',
@@ -2336,25 +2461,41 @@ export const generateGravityChecks = (Blockly) => {
   const used = Blockly.BBasic.objectGravityUsedFor;
   if (!used || !used.size) return '';
   const flags = Blockly.BBasic.nameDB_.getName(objectGravityFlagsVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
-  const lines = [];
+  // (The quarter turn table of a direction other than down: the Accelerate code writes it when that has an any direction too.)
+  const anyAngle = [...used].some((name) => objectGravityConstant(Blockly, name, 'angle') !== 128);
+  const lines = anyAngle && !(Blockly.BBasic.inertiaAccelAnyUsedFor || new Set()).size ? [...inertiaSineTable()] : [];
   used.forEach((name) => {
     const speed = Blockly.BBasic.superchipRwPairs[objectGravitySpeedVarName(name)];
+    const fine = Blockly.BBasic.superchipRwPairs[objectGravityFineVarName(name)];
     const skip = `_gravity_${name}_skip`;
     const move = `_gravity_${name}_move`;
     lines.push(
         ` if !${flags}{${objectGravityBit(name)}} then goto ${skip}`,
         ' asm',
-        '       lda framecounter',
-        `       and ${gravityOperand(Blockly, name, 'mask')}`,
-        `       bne ${move}`,
-        `       lda ${speed.read}`,
-        `       bmi _gravity_${name}_inc`,
-        `       cmp ${gravityOperand(Blockly, name, 'max')}`,
-        `       bcs ${move}`,
+        // The fall speed grows every frame by the eighths of a pixel of the pull (1 to 16; the speed is whole pixels and the eighths left over, bits 0 to 2 of the fine byte),
+        // up to the max fall speed (a speed that is going up, after a bounce, slows first); the object then moves by the whole pixels, and one more when the eighths it has not
+        // moved yet (bits 3 to 5) add up to 8.
+        `       lda ${fine.read}`, '       and #7', '       clc', `       adc ${gravityOperand(Blockly, name, 'pull')}`, '       sta temp1',
+        `       lda ${speed.read}`, `       bmi _gravity_${name}_inc`, `       cmp ${gravityOperand(Blockly, name, 'max')}`, `       bcs _gravity_${name}_top`,
         `_gravity_${name}_inc`,
-        '       clc', `       lda ${speed.read}`, '       adc #1', `       sta ${speed.write}`,
+        '       lda temp1', '       lsr', '       lsr', '       lsr', '       clc', `       adc ${speed.read}`, `       sta ${speed.write}`,
+        '       lda temp1', '       and #7', '       sta temp1',
+        `       lda ${speed.read}`, `       bmi ${move}`, `       cmp ${gravityOperand(Blockly, name, 'max')}`, `       bcc ${move}`,
+        `_gravity_${name}_top`,
+        `       lda ${gravityOperand(Blockly, name, 'max')}`, `       sta ${speed.write}`, '       lda #0', '       sta temp1',
         move,
-        `       lda ${speed.read}`, '       clc', `       adc ${name}y`, `       sta ${name}y`,
+        `       lda ${fine.read}`, '       lsr', '       lsr', '       lsr', '       and #7', '       clc', '       adc temp1', '       ldx #0', '       cmp #8', `       bcc _gravity_${name}_nc`, '       sbc #8', '       ldx #1',
+        `_gravity_${name}_nc`,
+        '       asl', '       asl', '       asl', '       ora temp1', `       sta ${fine.write}`,
+        ...(objectGravityConstant(Blockly, name, 'angle') === 128 ? ['       txa', '       clc', `       adc ${speed.read}`, '       clc', `       adc ${name}y`, `       sta ${name}y`] : [
+          // A direction other than down: the speed (held to 7 here) times the sine and the cosine of the heading, as the Fire block's any direction does; a negative speed
+          // (after a bounce) is the same speed the other way round (the heading turned half a turn).
+          `       lda ${speed.read}`, `       bmi _gravity_${name}_neg`, '       sta temp5', `       lda ${gravityOperand(Blockly, name, 'angle')}`, '       sta temp4', `       jmp _gravity_${name}_go`,
+          `_gravity_${name}_neg`, '       eor #$FF', '       clc', '       adc #1', '       sta temp5', `       lda ${gravityOperand(Blockly, name, 'angle')}`, '       clc', '       adc #128', '       sta temp4',
+          `_gravity_${name}_go`, '       lda temp5', '       cmp #8', `       bcc _gravity_${name}_ok`, '       lda #7', '       sta temp5', `_gravity_${name}_ok`,
+          ...anyAxisAsm({name: `${name}g`, coord: name, axis: 'x', dirVar: 'temp4', speedOperand: 'temp5', fracPair: Blockly.BBasic.superchipRwPairs[objectGravityFracVarName(name, 'X')], stretch: false, mode: 'apply', table: INERTIA_SINE_TABLE}),
+          ...anyAxisAsm({name: `${name}g`, coord: name, axis: 'y', dirVar: 'temp4', speedOperand: 'temp5', fracPair: Blockly.BBasic.superchipRwPairs[objectGravityFracVarName(name, 'Y')], stretch: false, mode: 'apply', table: INERTIA_SINE_TABLE}),
+        ]),
         'end',
         skip);
   });
@@ -2392,6 +2533,35 @@ const inertiaActionTables = () => {
   ];
 };
 
+// Accelerate in any direction: the velocity of each axis goes up by the rate times the sine of the heading (x) or of the heading less a quarter turn (y, up is minus) in 32nds
+// (the quarter turn table of the Fire block, SINE_QUARTER, a copy here), kept in the fine velocity (whole pixels and 256ths), and is held to the speed limit times
+// that sine (rounded). One axis, in assembly (temp1 to temp7 work bytes): the table is read at the heading within its quarter (backwards in the odd quarters), the result is
+// negative in the second half of the turn, and a multiplication of a byte by the sine (6 bits) shifts and adds into temp5 and temp6, the 32nds being the 5 bits it drops.
+const INERTIA_SINE_TABLE = '_inertia_tab_sinq';
+const inertiaSineTable = () => [' asm', '       jmp _inertia_sine_end', INERTIA_SINE_TABLE, `       .byte ${SINE_QUARTER.join(',')}`, '_inertia_sine_end', 'end'];
+const inertiaAnyAxisAsm = ({uid, axis, dirVar, rateVar, maxVar, velVar, fracVar}) => {
+  const l = (part) => `_inertiaany${uid}${axis}${part}`;
+  const mul = (operand, round, tag) => [
+    '       lda #0', '       sta temp5', '       sta temp6', '       lda temp4', '       sta temp3', '       ldx #6',
+    l(`${tag}m`), '       asl temp6', '       rol temp5', '       asl temp3', `       bcc ${l(`${tag}n`)}`,
+    '       lda temp6', '       clc', `       adc ${operand}`, '       sta temp6', `       bcc ${l(`${tag}n`)}`, '       inc temp5',
+    l(`${tag}n`), '       dex', `       bne ${l(`${tag}m`)}`,
+    ...(round ? ['       lda temp6', '       clc', '       adc #16', '       sta temp6', `       bcc ${l(`${tag}r`)}`, '       inc temp5', l(`${tag}r`)] : []),
+    '       lda temp6', '       lsr', '       lsr', '       lsr', '       lsr', '       lsr', '       sta temp6', '       lda temp5', '       asl', '       asl', '       asl', '       ora temp6',
+  ];
+  return [
+    `       lda ${dirVar}`, ...(axis === 'y' ? ['       sec', '       sbc #64'] : []), '       sta temp7', '       and #$40', `       beq ${l('e')}`, '       lda temp7', '       and #$3F',
+    '       eor #$3F', '       tay', '       iny', `       jmp ${l('t')}`, l('e'), '       lda temp7', '       and #$3F', '       tay', l('t'),
+    `       lda ${INERTIA_SINE_TABLE},y`, '       asl', '       asl', '       sta temp4',
+    ...mul(rateVar, false, 'a'), '       sta temp1',
+    ...mul(maxVar, true, 'b'), '       sta temp2',
+    '       bit temp7', `       bmi ${l('sub')}`,
+    ...build16BitAddAsm(velVar, fracVar, 'temp1'), `       jmp ${l('cl')}`,
+    l('sub'), ...build16BitSubAsm(velVar, fracVar, 'temp1'),
+    l('cl'), ...buildSignedClampAsm(velVar, 'temp2', `${uid}${axis}`),
+  ];
+};
+
 export const generateInertiaChecks = (Blockly) => {
   const usedFor = Blockly.BBasic.inertiaUsedFor;
   if (!usedFor || !usedFor.size) return '';
@@ -2403,7 +2573,8 @@ export const generateInertiaChecks = (Blockly) => {
     Blockly.BBasic.nameDB_.getName(canonicalName, Blockly.Names.DEVELOPER_VARIABLE_TYPE);
   const accelFlagsVar = accelUsedFor.size ? resolveVar(inertiaAccelFlagsVarName()) : null;
   const decelFlagsVar = decelUsedFor.size ? resolveVar(inertiaDecelFlagsVarName()) : null;
-  const lines = accelUsedFor.size ? [...inertiaActionTables()] : [];
+  const accelAnyUsedFor = Blockly.BBasic.inertiaAccelAnyUsedFor || new Set();
+  const lines = accelUsedFor.size ? [...inertiaActionTables(), ...(accelAnyUsedFor.size ? inertiaSineTable() : [])] : [];
   moveableSpriteNames(Blockly).forEach((name) => {
     if (!usedFor.has(name)) return;
     const velocityXVar = resolveVar(inertiaVelocityXVarName(name));
@@ -2515,22 +2686,29 @@ export const generateInertiaChecks = (Blockly) => {
         `_inertiatab_${uid}_end`,
         'end',
       ];
-      lines.push(
-          ` if !${accelFlagsVar}{${accelBit()}} then goto ${skipLabel}`,
-          ...(is16 ? [
-            ` ${halfRateVar} = ${rateVar} / 2`,
-            // A rate of 1 has no whole-number half: the slower axis alternates between adding 0
-            // and 1 each frame, instead of 1 every frame (which made every halfway direction
-            // accelerate like the diagonal beside it).
-            ` if ${halfRateVar} = 0 then ${halfRateVar} = framecounter & 1`,
-          ] : []),
-          ...dispatch,
-          ' asm',
-          ...buildSignedClampAsm(velocityXVar, maxSpeedVar, `${uid}x`),
-          ...buildSignedClampAsm(velocityYVar, maxSpeedVar, `${uid}y`),
-          'end',
-          skipLabel,
-      );
+      if (accelAnyUsedFor.has(name)) {
+        lines.push(` if !${accelFlagsVar}{${accelBit()}} then goto ${skipLabel}`, ' asm',
+            ...inertiaAnyAxisAsm({uid, axis: 'x', dirVar, rateVar, maxVar: maxSpeedVar, velVar: velocityXVar, fracVar: velocityFracXVar}),
+            ...inertiaAnyAxisAsm({uid, axis: 'y', dirVar, rateVar, maxVar: maxSpeedVar, velVar: velocityYVar, fracVar: velocityFracYVar}),
+            'end', skipLabel);
+      } else {
+        lines.push(
+            ` if !${accelFlagsVar}{${accelBit()}} then goto ${skipLabel}`,
+            ...(is16 ? [
+              ` ${halfRateVar} = ${rateVar} / 2`,
+              // A rate of 1 has no whole-number half: the slower axis alternates between adding 0
+              // and 1 each frame, instead of 1 every frame (which made every halfway direction
+              // accelerate like the diagonal beside it).
+              ` if ${halfRateVar} = 0 then ${halfRateVar} = framecounter & 1`,
+            ] : []),
+            ...dispatch,
+            ' asm',
+            ...buildSignedClampAsm(velocityXVar, maxSpeedVar, `${uid}x`),
+            ...buildSignedClampAsm(velocityYVar, maxSpeedVar, `${uid}y`),
+            'end',
+            skipLabel,
+        );
+      }
     }
 
     if (decelUsedFor.has(name)) {
@@ -3162,7 +3340,7 @@ ${originLines}`;
       // number is held to 0-7 here instead of at runtime.
       const angleNumber = literalNumber(angle);
       const randomMax = randomDivisionMax(angle);
-      const angleLines = angleNumber === 255 ?
+      const plainAngleLines = angleNumber === 255 ?
         `${dirVar} = ${defaultAngle}
 ` :
         `${dirVar} = ${angle}
@@ -3170,13 +3348,25 @@ ${originLines}`;
         (angleNumber !== null || (randomMax !== null && randomMax < 255) ? '' :
           `if ${dirVar} = 255 then ${dirVar} = ${defaultAngle}
 `);
+      // An object with an any direction Fire block keeps its heading as a full turn of 256 (see anyAxisAsm): an any direction block gives the angle as it is (255 is an
+      // angle, there is no default), an 8 or 16 direction block of the same object scales its angle onto the turn (255 and the like take the default).
+      const fireAny = (Blockly.BBasic.missileFireAnyUsedFor || new Set()).has(name);
+      const blockMode = block.getFieldValue('DIRECTIONS16');
+      const scaleTurns = blockMode === 'TRUE' ? 16 : 8;
+      const scaleDefault = parseInt(block.getFieldValue('DEFAULT_ANGLE'), 10) || 0;
+      const scaledAngleLines = angleNumber !== null ?
+        `${dirVar} = ${((angleNumber < scaleTurns ? angleNumber : scaleDefault) * (256 / scaleTurns)) & 255}\n` :
+        `${dirVar} = ${angle}\nif ${dirVar} > ${scaleTurns - 1} then ${dirVar} = ${scaleDefault}\n${dirVar} = ${dirVar} * ${256 / scaleTurns}\n`;
+      const angleLines = !fireAny ? plainAngleLines : blockMode === 'ANY' ? `${dirVar} = ${angle}\n` : scaledAngleLines;
+      // The leftover 32nds of a pixel start from 0 with each shot.
+      const anyFracLines = fireAny ? ['x', 'y'].map((axis) => `${Blockly.BBasic.superchipRwPairs[missileFireAnyFracVarName(name, axis)].write} = 0\n`).join('') : '';
       const speedNumber = literalNumber(speed);
       const speedLines = speedIsConst ? '' : speedNumber !== null ?
         `${speedPair.write} = ${Math.min(speedNumber, 7)}\n` :
         `${speedPair.write} = ${speed}\n` +
         // The speed is held to 0-7 whatever was plugged in.
         `if ${speedPair.read} > 7 then ${speedPair.write} = 7\n`;
-      return angleLines +
+      return angleLines + anyFracLines +
         `${name}x = ${x}\n` +
         `${name}y = ${y}\n` +
         speedLines +
@@ -3362,7 +3552,11 @@ ${originLines}`;
     const direction = Blockly.BBasic.valueToCode(block, 'DIRECTION', Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
     const rate = Blockly.BBasic.valueToCode(block, 'RATE', Blockly.BBasic.ORDER_ASSIGNMENT) || '1';
     const maxSpeed = Blockly.BBasic.valueToCode(block, 'MAXSPEED', Blockly.BBasic.ORDER_ASSIGNMENT) || '127';
-    return `${dirVar} = ${direction}\n` +
+    // (An object with an any direction Accelerate keeps its direction as a heading of 256 to the turn: the other blocks give theirs times 32 (8 directions) or 16.)
+    const mode = block.getFieldValue('DIRECTIONS16');
+    const anyObject = (Blockly.BBasic.inertiaAccelAnyUsedFor || new Set()).has(name) && mode !== 'ANY';
+    const headingCode = anyObject ? (mode === 'TRUE' ? `((${direction}) & 15) * 16` : `((${direction}) & 7) * 32`) : direction;
+    return `${dirVar} = ${headingCode}\n` +
       `${rateVar} = ${rate}\n` +
       `${maxSpeedVar} = ${maxSpeed}\n` +
       `${flagsVar}{${activeBit}} = 1\n`;
@@ -3396,9 +3590,11 @@ ${originLines}`;
     const flagsVar = Blockly.BBasic.nameDB_.getName(objectGravityFlagsVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
     const bit = objectGravityBit(name);
     const speed = Blockly.BBasic.superchipRwPairs[objectGravitySpeedVarName(name)];
+    const fine = Blockly.BBasic.superchipRwPairs[objectGravityFineVarName(name)];
     if (block.getFieldValue('ACTION') === 'stop') {
       return `${flagsVar}{${bit}} = 0
 ${speed.write} = 0
+${fine.write} = 0
 `;
     }
     const lines = [];
@@ -3408,12 +3604,25 @@ ${speed.write} = 0
       }
     };
     // (A number that is not a number block is the frames between speed-ups less 1, for the frames are counted with a mask.)
-    setField('mask', `${Blockly.BBasic.valueToCode(block, 'RATE', Blockly.BBasic.ORDER_ASSIGNMENT) || '4'} - 1`);
+    // (1 to 16 eighths of a pixel, as the gravity of the Platform block: the number less 1, held to 4 bits, plus 1.)
+    setField('pull', `((${Blockly.BBasic.valueToCode(block, 'PULL', Blockly.BBasic.ORDER_ASSIGNMENT) || '3'}) - 1 & 15) + 1`);
     setField('max', Blockly.BBasic.valueToCode(block, 'MAXFALL', Blockly.BBasic.ORDER_ASSIGNMENT) || '4');
     setField('keep', `${Number(block.getFieldValue('BOUNCE')) || 0}`);
+    setField('angle', `(${Blockly.BBasic.valueToCode(block, 'ANGLE', Blockly.BBasic.ORDER_ASSIGNMENT) || '128'}) & 255`);
     return lines.map((line) => line + String.fromCharCode(10)).join('') + `${speed.write} = 0
+${fine.write} = 0
 ${flagsVar}{${bit}} = 1
 `;
+  };
+
+  // Gravity start and stop without the numbers: Start turns the object's gravity on (the fall speed 0), Stop turns it off; nothing for an object no Gravity block uses.
+  Blockly.BBasic['object_gravity_control'] = function(block) {
+    const name = block.getFieldValue('OBJECT');
+    if (!Blockly.BBasic.objectGravityUsedFor || !Blockly.BBasic.objectGravityUsedFor.has(name)) return '';
+    const flagsVar = Blockly.BBasic.nameDB_.getName(objectGravityFlagsVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+    const speed = Blockly.BBasic.superchipRwPairs[objectGravitySpeedVarName(name)];
+    const on = block.getFieldValue('ACTION') === 'stop' ? 0 : 1;
+    return `${speed.write} = 0\n${Blockly.BBasic.superchipRwPairs[objectGravityFineVarName(name)].write} = 0\n${flagsVar}{${objectGravityBit(name)}} = ${on}\n`;
   };
 
   // Reflects whichever movement system(s) the chosen object actually uses
@@ -3544,9 +3753,37 @@ ${flagsVar}{${bit}} = 1
   // taller playfields, before they reached the bottom playfield pixels.
   // The lines of the Bounce block's random angle spread (none while its checkbox is off or the object has no Fire heading): the heading is turned
   // by 0 to N steps either way, wrapping.
+  // The same for an any direction heading (a full turn of 256): a step is 22.5 degrees (16 of the 256), a heading that is exactly up, down, left or right is turned a step
+  // either way, and the half of the circle works on the heading itself (128 is the line between the halves, mirrored by 128 - heading or 0 - heading).
+  const anySpreadTurnLines = (block, name, dirVar) => {
+    const id = Blockly.BBasic.blockNumbers.next(`bouncespreadany_${name}`);
+    const skip = `_bouncespread_${name}_${id}_ok`;
+    const half = `_bouncespread_${name}_${id}_half`;
+    const notStraight = [` if (${dirVar} & 63) <> 0 then goto ${skip}`, ' temp1 = rand & 2', ' temp1 = temp1 * 16', ` ${dirVar} = ${dirVar} + 240 + temp1`, `@ ${skip}`];
+    const hemisphereLines = {
+      TOP: [` temp1 = ${dirVar} + 64`, ` if temp1 < 128 then goto ${half}`, ` ${dirVar} = 128 - ${dirVar}`, `@ ${half}`],
+      BOTTOM: [` temp1 = ${dirVar} + 64`, ` if temp1 >= 128 then goto ${half}`, ` ${dirVar} = 128 - ${dirVar}`, `@ ${half}`],
+      LEFT: [` if ${dirVar} > 128 then goto ${half}`, ` ${dirVar} = 0 - ${dirVar}`, `@ ${half}`],
+      RIGHT: [` if ${dirVar} < 128 then goto ${half}`, ` ${dirVar} = 0 - ${dirVar}`, `@ ${half}`],
+    }[block.getFieldValue('HEMISPHERE')] || [];
+    const stepsCode = Blockly.BBasic.valueToCode(block, 'SPREAD_STEPS', Blockly.BBasic.ORDER_NONE) || '1';
+    const stepsNumber = literalNumber(stepsCode);
+    if (stepsNumber !== null) {
+      const steps = Math.min(4, Math.max(1, Math.round(stepsNumber)));
+      const divisor = Math.ceil(256 / (2 * steps + 1));
+      Blockly.BBasic.usesDivMul = true;
+      return [` temp1 = rand / ${divisor}`, ' temp1 = temp1 * 16', ` ${dirVar} = ${dirVar} + temp1 + ${256 - steps * 16}`, ...notStraight, ...hemisphereLines];
+    }
+    Blockly.BBasic.usesDivMul = true;
+    return [` temp2 = ${stepsCode}`, ' if temp2 = 0 then temp2 = 1', ' if temp2 > 4 then temp2 = 4',
+      ' temp1 = temp2 * 2 + 1', ' temp1 = (rand & 15) * temp1', ' temp1 = temp1 / 16', ' temp1 = temp1 * 16', ' temp2 = temp2 * 16',
+      ` ${dirVar} = ${dirVar} + temp1`, ` ${dirVar} = ${dirVar} - temp2`, ...notStraight, ...hemisphereLines];
+  };
+
   const spreadTurnLines = (block, name, resolveVar, hasFire) => {
     if (!hasFire || block.getFieldValue('SPREAD') !== 'TRUE') return [];
     const dirVar = resolveVar(missileFireDirVarName(name));
+    if ((Blockly.BBasic.missileFireAnyUsedFor || new Set()).has(name)) return anySpreadTurnLines(block, name, dirVar);
     const maxAngle = (Blockly.BBasic.missileFire16UsedFor || new Set()).has(name) ? 15 : 7;
     // Never ends straight up, down, left or right (a multiple of a quarter turn): a heading like that can bounce between two walls for ever.
     // It is turned one step either way instead.
@@ -3602,18 +3839,24 @@ ${flagsVar}{${bit}} = 1
       const dirVar = resolveVar(missileFireDirVarName(name));
       const steps = (Blockly.BBasic.missileFire16UsedFor || new Set()).has(name) ? 16 : 8;
       const half = steps / 2;
-      flipX.push(
-          ` ${dirVar} = ${steps} - ${dirVar}`,
-          ` if ${dirVar} = ${steps} then ${dirVar} = 0`,
-          ...spreadTurnLines(block, name, resolveVar, hasFire));
-      flipY.push(
-          ` if ${dirVar} > ${half} then goto ${label('dirhigh')}`,
-          ` ${dirVar} = ${half} - ${dirVar}`,
-          ` goto ${label('dirdone')}`,
-          `@ ${label('dirhigh')}`,
-          ` ${dirVar} = ${steps + half} - ${dirVar}`,
-          `@ ${label('dirdone')}`,
-          ...spreadTurnLines(block, name, resolveVar, hasFire));
+      if ((Blockly.BBasic.missileFireAnyUsedFor || new Set()).has(name)) {
+        // (A full turn of 256: the mirror over a vertical wall is 0 - heading and over a horizontal one 128 - heading, which wrap by themselves.)
+        flipX.push(` ${dirVar} = 0 - ${dirVar}`, ...spreadTurnLines(block, name, resolveVar, hasFire));
+        flipY.push(` ${dirVar} = 128 - ${dirVar}`, ...spreadTurnLines(block, name, resolveVar, hasFire));
+      } else {
+        flipX.push(
+            ` ${dirVar} = ${steps} - ${dirVar}`,
+            ` if ${dirVar} = ${steps} then ${dirVar} = 0`,
+            ...spreadTurnLines(block, name, resolveVar, hasFire));
+        flipY.push(
+            ` if ${dirVar} > ${half} then goto ${label('dirhigh')}`,
+            ` ${dirVar} = ${half} - ${dirVar}`,
+            ` goto ${label('dirdone')}`,
+            `@ ${label('dirhigh')}`,
+            ` ${dirVar} = ${steps + half} - ${dirVar}`,
+            `@ ${label('dirdone')}`,
+            ...spreadTurnLines(block, name, resolveVar, hasFire));
+      }
     }
     if (hasInertia) {
       const velocityXVar = resolveVar(inertiaVelocityXVarName(name));
@@ -3688,7 +3931,9 @@ ${flagsVar}{${bit}} = 1
     const label = (part) => `_bouncepix_${name}_${uid}_${part}`;
     const lab = (part) => `@ ${label(part)}`;
     const isFine = (Blockly.BBasic.inertiaFineUsedFor || new Set()).has(name);
-    const is16 = (Blockly.BBasic.missileFire16UsedFor || new Set()).has(name);
+    const isAny = (Blockly.BBasic.missileFireAnyUsedFor || new Set()).has(name);
+    // (An any direction heading is looked at as the nearest of 16 directions: the walls it can meet are the ones of those.)
+    const is16 = (Blockly.BBasic.missileFire16UsedFor || new Set()).has(name) || isAny;
     const steps = is16 ? 16 : 8;
     const half = steps / 2;
     const lines = [];
@@ -3696,7 +3941,7 @@ ${flagsVar}{${bit}} = 1
     const fireDirVar = hasFire ? resolveVar(missileFireDirVarName(name)) : null;
     // Under DPC+ the coprocessor works the new heading out (function 100 of armprog.c: the same cells in the same order, about 900 cycles less): a Fire
     // heading only, on a playfield with one row height and no scrolling.
-    if (!sprite && hasFire && !hasInertia && !(Blockly.BBasic.objectGravityUsedFor || new Set()).has(name) && config.kernel === 'dpcplus' && !config.pxe && !Blockly.BBasic.dpcPlusGroupFracVars && !pfScrollColumns(config) &&
+    if (!isAny && !sprite && hasFire && !hasInertia && !(Blockly.BBasic.objectGravityUsedFor || new Set()).has(name) && config.kernel === 'dpcplus' && !config.pxe && !Blockly.BBasic.dpcPlusGroupFracVars && !pfScrollColumns(config) &&
         /^(ball|missile)/.test(name) && /^\d+$/.test(String(rowDivisor)) && 256 % Number(rowDivisor) === 0 && /^\d+$/.test(String(maxRow))) {
       ensureArmProgram(Blockly, undefined, 'p');
       Blockly.BBasic.pfBoxArm = true;
@@ -3856,9 +4101,9 @@ ${flagsVar}{${bit}} = 1
       const entries = table.map(([xStep, yStep]) => (xStep && yStep) ?
         (xStep > 0 ? 1 : 3) | (yStep > 0 ? 4 : 12) | (Math.abs(yStep) === 2 ? 16 : 0) : (xStep ? 255 : 0));
       lines.push(
-          ` if ${fireDirVar} >= ${steps} then goto ${label('flipboth')}`,
+          ...(isAny ? [] : [` if ${fireDirVar} >= ${steps} then goto ${label('flipboth')}`]),
           ' asm',
-          ` ldx ${fireDirVar}`,
+          ...(isAny ? [` lda ${fireDirVar}`, ' clc', ' adc #8', ' lsr', ' lsr', ' lsr', ' lsr', ' tax'] : [` ldx ${fireDirVar}`]),
           ` lda ${label('headtab')},x`,
           ` jmp ${label('headgo')}`,
           `@ ${label('headtab')}`,
@@ -3871,7 +4116,7 @@ ${flagsVar}{${bit}} = 1
           ...(gravityHeading ? [
             ` if temp5 <> 255 then goto ${label('gravdone')}`,
             ' temp5 = 1',
-            ` if ${fireDirVar} >= ${half} then temp5 = 3`,
+            ` if ${fireDirVar} >= ${isAny ? 128 : half} then temp5 = 3`,
             ` if ${gravitySpeed.read} > 127 then goto ${label('gravup')}`,
             ' temp5 = temp5 | 4',
             ` goto ${label('gravdone')}`,
@@ -3946,11 +4191,11 @@ ${flagsVar}{${bit}} = 1
     ] : null;
     lines.push(...(spriteLines || diagonalLines));
     // --- apply the flips
-    const fireFlipX = !hasFire ? [] : [
+    const fireFlipX = !hasFire ? [] : isAny ? [` ${fireDirVar} = 0 - ${fireDirVar}`] : [
       ` ${fireDirVar} = ${steps} - ${fireDirVar}`,
       ` if ${fireDirVar} = ${steps} then ${fireDirVar} = 0`,
     ];
-    const fireFlipY = !hasFire ? [] : [
+    const fireFlipY = !hasFire ? [] : isAny ? [` ${fireDirVar} = 128 - ${fireDirVar}`] : [
       ` if ${fireDirVar} > ${half} then goto ${label('dirhigh')}`,
       ` ${fireDirVar} = ${half} - ${fireDirVar}`,
       ` goto ${label('dirdone')}`,
@@ -3958,7 +4203,7 @@ ${flagsVar}{${bit}} = 1
       ` ${fireDirVar} = ${steps + half} - ${fireDirVar}`,
       lab('dirdone'),
     ];
-    const fireFlipBoth = !hasFire ? [] : [
+    const fireFlipBoth = !hasFire ? [] : isAny ? [` ${fireDirVar} = ${fireDirVar} + 128`] : [
       ` ${fireDirVar} = ${fireDirVar} + ${half}`,
       ` if ${fireDirVar} >= ${steps} then ${fireDirVar} = ${fireDirVar} - ${steps}`,
     ];
@@ -4117,7 +4362,8 @@ ${flagsVar}{${bit}} = 1
     const bounceSprite = block.getFieldValue('EDGES') === 'TRUE' || block.getFieldValue('MANUAL') === 'TRUE' ? null : bounceSpriteOf(block, name);
     const spriteSuffix = bounceSprite ? `_${bounceSprite}` : '';
     const bounceGravity = (Blockly.BBasic.objectGravityUsedFor || new Set()).has(name);
-    if (bounceSprite && hasFire && !hasInertia && !bounceGravity) {
+    const bounceAny = (Blockly.BBasic.missileFireAnyUsedFor || new Set()).has(name);
+    if (bounceSprite && hasFire && !hasInertia && !bounceGravity && !bounceAny) {
       // The angle range in the routine when its steps are a number (one worked out at run time is done here, after the call, as before).
       const spreadOn = block.getFieldValue('SPREAD') === 'TRUE';
       const spreadStepsNumber = spreadOn ? literalNumber(Blockly.BBasic.valueToCode(block, 'SPREAD_STEPS', Blockly.BBasic.ORDER_NONE) || '1') : null;
@@ -4157,11 +4403,12 @@ ${flagsVar}{${bit}} = 1
       // fade-flag checks).
       // Only the heading snapshot (for the give-up stage); the reflection itself
       // is buildPixelReflect's.
-      fireLines.stage1 = [
+      // (An any direction heading is kept as the nearest of 16 directions, 4 bits, and given back as that direction turned right round.)
+      fireLines.stage1 = bounceAny ? [` temp1 = ${dirVar} + 8`, ' temp1 = temp1 / 16', ` ${stagePair.write} = temp1 | 64`] : [
         ` ${stagePair.write} = (${dirVar} & 15) | 64`,
       ];
       fireLines.stage2 = [];
-      fireLines.stage4 = [
+      fireLines.stage4 = bounceAny ? [` ${dirVar} = ${stagePair.read} & 15`, ` ${dirVar} = ${dirVar} * 16`, ` ${dirVar} = ${dirVar} + 128`] : [
         ` ${dirVar} = ${stagePair.read} & 15`,
         ` ${dirVar} = ${dirVar} + ${half}`,
         ` if ${dirVar} >= ${steps} then ${dirVar} = ${dirVar} - ${steps}`,
@@ -4263,7 +4510,7 @@ ${flagsVar}{${bit}} = 1
     const bounceRowDiv = /^\d+$/.test(String(bounceRowDivisor)) && 256 % Number(bounceRowDivisor) !== 0 && Number(bounceRowDivisor) < 256 && bounceFracInc === null;
     const bounceRowInc = /^\d+$/.test(String(bounceRowDivisor)) && 256 % Number(bounceRowDivisor) === 0 ? 256 / Number(bounceRowDivisor) :
       bounceRowDiv ? Number(bounceRowDivisor) : (typeof bounceFracInc === 'number' ? bounceFracInc : null);
-    const bounceArm = !bounceSprite && hasFire && !hasInertia && bounceConfig.kernel === 'dpcplus' && !bounceConfig.pxe && !Blockly.BBasic.dpcPlusGroupFracVars &&
+    const bounceArm = !bounceAny && !bounceSprite && hasFire && !hasInertia && bounceConfig.kernel === 'dpcplus' && !bounceConfig.pxe && !Blockly.BBasic.dpcPlusGroupFracVars &&
       !pfScrollColumns(bounceConfig) && /^(ball|missile)/.test(name) && bounceRowInc !== null &&
       /^\d+$/.test(String(bounceMaxRow)) && /^[A-Za-z_]\w*$/.test(String(bounceDirVar)) && /^[A-Za-z_]\w*$/.test(String(stagePair.read)) &&
       /^[A-Za-z_]\w*$/.test(String(stagePair.write));
@@ -4290,10 +4537,12 @@ ${flagsVar}{${bit}} = 1
       Blockly.BBasic.valueToCode(block, 'ANGLE', Blockly.BBasic.ORDER_NONE) : '';
     if (hasFire && angleCode) {
       const dirVar = resolveVar(missileFireDirVarName(name));
-      const maxAngle = (Blockly.BBasic.missileFire16UsedFor || new Set()).has(name) ? 15 : 7;
+      const maxAngle = bounceAny ? 255 : (Blockly.BBasic.missileFire16UsedFor || new Set()).has(name) ? 15 : 7;
       const angleNumber = literalNumber(angleCode);
       if (angleNumber !== null) {
         manualAngleLines.push(` ${dirVar} = ${Math.min(angleNumber, maxAngle)}`);
+      } else if (bounceAny) {
+        manualAngleLines.push(` ${dirVar} = ${angleCode}`);
       } else {
         manualAngleLines.push(
             ` ${dirVar} = ${angleCode}`,

@@ -18,7 +18,6 @@ Blockly.defineBlocksWithJsonArray([
     // blocks/event.js) now that this block lives in that toolbox category
     // instead of Loops.
     'colour': 'rgb(39, 176, 176)',
-    'tooltip': `Pauses for the given number of video frames (NTSC runs at about 60 frames per second, PAL at 50) ` +
-      `before continuing.`,
+    'tooltip': `Pauses for the given number of video frames (about 60 a second NTSC, 50 PAL).`,
   },
 ]);

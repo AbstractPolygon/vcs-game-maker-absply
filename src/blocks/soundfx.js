@@ -427,7 +427,7 @@ Blockly.Blocks['soundfx_play'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SOUND_COLOR);
-    this.setTooltip('Plays a named sound effect preset, set up on the SoundFX tab. Ticked: the sound plays again each time it ends, until another sound takes its channel or a Stop sound block.');
+    this.setTooltip('Plays a SoundFX tab preset. Ticked: it repeats each time it ends, until another sound takes its channel or a Stop sound block.');
   },
 };
 
@@ -440,7 +440,7 @@ Blockly.Blocks['soundfx_stop'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SOUND_COLOR);
-    this.setTooltip('Stops the sound playing on the channel, including one that is looping.');
+    this.setTooltip('Stops the sound on the channel, including a looping one.');
   },
 };
 

@@ -1,4 +1,7 @@
 import * as Blockly from 'blockly/core';
+import {registerExtension, numberDefaultsExtension} from './extension';
+
+registerExtension('event_every_x_defaults', numberDefaultsExtension({X: 8}));
 import {COMMENT_ICON, GAMEOVER_ICON, GAME_ICON, START_ICON, SYSTEM_ICON, TITLE_ICON, UPDATE_ICON} from './icon';
 
 // Distinct from every other block colour in the app (see blocks/*.js's
@@ -59,7 +62,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'rgb(39, 176, 176)',
-    'tooltip': 'Will be executed when a given event happens',
+    'tooltip': 'Runs when the event happens.',
   },
 
   // Block for changing game state
@@ -76,7 +79,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'rgb(39, 176, 176)',
-    'tooltip': 'Change game state to a given one',
+    'tooltip': 'Changes the game state.',
   },
 
   // Block for even/odd frames
@@ -97,7 +100,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'rgb(39, 176, 176)',
-    'tooltip': 'Change game state to a given one',
+    'tooltip': 'Runs one set of blocks on even frames and the other on odd frames.',
   },
 
   // Block for executing every "n" frames
@@ -124,7 +127,23 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'rgb(39, 176, 176)',
-    'tooltip': 'Execute code every few frames',
+    'tooltip': 'Runs code every few frames.',
+  },
+
+  // Every x frames with x from a number block (a block or a variable): a power of two that is a number uses the frame counter as "Every n frames" does, any other
+  // x counts the frames in a byte.
+  {
+    'type': 'event_frame_every_x',
+    'message0': 'Every %1 frames',
+    'args0': [{'type': 'input_value', 'name': 'X', 'check': 'Number'}],
+    'message1': '%1',
+    'args1': [{'type': 'input_statement', 'name': 'DO'}],
+    'inputsInline': true,
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': 'rgb(39, 176, 176)',
+    'extensions': ['event_every_x_defaults'],
+    'tooltip': 'Runs the blocks inside the first time it is reached and then every x times it is reached (x frames when it runs every frame). x 1 to 255; a power of two as a number is on the frame counter, any other x costs a byte.',
   },
 
   // Wrapper block whose contents only run the first time it's reached -
@@ -143,9 +162,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'rgb(39, 176, 176)',
-    'tooltip': 'Runs the connected blocks only the first time this is ' +
-      'reached. Every time after, they\'re skipped, no matter how often ' +
-      'the surrounding code runs.',
+    'tooltip': 'Runs the connected blocks only the first time this is reached.',
   },
 
   // Block for inserting a plain comment into the generated bBasic code - has
@@ -164,8 +181,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': COMMENT_COLOR,
-    'tooltip': 'Inserts a comment into the generated bBasic code. Does not ' +
-      'affect how the game runs in any way - purely a note to yourself.',
+    'tooltip': 'A comment in the generated bBasic code. Does not affect the game.',
   },
 
   // Wrapper version of the above - encloses a whole stack of blocks instead
@@ -190,9 +206,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': COMMENT_COLOR,
-    'tooltip': 'Groups the connected blocks under a comment label in the ' +
-      'generated bBasic code. Purely organizational - everything inside ' +
-      'still runs exactly as it would outside this wrapper.',
+    'tooltip': 'Groups the connected blocks under a comment in the generated code. Does not affect the game.',
   },
 
 ]);

@@ -575,6 +575,7 @@ import {migrateLegacyPlayerBlocksInWorkspaceXml} from '../hooks/migrate-player-b
 import {migrateLegacyBounceBlocksInWorkspaceXml} from '../hooks/migrate-bounce-blocks';
 import {migrateLegacyBallFireBlocksInWorkspaceXml} from '../hooks/migrate-ball-fire-blocks';
 import {migrateLegacyInertiaAccelerateBlocksInWorkspaceXml} from '../hooks/migrate-inertia-accelerate-blocks';
+import {migrateLegacyGravityBlocksInWorkspaceXml} from '../hooks/migrate-gravity-blocks';
 import {migrateLegacyJoystickBlocksInWorkspaceXml} from '../hooks/migrate-joystick-blocks';
 import {migrateLegacyKeypadBlocksInWorkspaceXml} from '../hooks/migrate-keypad-blocks';
 import {migrateRainbowRangeInWorkspaceXml} from '../hooks/migrate-rainbow-range';
@@ -1438,6 +1439,8 @@ export default defineComponent({
       // combined block still has - see that function's comment in
       // hooks/migrate-inertia-accelerate-blocks.js.
       this.workspaceStorage = migrateLegacyInertiaAccelerateBlocksInWorkspaceXml(this.workspaceStorage);
+      // (The Gravity block's first number: frames between speed-ups became eighths of a pixel a frame, see hooks/migrate-gravity-blocks.js.)
+      this.workspaceStorage = migrateLegacyGravityBlocksInWorkspaceXml(this.workspaceStorage);
 
       // Rewrites any old input_joy0_*/input_joy1_* blocks a project saved
       // before Joystick 0/1 shared one combined block type per feature

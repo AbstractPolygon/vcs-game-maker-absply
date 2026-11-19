@@ -118,7 +118,7 @@ Blockly.Blocks['bit_get'] = {
     // blocks'  colour resolution exactly (see variables.js in Blockly core),
     // instead of going through setColour's separate, compounding desaturation path.
     this.setStyle('variable_blocks');
-    this.setTooltip('Checks if a single bit of a variable is set (1) or clear (0).');
+    this.setTooltip('Checks if a bit of a variable is set (1) or clear (0).');
     if (this.workspace) ensureBitVariableRenameListener(this.workspace);
   },
   // The dropdown is not a variable field, so without this Blockly treats the
@@ -142,7 +142,7 @@ Blockly.Blocks['bit_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setStyle('variable_blocks');
-    this.setTooltip('Sets a single bit of a variable. Accepts true/false or 1/0.');
+    this.setTooltip('Sets a bit of a variable. Accepts true/false or 1/0.');
     if (this.workspace) ensureBitVariableRenameListener(this.workspace);
   },
   // See bit_get.
@@ -164,8 +164,7 @@ Blockly.Blocks['nibble_get'] = {
         .appendField(buildVariableField(), 'VAR');
     this.setOutput(true, 'Number');
     this.setStyle('variable_blocks');
-    this.setTooltip('Reads half of a variable as a number from 0 to 15: the first 4 bits (bits 0 to 3) or the last 4 ' +
-      'bits (bits 4 to 7).');
+    this.setTooltip('Reads half of a variable as 0 to 15: bits 0 to 3 or bits 4 to 7.');
     if (this.workspace) ensureBitVariableRenameListener(this.workspace);
   },
   // See bit_get.
@@ -187,8 +186,7 @@ Blockly.Blocks['nibble_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setStyle('variable_blocks');
-    this.setTooltip('Sets half of a variable to a number from 0 to 15 (the first 4 bits are bits 0 to 3, the last 4 ' +
-      'bits are bits 4 to 7) and leaves the other half as it is. Only the lowest 4 bits of the number are used.');
+    this.setTooltip('Sets half of a variable to 0 to 15 (bits 0 to 3 or 4 to 7) and leaves the other half. Only the lowest 4 bits of the number are used.');
     if (this.workspace) ensureBitVariableRenameListener(this.workspace);
   },
   // See bit_get.
@@ -239,10 +237,6 @@ Blockly.Blocks['system_variable_get'] = {
         .appendField(new FieldBuiltInVariable(), 'VAR');
     this.setOutput(true, 'Number');
     this.setStyle('variable_blocks');
-    this.setTooltip('Reads the current value of a built-in batari Basic variable, e.g. ' +
-      '"framecounter" (how many frames have passed since power-on) - useful anywhere a ' +
-      'real, changing value is needed, like seeding the random number generator. The variables ' +
-      'that other blocks of the project keep (the state and speed of the Platform block, the target of a Seek, ...) are listed too, ' +
-      'while the block that makes them is in the project.');
+    this.setTooltip('Reads a built-in batari Basic variable, e.g. "framecounter" (frames since power-on). Variables kept by other blocks of the project (Platform state and speed, a Seek target, ...) are listed while that block is in the project.');
   },
 };

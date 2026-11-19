@@ -1,4 +1,5 @@
 import * as Blockly from 'blockly/core';
+import {registerExtension} from './extension';
 
 // Matches a decimal integer (optionally negative), a hexadecimal value written
 // as $1F or 0x1F, or a binary value written as %1010 or 0b1010.
@@ -24,8 +25,7 @@ Blockly.Blocks['math_number'] = {
       ],
       'output': 'Number',
       'colour': '%{BKY_MATH_HUE}',
-      'tooltip': 'A number. Enter a decimal value, a hexadecimal value like $1F, ' +
-        'or a binary value like %1010.',
+      'tooltip': 'A number: decimal, hexadecimal like $1F, or binary like %1010.',
       'helpUrl': '',
     });
     this.getField('NUM').setValidator(validateNumber);
@@ -96,13 +96,13 @@ Blockly.Blocks['math_arithmetic'] = {
 // the whole app on load ("Cannot read properties of null (reading
 // 'length')"), confirmed as a real, reproducible bug this way.
 Blockly.Msg['MATH_ARITHMETIC_TOOLTIP_BITAND'] =
-  'Bitwise AND: each bit of the result is 1 only where BOTH numbers have a 1 bit.';
+  'Bitwise AND: a bit is 1 where both numbers have 1.';
 Blockly.Msg['MATH_ARITHMETIC_TOOLTIP_BITOR'] =
-  'Bitwise OR: each bit of the result is 1 where EITHER number has a 1 bit.';
+  'Bitwise OR: a bit is 1 where either number has 1.';
 Blockly.Msg['MATH_ARITHMETIC_TOOLTIP_BITXOR'] =
-  'Bitwise XOR: each bit of the result is 1 where the two numbers\' bits DIFFER.';
+  'Bitwise XOR: a bit is 1 where the numbers differ.';
 Blockly.Msg['MATH_ARITHMETIC_TOOLTIP_MODULO'] =
-  'Modulo: the remainder left over after dividing the first number by the second.';
+  'Remainder of the first number divided by the second.';
 
 // Blockly 8 made the stock math blocks' TOOLTIPS_BY_OP table (node_
 // modules/blockly/blocks/math.js) a local, unexported closure const -
@@ -149,7 +149,7 @@ const STOCK_MATH_TOOLTIPS_BY_OP = {
   'RANDOM': '%{BKY_MATH_ONLIST_TOOLTIP_RANDOM}',
 };
 Blockly.Extensions.unregister('math_op_tooltip');
-Blockly.Extensions.register('math_op_tooltip', Blockly.Extensions.buildTooltipForDropdown('OP', {
+registerExtension('math_op_tooltip', Blockly.Extensions.buildTooltipForDropdown('OP', {
   ...STOCK_MATH_TOOLTIPS_BY_OP,
   'BITAND': '%{BKY_MATH_ARITHMETIC_TOOLTIP_BITAND}',
   'BITOR': '%{BKY_MATH_ARITHMETIC_TOOLTIP_BITOR}',
@@ -180,6 +180,6 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': '%{BKY_MATH_HUE}',
-    'tooltip': 'Sets the variable to the absolute (always positive) value of the number.',
+    'tooltip': 'Sets the variable to the absolute value of the number.',
   },
 ]);

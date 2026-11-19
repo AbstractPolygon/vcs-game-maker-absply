@@ -1,6 +1,16 @@
 'use strict';
 import {runOnceEnterLines} from '../../utils/dpc-ram-flags';
 
+// Every x frames (see the block): the mask of the frame counter when x is a number that is a power of two from 1 to 128, else null (x needs a counter byte).
+export const everyFramesMask = (block) => {
+  const target = block.getInputTargetBlock('X');
+  if (!target || target.type !== 'math_number') return null;
+  const value = Math.round(Number(target.getFieldValue('NUM')));
+  return [1, 2, 4, 8, 16, 32, 64, 128].includes(value) ? value - 1 : null;
+};
+
+export const everyFramesVarName = (index) => `everyFrames${index}`;
+
 export default (Blockly) => {
   Blockly.BBasic['event_block'] = function(block) {
     // Event block
@@ -105,6 +115,26 @@ export default (Blockly) => {
       `@ ${labelEnd}`,
     ].join('\n') +
     '\n';
+  };
+
+  // Every x frames, x from a number block. A number that is a power of two (1 to 128) is the frame counter masked, as the dropdown block does it; any other x
+  // (a variable, an expression, 3, 10 ...) counts in a byte (see everyFramesVarName): at 0 the blocks inside run and the byte is set to x - 1, else it counts down.
+  Blockly.BBasic['event_frame_every_x'] = function(block) {
+    const blockNumber = Blockly.BBasic.blockNumbers.next();
+    const labelEnd = `_frame_every_x_${blockNumber}_end`;
+    const labelWait = `_frame_every_x_${blockNumber}_wait`;
+    const code = Blockly.BBasic.statementToCode(block, 'DO').trim();
+    const mask = everyFramesMask(block);
+    if (mask !== null) {
+      // (The same "- 1" as the dropdown block: the first frame the block runs in has the frame counter at 1.)
+      return `\ntemp1 = (framecounter + 255) & ${mask}\nif temp1 then goto ${labelEnd}\n${code}\n@ ${labelEnd}\n`;
+    }
+    const name = (Blockly.BBasic.everyFramesVars || new Map()).get(block.id);
+    const counter = name ? Blockly.BBasic.nameDB_.getName(name, Blockly.Names.DEVELOPER_VARIABLE_TYPE) : null;
+    if (!counter) return `\n${code}\n`;
+    const x = Blockly.BBasic.valueToCode(block, 'X', Blockly.BBasic.ORDER_ASSIGNMENT) || '1';
+    return ['', `if ${counter} then goto ${labelWait}`, `temp1 = ${x}`, 'if temp1 = 0 then temp1 = 1', `${counter} = temp1 - 1`, code, `goto ${labelEnd}`,
+      `@ ${labelWait}`, `${counter} = ${counter} - 1`, `@ ${labelEnd}`, ''].join('\n');
   };
 
   Blockly.BBasic['event_run_once'] = function(block) {

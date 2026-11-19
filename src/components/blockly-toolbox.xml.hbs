@@ -80,6 +80,11 @@
                     <field name="NUM">0</field>
                 </shadow>
             </value>
+            <value name="SEED2">
+                <shadow type="math_number">
+                    <field name="NUM">0</field>
+                </shadow>
+            </value>
         </block>
         <block type="random_get"></block>
         <block type="random_range_get"></block>
@@ -539,7 +544,7 @@
                     </block>
                     <block type="sprite_fire_angle_get"></block>
             </category>
-            <category name="Inertia" colour="rgb(33, 150, 243)">
+            <category name="Gravity" colour="rgb(33, 150, 243)">
                 <block type="sprite_inertia_accelerate">
                     <value name="DIRECTION">
                         <shadow type="math_number">
@@ -565,9 +570,9 @@
                     </value>
                 </block>
                 <block type="object_gravity">
-                    <value name="RATE">
+                    <value name="PULL">
                         <shadow type="math_number">
-                            <field name="NUM">4</field>
+                            <field name="NUM">3</field>
                         </shadow>
                     </value>
                     <value name="MAXFALL">
@@ -575,7 +580,13 @@
                             <field name="NUM">4</field>
                         </shadow>
                     </value>
+                    <value name="ANGLE">
+                        <shadow type="math_number">
+                            <field name="NUM">128</field>
+                        </shadow>
+                    </value>
                 </block>
+                <block type="object_gravity_control"></block>
             </category>
             <category name="Lock" colour="rgb(33, 150, 243)">
                 <block type="sprite_lock">
@@ -800,7 +811,6 @@
         </block>
         <block type="background_set_select"></block>
         <block type="background_get_resolution"></block>
-        <block type="background_clear"></block>
         <block type="background_set_color">
             <value name="VALUE">
                 <shadow type="math_number">
@@ -826,6 +836,7 @@
             </value>
         </block>
         {{/if}}
+        <block type="background_clear"></block>
         <block type="draw_screen"></block>
         <category name="Behaviors" colour="rgb(255, 152, 0)">
             <category name="Fade" colour="rgb(255, 152, 0)">
@@ -898,6 +909,106 @@
             <block type="background_collision_pixel_column"></block>
             <block type="background_collision_pixel_row"></block>
         </category>
+        <category name="Draw" colour="rgb(255, 152, 0)">
+            <block type="background_fill_circle">
+                <value name="X"><shadow type="math_number"><field name="NUM">16</field></shadow></value>
+                <value name="Y"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
+                <value name="RADIUS"><shadow type="math_number"><field name="NUM">4</field></shadow></value>
+                <value name="PADDING"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+                <value name="PAD_LEFT"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+                <value name="PAD_RIGHT"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+                <value name="PAD_TOP"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+                <value name="PAD_BOTTOM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+            </block>
+            <block type="background_fill_area">
+                <value name="X1">
+                    <shadow type="math_number">
+                        <field name="NUM">0</field>
+                    </shadow>
+                </value>
+                <value name="Y1">
+                    <shadow type="math_number">
+                        <field name="NUM">0</field>
+                    </shadow>
+                </value>
+                <value name="X2">
+                    <shadow type="math_number">
+                        <field name="NUM">3</field>
+                    </shadow>
+                </value>
+                <value name="Y2">
+                    <shadow type="math_number">
+                        <field name="NUM">3</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="background_change_pixel">
+                <value name="X">
+                    <shadow type="math_number">
+                        <field name="NUM">0</field>
+                    </shadow>
+                </value>
+                <value name="Y">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="background_draw_line">
+                <value name="X1">
+                    <shadow type="math_number">
+                        <field name="NUM">0</field>
+                    </shadow>
+                </value>
+                <value name="Y1">
+                    <shadow type="math_number">
+                        <field name="NUM">0</field>
+                    </shadow>
+                </value>
+                <value name="X2">
+                    <shadow type="math_number">
+                        <field name="NUM">4</field>
+                    </shadow>
+                </value>
+                <value name="Y2">
+                    <shadow type="math_number">
+                        <field name="NUM">4</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="background_change_hv_line">
+                <value name="LENGTH">
+                    <shadow type="math_number">
+                        <field name="NUM">4</field>
+                    </shadow>
+                </value>
+                <value name="X">
+                    <shadow type="math_number">
+                        <field name="NUM">0</field>
+                    </shadow>
+                </value>
+                <value name="Y">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="background_flood_fill">
+                <value name="X"><shadow type="math_number"><field name="NUM">16</field></shadow></value>
+                <value name="Y"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
+            </block>
+            <block type="background_generate_terrain">
+                <value name="MIN"><block type="math_number"><field name="NUM">3</field></block></value>
+                <value name="MAX"><block type="math_number"><field name="NUM">6</field></block></value>
+                <value name="ROUGH"><block type="math_number"><field name="NUM">2</field></block></value>
+                <value name="OVER"><block type="math_number"><field name="NUM">0</field></block></value>
+                <value name="CAVES"><block type="math_number"><field name="NUM">0</field></block></value>
+            </block>
+            <block type="background_generate_terrain_done"></block>
+            <block type="background_when_terrain_done"></block>
+            <block type="background_flood_fill_stop"></block>
+            <block type="background_flood_fill_done"></block>
+        </category>
         <category name="Utility" colour="rgb(255, 152, 0)">
             <block type="background_area_clear">
                 <value name="X1">
@@ -948,119 +1059,28 @@
                 </value>
             </block>
             <block type="sprite_priority_set"></block>
-            <category name="Draw" colour="rgb(255, 152, 0)">
-                <block type="background_fill_circle">
-                    <value name="X"><shadow type="math_number"><field name="NUM">16</field></shadow></value>
-                    <value name="Y"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
-                    <value name="RADIUS"><shadow type="math_number"><field name="NUM">4</field></shadow></value>
-                    <value name="PADDING"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-                    <value name="PAD_LEFT"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-                    <value name="PAD_RIGHT"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-                    <value name="PAD_TOP"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-                    <value name="PAD_BOTTOM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-                </block>
-                <block type="background_fill_area">
-                    <value name="X1">
-                        <shadow type="math_number">
-                            <field name="NUM">0</field>
-                        </shadow>
-                    </value>
-                    <value name="Y1">
-                        <shadow type="math_number">
-                            <field name="NUM">0</field>
-                        </shadow>
-                    </value>
-                    <value name="X2">
-                        <shadow type="math_number">
-                            <field name="NUM">3</field>
-                        </shadow>
-                    </value>
-                    <value name="Y2">
-                        <shadow type="math_number">
-                            <field name="NUM">3</field>
-                        </shadow>
-                    </value>
-                </block>
-                <block type="background_change_pixel">
-                    <value name="X">
-                        <shadow type="math_number">
-                            <field name="NUM">0</field>
-                        </shadow>
-                    </value>
-                    <value name="Y">
-                        <shadow type="math_number">
-                            <field name="NUM">1</field>
-                        </shadow>
-                    </value>
-                </block>
-                <block type="background_draw_line">
-                    <value name="X1">
-                        <shadow type="math_number">
-                            <field name="NUM">0</field>
-                        </shadow>
-                    </value>
-                    <value name="Y1">
-                        <shadow type="math_number">
-                            <field name="NUM">0</field>
-                        </shadow>
-                    </value>
-                    <value name="X2">
-                        <shadow type="math_number">
-                            <field name="NUM">4</field>
-                        </shadow>
-                    </value>
-                    <value name="Y2">
-                        <shadow type="math_number">
-                            <field name="NUM">4</field>
-                        </shadow>
-                    </value>
-                </block>
-                <block type="background_change_hv_line">
-                    <value name="LENGTH">
-                        <shadow type="math_number">
-                            <field name="NUM">4</field>
-                        </shadow>
-                    </value>
-                    <value name="X">
-                        <shadow type="math_number">
-                            <field name="NUM">0</field>
-                        </shadow>
-                    </value>
-                    <value name="Y">
-                        <shadow type="math_number">
-                            <field name="NUM">1</field>
-                        </shadow>
-                    </value>
-                </block>
-                <block type="background_flood_fill">
-                    <value name="X"><shadow type="math_number"><field name="NUM">16</field></shadow></value>
-                    <value name="Y"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
-                </block>
-                <block type="background_flood_fill_stop"></block>
-                <block type="background_flood_fill_done"></block>
-            </category>
-            {{#if tilemapOn}}
-            <category name="Tile" colour="rgb(255, 152, 0)">
-                <block type="background_tile_set">
-                    <value name="COLUMN">
-                        <shadow type="math_number">
-                            <field name="NUM">0</field>
-                        </shadow>
-                    </value>
-                    <value name="ROW">
-                        <shadow type="math_number">
-                            <field name="NUM">0</field>
-                        </shadow>
-                    </value>
-                    <value name="TILE">
-                        <shadow type="math_number">
-                            <field name="NUM">0</field>
-                        </shadow>
-                    </value>
-                </block>
-            </category>
-            {{/if}}
         </category>
+        {{#if tilemapOn}}
+        <category name="Tile" colour="rgb(255, 152, 0)">
+            <block type="background_tile_set">
+                <value name="COLUMN">
+                    <shadow type="math_number">
+                        <field name="NUM">0</field>
+                    </shadow>
+                </value>
+                <value name="ROW">
+                    <shadow type="math_number">
+                        <field name="NUM">0</field>
+                    </shadow>
+                </value>
+                <value name="TILE">
+                    <shadow type="math_number">
+                        <field name="NUM">0</field>
+                    </shadow>
+                </value>
+            </block>
+        </category>
+        {{/if}}
         <category name="VFX" colour="rgb(255, 152, 0)">
             <block type="screen_shake">
                 <value name="FRAMES">
@@ -1170,6 +1190,39 @@
                 </shadow>
             </value>
         </block>
+        {{#if scoreLayoutOn}}
+        <block type="score_layout_set"></block>
+        <block type="score_left_get"></block>
+        <block type="score_right_get"></block>
+        <block type="score_left_set">
+            <value name="VALUE">
+                <shadow type="math_number">
+                    <field name="NUM">0</field>
+                </shadow>
+            </value>
+        </block>
+        <block type="score_left_change">
+            <value name="DELTA">
+                <shadow type="math_number">
+                    <field name="NUM">1</field>
+                </shadow>
+            </value>
+        </block>
+        <block type="score_right_set">
+            <value name="VALUE">
+                <shadow type="math_number">
+                    <field name="NUM">0</field>
+                </shadow>
+            </value>
+        </block>
+        <block type="score_right_change">
+            <value name="DELTA">
+                <shadow type="math_number">
+                    <field name="NUM">1</field>
+                </shadow>
+            </value>
+        </block>
+        {{/if}}
 
         <block type="score_font_set"></block>
 
@@ -1489,6 +1542,7 @@
         <block type="text_minikernel_blink">
             <value name="TIMES"><shadow type="math_number"><field name="NUM">3</field></shadow></value>
         </block>
+        <block type="text_minikernel_blink_done"></block>
     </category>
     <category name="Data" colour="rgb(121, 85, 72)">
         <block type="data_table_size"></block>
@@ -1542,6 +1596,13 @@
 
         <block type="event_frame_even_odd"></block>
         <block type="event_frame_every_n"></block>
+        <block type="event_frame_every_x">
+            <value name="X">
+                <shadow type="math_number">
+                    <field name="NUM">8</field>
+                </shadow>
+            </value>
+        </block>
         <block type="event_run_once"></block>
         <block type="wait_frames">
             <value name="FRAMES">

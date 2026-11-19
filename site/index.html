@@ -59,18 +59,6 @@
     .topnav a { color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9rem; padding: .15rem 0; border-bottom: 2px solid transparent; }
     .topnav a:hover, .topnav a:focus-visible, .topnav a.current { color: var(--accent); border-bottom-color: var(--accent); outline: none; }
     @media (max-width: 42rem) { .topnav div { justify-content: flex-start; } }
-    .carousel { display: flex; align-items: center; gap: .5rem; margin: 1.5rem 0 0; }
-    .track { flex: 1; min-width: 0; }
-    .track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; scrollbar-width: none; overscroll-behavior-x: contain; }
-    .track::-webkit-scrollbar { display: none; }
-    .track:focus-visible { outline: 3px solid rgba(255, 138, 61, .5); outline-offset: 4px; }
-    .track figure { flex: 0 0 100%; margin: 0; scroll-snap-align: center; }
-    .track img { display: block; width: 100%; height: auto; border: 1px solid #2c303c; user-select: none; -webkit-user-drag: none; }
-    .track figcaption { margin: .75rem 0 0; text-align: center; color: var(--text); font-size: 1rem; }
-    .arrow { flex: none; width: 2.5rem; height: 4rem; padding: 0; font: 600 3rem/1 'IBM Plex Mono', monospace; color: var(--accent); background: none; border: 0; cursor: pointer; }
-    .arrow:hover:not(:disabled), .arrow:focus-visible { color: #ffb27a; outline: none; }
-    .arrow:disabled { opacity: .25; cursor: default; }
-    @media (max-width: 42rem) { .arrow { width: 1.5rem; font-size: 2.25rem; } .carousel { gap: .25rem; } }
     .count { margin: .25rem 0 0; text-align: center; color: var(--muted); font-size: .85rem; }
     .feature h2 { grid-column: 1 / -1; text-align: center; font-size: 1.8rem; margin: 0 0 .5rem; }
     .feature p { margin: 0 0 .6rem; color: var(--muted); }
@@ -91,7 +79,6 @@
       <a href="#playfield">Playfield</a>
       <a href="#sound">Sound</a>
       <a href="#text">Text</a>
-      <a href="#views">Views</a>
       <a href="#updates">Updates</a>
     </div>
   </nav>
@@ -245,142 +232,6 @@
       <img src="shot-text.jpg" alt="The Text tab of VCS Game Maker, with the text messages the game can show.">
     </section>
 
-    <section class="feature wide" id="views">
-      <h2>USE IT YOUR WAY</h2>
-      <p>Pick the look that suits you in the Options tab. Dark Mode, Subdued Palette, High Contrast and Expert Mode allow you to customize the VCS Game Maker UI to your preferences.</p>
-      <div class="carousel" role="group" aria-roledescription="carousel" aria-label="Ways to view the app">
-        <button class="arrow prev" type="button" aria-label="Previous view" disabled>&#8249;</button>
-        <div class="track" tabindex="0">
-          <figure>
-            <img src="view-default.jpg" alt="VCS Game Maker in this view: Default.">
-            <figcaption>Default</figcaption>
-          </figure>
-          <figure>
-            <img src="view-dark.jpg" alt="VCS Game Maker in this view: Dark Mode.">
-            <figcaption>Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-subdued.jpg" alt="VCS Game Maker in this view: Subdued Palette.">
-            <figcaption>Subdued Palette</figcaption>
-          </figure>
-          <figure>
-            <img src="view-subdued-dark.jpg" alt="VCS Game Maker in this view: Subdued Palette and Dark Mode.">
-            <figcaption>Subdued Palette and Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-contrast.jpg" alt="VCS Game Maker in this view: High Contrast.">
-            <figcaption>High Contrast</figcaption>
-          </figure>
-          <figure>
-            <img src="view-contrast-dark.jpg" alt="VCS Game Maker in this view: High Contrast and Dark Mode.">
-            <figcaption>High Contrast and Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-expert.jpg" alt="VCS Game Maker in this view: Expert Mode.">
-            <figcaption>Expert Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-expert-dark.jpg" alt="VCS Game Maker in this view: Expert Mode, Dark Mode.">
-            <figcaption>Expert Mode, Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-expert-subdued.jpg" alt="VCS Game Maker in this view: Expert Mode, Subdued Palette.">
-            <figcaption>Expert Mode, Subdued Palette</figcaption>
-          </figure>
-          <figure>
-            <img src="view-expert-subdued-dark.jpg" alt="VCS Game Maker in this view: Expert Mode, Subdued Palette and Dark Mode.">
-            <figcaption>Expert Mode, Subdued Palette and Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-expert-contrast.jpg" alt="VCS Game Maker in this view: Expert Mode, High Contrast.">
-            <figcaption>Expert Mode, High Contrast</figcaption>
-          </figure>
-          <figure>
-            <img src="view-expert-contrast-dark.jpg" alt="VCS Game Maker in this view: Expert Mode, High Contrast and Dark Mode.">
-            <figcaption>Expert Mode, High Contrast and Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-expert-icons.jpg" alt="VCS Game Maker in this view: Expert Mode, icons only.">
-            <figcaption>Expert Mode, icons only</figcaption>
-          </figure>
-          <figure>
-            <img src="view-expert-icons-dark.jpg" alt="VCS Game Maker in this view: Expert Mode, icons only, Dark Mode.">
-            <figcaption>Expert Mode, icons only, Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-expert-icons-subdued.jpg" alt="VCS Game Maker in this view: Expert Mode, icons only, Subdued Palette.">
-            <figcaption>Expert Mode, icons only, Subdued Palette</figcaption>
-          </figure>
-          <figure>
-            <img src="view-expert-icons-subdued-dark.jpg" alt="VCS Game Maker in this view: Expert Mode, icons only, Subdued Palette and Dark Mode.">
-            <figcaption>Expert Mode, icons only, Subdued Palette and Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-expert-icons-contrast.jpg" alt="VCS Game Maker in this view: Expert Mode, icons only, High Contrast.">
-            <figcaption>Expert Mode, icons only, High Contrast</figcaption>
-          </figure>
-          <figure>
-            <img src="view-expert-icons-contrast-dark.jpg" alt="VCS Game Maker in this view: Expert Mode, icons only, High Contrast and Dark Mode.">
-            <figcaption>Expert Mode, icons only, High Contrast and Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-no-top.jpg" alt="VCS Game Maker in this view: Top toolbar hidden.">
-            <figcaption>Top toolbar hidden</figcaption>
-          </figure>
-          <figure>
-            <img src="view-no-top-dark.jpg" alt="VCS Game Maker in this view: Top toolbar hidden, Dark Mode.">
-            <figcaption>Top toolbar hidden, Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-no-top-subdued.jpg" alt="VCS Game Maker in this view: Top toolbar hidden, Subdued Palette.">
-            <figcaption>Top toolbar hidden, Subdued Palette</figcaption>
-          </figure>
-          <figure>
-            <img src="view-no-top-subdued-dark.jpg" alt="VCS Game Maker in this view: Top toolbar hidden, Subdued Palette and Dark Mode.">
-            <figcaption>Top toolbar hidden, Subdued Palette and Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-no-top-contrast.jpg" alt="VCS Game Maker in this view: Top toolbar hidden, High Contrast.">
-            <figcaption>Top toolbar hidden, High Contrast</figcaption>
-          </figure>
-          <figure>
-            <img src="view-no-top-contrast-dark.jpg" alt="VCS Game Maker in this view: Top toolbar hidden, High Contrast and Dark Mode.">
-            <figcaption>Top toolbar hidden, High Contrast and Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-no-left.jpg" alt="VCS Game Maker in this view: Left toolbar hidden.">
-            <figcaption>Left toolbar hidden</figcaption>
-          </figure>
-          <figure>
-            <img src="view-no-left-dark.jpg" alt="VCS Game Maker in this view: Left toolbar hidden, Dark Mode.">
-            <figcaption>Left toolbar hidden, Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-no-left-subdued.jpg" alt="VCS Game Maker in this view: Left toolbar hidden, Subdued Palette.">
-            <figcaption>Left toolbar hidden, Subdued Palette</figcaption>
-          </figure>
-          <figure>
-            <img src="view-no-left-subdued-dark.jpg" alt="VCS Game Maker in this view: Left toolbar hidden, Subdued Palette and Dark Mode.">
-            <figcaption>Left toolbar hidden, Subdued Palette and Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-no-left-contrast.jpg" alt="VCS Game Maker in this view: Left toolbar hidden, High Contrast.">
-            <figcaption>Left toolbar hidden, High Contrast</figcaption>
-          </figure>
-          <figure>
-            <img src="view-no-left-contrast-dark.jpg" alt="VCS Game Maker in this view: Left toolbar hidden, High Contrast and Dark Mode.">
-            <figcaption>Left toolbar hidden, High Contrast and Dark Mode</figcaption>
-          </figure>
-          <figure>
-            <img src="view-everything.jpg" alt="VCS Game Maker in this view: Everything!.">
-            <figcaption>Everything!</figcaption>
-          </figure>
-        </div>
-        <button class="arrow next" type="button" aria-label="Next view">&#8250;</button>
-      </div>
-      <p class="count" aria-live="polite"></p>
-    </section>
-
     <section class="feature wide" id="updates">
       <h2>Latest updates</h2>
       <p><strong>Version 0.54.1</strong> (<a href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/latest">release page</a>)</p>
@@ -408,32 +259,6 @@
     </footer>
   </main>
   <script>
-    // The "Ways to view the app" carousel: the slides sit side by side in a scroll-snap row, so a swipe works by itself on a touch screen;
-    // the arrows (and the left and right keys while the row has focus) move one slide.
-    (function () {
-      var track = document.querySelector('.carousel .track');
-      var prev = document.querySelector('.carousel .prev');
-      var next = document.querySelector('.carousel .next');
-      var count = document.querySelector('.carousel + .count');
-      var slides = track.children;
-      function current() { return Math.round(track.scrollLeft / track.clientWidth); }
-      function update() {
-        var i = Math.max(0, Math.min(slides.length - 1, current()));
-        prev.disabled = i === 0;
-        next.disabled = i === slides.length - 1;
-        count.textContent = (i + 1) + ' / ' + slides.length;
-      }
-      function go(step) { track.scrollTo({ left: (current() + step) * track.clientWidth, behavior: 'smooth' }); }
-      prev.addEventListener('click', function () { go(-1); });
-      next.addEventListener('click', function () { go(1); });
-      track.addEventListener('keydown', function (e) {
-        if (e.key === 'ArrowLeft') { go(-1); e.preventDefault(); }
-        if (e.key === 'ArrowRight') { go(1); e.preventDefault(); }
-      });
-      track.addEventListener('scroll', function () { window.requestAnimationFrame(update); });
-      window.addEventListener('resize', update);
-      update();
-    })();
     // The download buttons start out pointing straight at the files of the release that was newest when the page was written (a link with a
     // file name of a build that is not out yet stays hidden); this points each at the file of the newest release (the file names carry the version).
     (function () {

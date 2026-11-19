@@ -1,4 +1,5 @@
 import * as Blockly from 'blockly/core';
+import {registerExtension} from './extension';
 import '@blockly/field-grid-dropdown';
 
 import {
@@ -39,9 +40,7 @@ const buildDistanceBlock = (axis, icon) => ({
   ],
   'output': 'Number',
   'colour': 'purple',
-  'tooltip': `The ${axis.toUpperCase()}-axis distance between the two chosen objects - ` +
-    'always a positive number regardless of which one is further ' +
-    `${axis === 'x' ? 'left' : 'up'}. Recomputed automatically once per frame.`,
+  'tooltip': `The ${axis.toUpperCase()}-axis distance between the two objects, always positive.`,
 });
 
 // The four diagonals are not real bB switches: the generator turns each one
@@ -121,8 +120,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Boolean',
     'colour': 'red',
     'extensions': ['input_joystick_field_sync'],
-    'tooltip': 'Reads status of the chosen joystick input. A diagonal (such as Up-Right) is true ' +
-      'while both of its directions are pushed.',
+    'tooltip': 'True while the chosen joystick is pushed that way. A diagonal is true while both of its directions are pushed.',
   },
 ]);
 
@@ -153,10 +151,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Number',
     'colour': 'red',
     'extensions': ['input_joystick_field_sync'],
-    'tooltip': 'The 8-way direction the chosen joystick is currently pushed (0=Up, 1=Up-Right, ' +
-      '2=Right, 3=Down-Right, 4=Down, 5=Down-Left, 6=Left, 7=Up-Left, clockwise from Up), or 255 ' +
-      'if it\'s centered or pushed in a contradictory combination. Recomputed every time this is ' +
-      'read.',
+    'tooltip': 'The direction the joystick is pushed: 0=Up, 1=Up-Right, 2=Right, 3=Down-Right, 4=Down, 5=Down-Left, 6=Left, 7=Up-Left; 255 if centered or pushed in a contradictory combination.',
   },
 ]);
 
@@ -201,21 +196,7 @@ Blockly.Blocks['input_joystick_fire_pattern'] = {
     this.setColour('red');
     Blockly.Extensions.apply('input_joystick_field_sync', this, false);
     Blockly.Extensions.apply('input_fire_pattern_frames_sync', this, false);
-    this.setTooltip('Reads the chosen joystick\'s Fire button press pattern - "frames" means ' +
-      'something different depending on which pattern is picked (60 frames = 1 second), and is ' +
-      'ignored entirely for "tapped" and "released" (hidden for those patterns - there\'s nothing to set):\n' +
-      '• tapped - true for exactly one frame, the instant Fire is pushed down (no waiting for it ' +
-      'to be released; "frames" is ignored).\n' +
-      '• held - true on every frame Fire has been continuously held down for at least ' +
-      '"frames" so far - stays true for as long as it\'s still held past that point, not just one ' +
-      'frame.\n' +
-      '• released - true for exactly one frame, the instant Fire goes from held down to ' +
-      'released.\n' +
-      '• double-tapped - true for exactly one frame, the instant Fire is released for the ' +
-      'SECOND time within "frames" of the first release. Every release starts (or restarts) its ' +
-      'new window; a release that doesn\'t land inside a still-open window from an earlier release ' +
-      'just opens another window instead of triggering this. Doesn\'t care how long either ' +
-      'individual press was held, only the gap between the two releases.');
+    this.setTooltip('Joystick Fire press pattern ("frames": 60 = 1 second; ignored for tapped and released).\n• tapped - true for one frame when Fire is pushed.\n• held - true on every frame once Fire has been held for at least "frames".\n• released - true for one frame when Fire is let go.\n• double-tapped - true for one frame when Fire is released a second time within "frames" of the first release (press length does not matter).');
   },
 };
 
@@ -233,7 +214,7 @@ Blockly.Blocks['input_joystick_fire_pattern'] = {
 // live edit alike. Independent of (and applied alongside)
 // 'input_joystick_field_sync' above - different field (MODE, not JOYSTICK),
 // so the two validators never conflict.
-Blockly.Extensions.register('input_fire_pattern_frames_sync', function() {
+registerExtension('input_fire_pattern_frames_sync', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   const modeField = block.getField('MODE');
@@ -301,8 +282,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Boolean',
     'colour': 'red',
     'extensions': ['input_keypad_field_sync'],
-    'tooltip': 'Reads whether the given key is currently pressed on the chosen keypad ' +
-      '(the Atari Keypad/Kids Controller peripheral) - recomputed automatically once per frame.',
+    'tooltip': 'True while the given key is pressed on the chosen keypad (Atari Keypad/Kids Controller).',
   },
   // True while ANY key is held on the chosen keypad - the same underlying
   // per-frame scan value input_keypad_get's equality check reads (0 = no
@@ -322,8 +302,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Boolean',
     'colour': 'red',
     'extensions': ['input_keypad_field_sync'],
-    'tooltip': 'Reads whether any key is currently held on the chosen keypad ' +
-      '(the Atari Keypad/Kids Controller peripheral) - recomputed automatically once per frame.',
+    'tooltip': 'True while any key is held on the chosen keypad.',
   },
   // The raw scanned key ID as a Number (1-12, same numbering as
   // KEYPAD_KEY_OPTIONS above, or 0 the instant nothing is held) - lets a
@@ -343,10 +322,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Number',
     'colour': 'red',
     'extensions': ['input_keypad_field_sync'],
-    'tooltip': 'The ID (1-12: 1-9, then *, 0, # - see "Keypad key is pressed"\'s dropdown ' +
-      'order) of whichever key is currently held on the chosen keypad (the Atari Keypad/Kids ' +
-      'Controller peripheral), or 0 the instant no key is held. Recomputed automatically once ' +
-      'per frame.',
+    'tooltip': 'The ID of the key held on the chosen keypad (1-12: 1-9, then *, 0, #), or 0 if none.',
   },
 ]);
 
@@ -399,9 +375,7 @@ const buildDistanceToPointBlock = (axis, icon) => ({
   'inputsInline': true,
   'output': 'Number',
   'colour': 'purple',
-  'tooltip': `The ${axis.toUpperCase()}-axis distance between the chosen object and an arbitrary ${axis.toUpperCase()} ` +
-    'position (typed in directly, or from a variable/math block) - always a positive number regardless of ' +
-    `which is further ${axis === 'x' ? 'left' : 'up'}. Recomputed automatically once per frame.`,
+  'tooltip': `The ${axis.toUpperCase()}-axis distance between the object and a position, always positive.`,
 });
 
 Blockly.defineBlocksWithJsonArray([
@@ -428,7 +402,6 @@ Blockly.defineBlocksWithJsonArray([
     ],
     'output': 'Boolean',
     'colour': 'purple',
-    'tooltip': 'Reads status of the console switches. "is on" stays true while the switch is held; ' +
-      '"was just switched on" is true for one frame each time it is switched on.',
+    'tooltip': '"is on" is true while the switch is held; "was just switched on" is true for one frame when it is switched on.',
   },
 ]);

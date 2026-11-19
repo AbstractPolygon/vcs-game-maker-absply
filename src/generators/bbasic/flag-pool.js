@@ -1,3 +1,8 @@
+// RULE for the bbasic generator: a variable that holds a flag, or only a few bits (a done pulse, an active flag, a count up to 7 that can be
+// held in bits), is never reserved as a byte by itself. It is a family here (planFlagPool in init(), the bits it uses), read and written with
+// flagPoolVar/flagPoolBit; a byte that code changes as a whole keeps the other families' bits with a constant mask (x = x & mask, x = x | bit).
+// Check every new block's variables against this, and pack the ones that fit.
+//
 // Packs the small "active bit" flag bytes of different features into shared
 // bytes. Each feature (a "family") keeps one byte with one bit per thing it
 // tracks (a sprite, a player...), but most projects only use a few bits of

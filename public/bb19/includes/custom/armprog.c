@@ -37,8 +37,9 @@ static u valid(volatile b8 *p,u r)
 #endif
 
 // One offset over columns x1 to x2 (in order, in the playfield) and rows y1 to y2. grouped: the rows a group has are separate, and a row
-// is only offset in the columns of the groups that have it. The pixel that leaves a row goes into the next row of the area (a belt).
-static void pass(volatile b8 *p,u dir,u x1,u x2,u y1,u y2,u grouped)
+// is only offset in the columns of the groups that have it. The pixel that leaves a row goes into the next row of the area (a belt), or with wrap (functions 76
+// and 77, wrap left and wrap right) comes in at the other end of the same row.
+static void pass(volatile b8 *p,u dir,u x1,u x2,u y1,u y2,u grouped,u wrap)
 {
   u t,r,e,old,c,pin,mask,hi,lo,left,m;
   int step=1;
@@ -59,6 +60,7 @@ static void pass(volatile b8 *p,u dir,u x1,u x2,u y1,u y2,u grouped)
     else
     {
       left=dir==1||(dir==0&&!(r&1))||(dir==5&&(r&1));
+      if (wrap) pin=old&(left?hi:lo);
       if (left) { t=((old<<1)&~lo)|(pin?lo:0); pin=old&hi; }
       else { t=((old>>1)&~hi)|(pin?hi:0); pin=old&lo; }
     }
@@ -97,10 +99,11 @@ static void offset(volatile b8 *p)
   u op=CF[0];
   u dir=(op&3)|((op>>1)&4);          // 0 alternate, 1 left, 2 right, 3 up, 4 down, 5 alternate the other way round, 6 alternate columns up and down, 7 down and up
   u x1=CF[1],x2=CF[2],y1=CF[3],y2=CF[4],last=CF[5];   // as the block has them, and the last row of the playfield
-  u t;
+  u t,wrap=0;
 #ifdef GROUPS
   u g,gx1,gx2,gy2,rows;
 #endif
+  if (op==76||op==77) { dir=op-75; wrap=1; }   // wrap left, wrap right: dir 1 and 2 with the pixel kept in its row
   if (x1>31) x1=31;
   if (x2>31) x2=31;
   if (y1>last) y1=last;
@@ -119,13 +122,13 @@ static void offset(volatile b8 *p)
       if (gx1>gx2 || y1>rows) continue;
       gy2=y2>rows?rows:y2;
       if (dir>=6) columns(p,dir,gx1,gx2,y1,gy2);
-      else pass(p,dir,gx1,gx2,y1,gy2,0);
+      else pass(p,dir,gx1,gx2,y1,gy2,0,0);
     }
     return;
   }
 #endif
   if (dir>=6) columns(p,dir,x1,x2,y1,y2);
-  else pass(p,dir,x1,x2,y1,y2,K[3]);
+  else pass(p,dir,x1,x2,y1,y2,K[3],wrap);
 }
 
 static u rowof(u line,u inc)

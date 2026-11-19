@@ -30,7 +30,7 @@ import {DEFAULT_ROW_COLOR, DEFAULT_BK_ROW_COLOR, processBackgroundStorageDefault
   backgroundGetPixelXVarName, backgroundGetPixelYVarName,
   collisionPixelColumnVarName, collisionPixelRowVarName, areaClearLeftVarName,
   resolveBackgroundFadeFinishedWatches, hasBackgroundFadeActiveChecks,
-  backgroundScrollEdgeFlagsVarName, backgroundScrollStartVarName, backgroundScrollShiftVarName, dpcPlusPlainScrollVarName,
+  BACKGROUND_SCROLL_EDGE_BITS, backgroundScrollStartVarName, backgroundScrollShiftVarName, dpcPlusPlainScrollVarName,
   dpcPlusPlainColorScrollVarName,
   backgroundScrollRowVarName, backgroundScrollRowMaxVarName,
   backgroundTransitionVarName, backgroundTransitionCountVarName,
@@ -86,7 +86,7 @@ import {registerDistanceAbsDiffSubroutine, registerKeypadPollSubroutine, generat
   reserveSwitchEdgeDevVars, generateSwitchEdgeChecks} from './bbasic/input';
 import {collisionMoveOldXVar, collisionMoveOldYVar, collisionMoveOlderXVar, collisionMoveOlderYVar, reservePlatformerDevVars, platformerStartsOf, platformerPlanOf} from './bbasic/collision';
 import {scoreBkColorVarName, generateScanlinesDebugScoreCode, scoreFlashVarName, SCORE_FLASH_PARTS, scoreFlashKinds} from './bbasic/score';
-import {scoreBarUnitsVarName, scoreLineHueVarName} from '../blocks/score';
+import {scoreBarUnitsVarName, scoreLineHueVarName, scoreSideValueVarName} from '../blocks/score';
 import {isInsideFunctionBody} from '../utils/function-body';
 import {processPlayerAnimationsStorageDefaults, generateRomNoiseChecks, generatePlayerHeightLimitChecks,
   reservePlayerHeightLimitDevVars, generateRainbowColorChecks,
@@ -107,6 +107,7 @@ import spriteLock, {reserveLockDevVars, generateLockChecks} from './bbasic/sprit
 import {reservePfBoxDevVars, pfBoxSharingOf, generatePfHitChecks, boxModeLines} from './bbasic/pf-box-sub';
 import {reserveBoxDevVars, generateBoxChecks, pairKey, isPlayerName, boxHitFamilies} from './bbasic/sprite-box-width';
 import {planFlagPool, flagPoolVar, flagPoolBit, flagPoolPhaseMasks, flagPoolPhaseConflict, setFlagPhaseSource} from './bbasic/flag-pool';
+import {scoreLayoutFile, SCORE_LAYOUTS, SCORE_LAYOUT_FLAGS_FAMILY} from './bbasic/score-layout';
 import {rainbowRangeIsConstant, rainbowRangeOf, rainbowTableItems, sameRainbowRange, RAINBOW_PLAYFIELD_ROWS} from './bbasic/rainbow-range';
 import {placeKernelTables} from '../utils/bank-tables';
 import {overlapTargetsOf, overlapPairsOf, overlapFamilies, overlapSpriteFlagBits, reserveOverlapDevVars, generateOverlapChecks} from './bbasic/sprite-overlap';
@@ -118,7 +119,7 @@ import {resolveProjectMusic, MUSIC_PLAY_RESET_NAME, MUSIC_PLAY_BY_ID_NAME,
 import {reserveTextScrollDevVars, generateTextScrollAdvance, generateTextOffsetTables, resolveTextScrollConstants,
   setTextScrollConstants} from './bbasic/text-scroll';
 import {generateTextStaticOffsetTables, generateTextRow2OffsetsTable, textLinesBaseVarName, textLinesMaxVarName,
-  textRow2ColorVarName, textBkColorVarName, textClearTimerVarName, textBlinkVarName, textBlinkColorVarName, textScrollCursorColorVarName,
+  textRow2ColorVarName, textBkColorVarName, textClearTimerVarName, textBlinkVarName, TEXT_BLINK_DONE_FAMILY, textBlinkColorVarName, textScrollCursorColorVarName,
   textEndIconColorVarName, TITLE_TEXT_FLAG_FAMILY} from './bbasic/text-minikernel';
 
 const handlebarsTemplate = Handlebars.compile(templateText);
@@ -658,6 +659,11 @@ Blockly.BBasic.init = function(workspace) {
   }
   this.textClearAfterUsed = workspace.getAllBlocks(false).some((block) => block.type === 'text_minikernel_clear_after');
   this.textBlinkUsed = workspace.getAllBlocks(false).some((block) => block.type === 'text_minikernel_blink');
+  this.textBlinkDoneUsed = this.textBlinkUsed && workspace.getAllBlocks(false).some((block) => block.type === 'text_minikernel_blink_done');
+  // "Every x frames" blocks with an x that is not a power of two given as a number count the frames in a byte each.
+  this.everyFramesVars = new Map();
+  workspace.getAllBlocks(false).filter((block) => block.type === 'event_frame_every_x' && block.isEnabled() && everyFramesMask(block) === null)
+      .forEach((block, index) => this.everyFramesVars.set(block.id, everyFramesVarName(index)));
   // A score bar block turns pfscore on, which the Text Minikernel then needs separate TextDataPtr bytes for (see generateTextMinikernelDims).
   this.scoreBarBlocksUsed = workspace.getAllBlocks(false).some((block) => block.type.startsWith('score_bar_'));
 
@@ -974,12 +980,15 @@ Blockly.BBasic.init = function(workspace) {
   // one silently reinterpreted on the 16-way scale too, since dirVar itself
   // has no room to record which scale produced it.
   this.missileFire16UsedFor = new Set();
+  // Objects with a Fire block set to any direction: the heading is a full turn of 256 (see anyFireMovement in generators/bbasic/sprites.js). Such an object
+  // takes the angles of its 8 and 16 direction Fire blocks scaled onto that turn, so it is in no other set.
+  this.missileFireAnyUsedFor = new Set();
   fireObjectNames.forEach((name) => {
-    if (workspace.getAllBlocks(false).some((block) =>
-      block.type === 'sprite_missile_fire' && block.isEnabled() && block.getFieldValue('DIRECTIONS16') === 'TRUE' &&
-      block.getFieldValue('MISSILE') === fireObjectFieldValue(name))) {
-      this.missileFire16UsedFor.add(name);
-    }
+    const modes = workspace.getAllBlocks(false).filter((block) =>
+      block.type === 'sprite_missile_fire' && block.isEnabled() && block.getFieldValue('MISSILE') === fireObjectFieldValue(name))
+        .map((block) => block.getFieldValue('DIRECTIONS16'));
+    if (modes.includes('ANY')) this.missileFireAnyUsedFor.add(name);
+    else if (modes.includes('TRUE')) this.missileFire16UsedFor.add(name);
   });
 
   // Objects whose Fire blocks all use the same plain number for the speed: that
@@ -1020,8 +1029,8 @@ Blockly.BBasic.init = function(workspace) {
   this.missileFireEvenUsedFor = new Set();
   fireObjectNames.forEach((name) => {
     if (workspace.getAllBlocks(false).some((block) =>
-      block.type === 'sprite_missile_fire' && block.isEnabled() && block.getFieldValue('EVENSPEED') === 'TRUE' &&
-      block.getFieldValue('MISSILE') === fireObjectFieldValue(name))) {
+      block.type === 'sprite_missile_fire' && block.isEnabled() && block.getFieldValue('EVENSPEED') === 'TRUE' && block.getFieldValue('DIRECTIONS16') !== 'ANY' &&
+      block.getFieldValue('MISSILE') === fireObjectFieldValue(name)) && !this.missileFireAnyUsedFor.has(name)) {
       this.missileFireEvenUsedFor.add(name);
     }
   });
@@ -1219,10 +1228,14 @@ Blockly.BBasic.init = function(workspace) {
   this.inertiaUsedFor = new Set();
   this.inertiaAccelUsedFor = new Set();
   this.inertiaAccel16UsedFor = new Set();
+  // Accelerate with any direction (0 to 255 a full turn): needs the fine velocity.
+  this.inertiaAccelAnyUsedFor = new Set();
   this.inertiaDecelUsedFor = new Set();
   this.inertiaFineUsedFor = new Set();
   this.objectGravityUsedFor = new Set();
   this.objectGravityParams = {};
+  // The two score layouts the Set score layout blocks name (the Score tab's layout is always in the ROM).
+  this.scoreLayoutsUsed = new Set();
   // The title screens already said to have more lines than the picture shows (once a build).
   this.titleLayoutWarned = new Set();
   workspace.getAllBlocks(false).forEach((block) => {
@@ -1232,6 +1245,10 @@ Blockly.BBasic.init = function(workspace) {
       this.inertiaUsedFor.add(name);
       this.inertiaAccelUsedFor.add(name);
       if (block.getFieldValue('DIRECTIONS16') === 'TRUE') this.inertiaAccel16UsedFor.add(name);
+      if (block.getFieldValue('DIRECTIONS16') === 'ANY') {
+        this.inertiaAccelAnyUsedFor.add(name);
+        this.inertiaFineUsedFor.add(name);
+      }
       if (block.getFieldValue('FINE') === 'TRUE') this.inertiaFineUsedFor.add(name);
     }
     if (block.type === 'sprite_inertia_decelerate') {
@@ -1239,6 +1256,9 @@ Blockly.BBasic.init = function(workspace) {
       this.inertiaUsedFor.add(name);
       this.inertiaDecelUsedFor.add(name);
       if (block.getFieldValue('FINE') === 'TRUE') this.inertiaFineUsedFor.add(name);
+    }
+    if (block.type === 'score_layout_set' && SCORE_LAYOUTS[block.getFieldValue('LAYOUT')] && block.getFieldValue('LAYOUT') !== 'normal') {
+      this.scoreLayoutsUsed.add(block.getFieldValue('LAYOUT'));
     }
     // The Gravity block: its numbers are constants when the Gravity blocks of an object all have the same number block for them.
     if (block.type === 'object_gravity') {
@@ -1248,11 +1268,13 @@ Blockly.BBasic.init = function(workspace) {
         const target = block.getInputTargetBlock(input);
         return target && target.type === 'math_number' ? convert(Number(target.getFieldValue('NUM'))) : null;
       };
-      const params = this.objectGravityParams[name] || (this.objectGravityParams[name] = {mask: new Set(), max: new Set(), keep: new Set()});
-      // (The frames between speed-ups count with a mask: the power of 2 not above the number, from 1 to 32, less 1.)
-      params.mask.add(numberOf('RATE', (n) => 2 ** Math.floor(Math.log2(Math.max(1, Math.min(32, n || 1)))) - 1));
+      const params = this.objectGravityParams[name] || (this.objectGravityParams[name] = {pull: new Set(), max: new Set(), keep: new Set(), angle: new Set()});
+      // (The eighths of a pixel the fall speed grows by a frame: 1 to 16, as the gravity of the Platform block.)
+      params.pull.add(numberOf('PULL', (n) => Math.max(1, Math.min(16, Math.round(n) || 1))));
       params.max.add(numberOf('MAXFALL', (n) => Math.max(1, Math.min(127, n || 1))));
       params.keep.add(Number(block.getFieldValue('BOUNCE')) || 0);
+      // (The direction it pulls to: a heading of 256 to the turn, 128 down.)
+      params.angle.add(numberOf('ANGLE', (n) => ((Math.round(n) % 256) + 256) % 256));
     }
   });
 
@@ -2446,6 +2468,9 @@ Blockly.BBasic.init = function(workspace) {
   if (blocksInFunctions.some((block) => block.type === 'score_bar_units')) {
     reserveDevVarRW(scoreBarUnitsVarName(), 'the count of "Score Bar units", when read inside a Function');
   }
+  if (blocksInFunctions.some((block) => block.type === 'score_left_get' || block.type === 'score_right_get')) {
+    ['Left', 'Right', 'Digit'].forEach((name) => reserveDevVarRW(scoreSideValueVarName(name), 'Score left and Score right as numbers, when read inside a Function'));
+  }
   if (blocksInFunctions.some((block) => block.type === 'score_line_hue_set')) {
     reserveDevVarRW(scoreLineHueVarName(), 'the hue of "Score line colors: set hue", when used inside a Function');
   }
@@ -2721,6 +2746,8 @@ Blockly.BBasic.init = function(workspace) {
     {family: BG_COLOR_FLAGS_FAMILY, bits: this.bgColorFlagBits},
     {family: BG_RAINBOW_ID_FAMILY, bits: this.bgRainbowIdBits},
     {family: BG_COLOR_STEP_FAMILY, bits: this.bgColorStepBits},
+    {family: BG_SCROLL_EDGE_FAMILY, bits: [...new Set(workspace.getAllBlocks(false).filter((block) => block.type === 'background_scroll_edge_reached')
+        .map((block) => BACKGROUND_SCROLL_EDGE_BITS[block.getFieldValue('EDGE')]))].filter((bit) => bit !== undefined)},
     {family: ROM_NOISE_FLAGS_FAMILY, bits: [
       ...ownBits([...this.romNoiseUsedFor].filter((name) => !isRomNoiseExtra(name)), romNoiseOwnBit, ROM_NOISE_FLAGS_FAMILY, 'this.romNoiseUsedFor'),
       ...ownBits([...this.rainbowColorUsedFor].filter((name) => !isRomNoiseExtra(name)), rainbowColorOwnBit, ROM_NOISE_FLAGS_FAMILY, 'this.rainbowColorUsedFor'),
@@ -2741,7 +2768,10 @@ Blockly.BBasic.init = function(workspace) {
     {family: INERTIA_ACCEL_FLAGS_FAMILY, bits: ownBits(this.inertiaAccelUsedFor, spriteOwnBit, INERTIA_ACCEL_FLAGS_FAMILY, 'this.inertiaAccelUsedFor'), phase: 'game'},
     {family: INERTIA_DECEL_FLAGS_FAMILY, bits: ownBits(this.inertiaDecelUsedFor, spriteOwnBit, INERTIA_DECEL_FLAGS_FAMILY, 'this.inertiaDecelUsedFor'), phase: 'game'},
     {family: OBJECT_GRAVITY_FLAGS_FAMILY, bits: ownBits(this.objectGravityUsedFor, spriteOwnBit, OBJECT_GRAVITY_FLAGS_FAMILY, 'this.objectGravityUsedFor'), phase: 'game'},
+    {family: SCORE_LAYOUT_FLAGS_FAMILY, bits: this.scoreLayoutKeys().slice(1).map((_, i) => i)},
     {family: TITLE_TEXT_FLAG_FAMILY, bits: this.isTitleTextUsed() ? [0] : [], first: true},
+    {family: TEXT_BLINK_DONE_FAMILY, bits: this.textBlinkDoneUsed ? [0] : []},
+    {family: PFD_TERRAIN_DONE_FAMILY, bits: Blockly.BBasic.pfDrawTerrainDone ? PFD_TERRAIN_DONE_BITS : []},
     {family: TITLE_KERNEL_ENDED_FAMILY, bits: this.titleEndUsed ? [0] : []},
     {family: TITLE_KERNEL_LOOP_FAMILY, bits: this.titleScreenDrawUsed ? [0] : []},
     {family: TITLE_CARD_HOLD_FAMILY, bits: this.titleCardHoldRefs.map((_, index) => index), phase: 'title'},
@@ -2759,8 +2789,12 @@ Blockly.BBasic.init = function(workspace) {
     ...colorSetFamilies(this.colorOverridePlayers),
     ...maskFamilies(this.maskPlayers),
   ], {overlay: this.flagOverlay});
+  if (this.scoreLayoutKeys().length > 1) reserveDevVar(flagPoolVar(SCORE_LAYOUT_FLAGS_FAMILY), undefined, 'the two score layout showing: a bit for each layout after the first (none set: the first)');
   reserveSwitchEdgeDevVars(reserveDevVar, this.switchEdgeUsedFor);
   reserveJoyTapDevVars(reserveDevVar, this.joyTapOnlyFor);
+  this.everyFramesVars.forEach((name) => reserveDevVar(name, undefined, 'an "Every x frames" block: the frames left until it runs again'));
+  if (this.textBlinkDoneUsed) reserveDevVar(flagPoolVar(TEXT_BLINK_DONE_FAMILY), undefined, 'a "When text blinking is done" block: 1 for the frame after the blinking is done');
+  if (Blockly.BBasic.pfDrawTerrainDone) reserveDevVar(flagPoolVar(PFD_TERRAIN_DONE_FAMILY), undefined, 'playfield drawing: a bit for each side and one for every terrain, 1 for the frame after terrain was made');
   if (this.titleCardOnceRefs.length) {
     reserveDevVar(titleCardOnceVar(), undefined, 'title screen graphics set to play once by "Set title screen graphic frame"');
   }
@@ -2803,7 +2837,7 @@ Blockly.BBasic.init = function(workspace) {
   // bbasic/sprites.js) - a no-op unless missileFireUsedFor's  early
   // pre-scan (above) found it used.
   reserveMissileFireDevVars(reserveDevVar, reserveDevVarRW, this.missileFireUsedFor, this.missileFire16UsedFor,
-      this.missileFirePfCheckUsedFor, this.missileFireThrottleUsedFor, this.missileFireConstSpeed, this.missileFireEvenUsedFor);
+      this.missileFirePfCheckUsedFor, this.missileFireThrottleUsedFor, this.missileFireConstSpeed, this.missileFireEvenUsedFor, this.missileFireAnyUsedFor);
   if (this.fireOffscreenUsedFor.size) {
     reserveDevVar(fireOffscreenFlagsVarName(), undefined, 'shared byte of the fired objects that went off the screen (a bit each)');
   }
@@ -3447,7 +3481,7 @@ Blockly.BBasic.init = function(workspace) {
     if (this.dpcPlusGeometries.length > 1) {
       const rowBlocks = ['background_pixel_to_sprite', 'background_sprite_to_pixel', 'background_get_resolution',
         'background_collision_pixel', 'background_collision_pixel_direction', 'background_area_clear', 'background_fill_area', 'background_fill_circle',
-        'background_flood_fill'];
+        'background_flood_fill', 'background_generate_terrain'];
       const pfBoxUsed = this.pfBoxPlayers.size > 0 || (this.pfHitExtras && this.pfHitExtras.size > 0);
       const rowsUsed = pfBoxUsed || this.missileFireUsedFor.size > 0 || this.missileBounceUsedFor.size > 0 ||
         this.inertiaUsedFor.size > 0 || workspace.getAllBlocks(false).some((block) => rowBlocks.includes(block.type));
@@ -3582,8 +3616,8 @@ Blockly.BBasic.init = function(workspace) {
         'how many rows of the background coming in have entered the window');
   }
   if (this.backgroundScrollEdgeWatches.size) {
-    reserveDevVar(backgroundScrollEdgeFlagsVarName(), undefined,
-        'bit 0 = scroll reached the top, bit 1 = reached the bottom (for "When background scroll reaches")');
+    reserveDevVar(flagPoolVar(BG_SCROLL_EDGE_FAMILY), undefined,
+        'a bit for each edge a "When background scroll reaches" block watches: the scroll reached the top or the bottom');
   }
   // The pending starting row only matters when a background is taller than
   // the window (the only case where the scroll position can be set).
@@ -4978,8 +5012,8 @@ Blockly.BBasic.finish = function(code) {
     ...(this.pxeGroupStepsFlag ? [` ${Blockly.BBasic.nameDB_.getName(this.pxeGroupStepsFlag, Blockly.Names.DEVELOPER_VARIABLE_TYPE)} = 0`] : []),
     ...(isPxe(useConfigurationStorage().value) && pfIsWide(useConfigurationStorage().value) ? [` PF_MODE = ${pxePfModeOf(useConfigurationStorage().value)}`] : []),
     ...(Blockly.BBasic.backgroundScrollEdgeWatches.size ?
-      [` ${Blockly.BBasic.nameDB_.getName(backgroundScrollEdgeFlagsVarName(),
-          Blockly.Names.DEVELOPER_VARIABLE_TYPE)} = 0`] : []),
+      [` ${Blockly.BBasic.nameDB_.getName(flagPoolVar(BG_SCROLL_EDGE_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE)} = ${Blockly.BBasic.nameDB_.getName(flagPoolVar(BG_SCROLL_EDGE_FAMILY),
+          Blockly.Names.DEVELOPER_VARIABLE_TYPE)} & ${255 ^ [...Blockly.BBasic.backgroundScrollEdgeWatches].reduce((mask, edge) => mask | (1 << flagPoolBit(BG_SCROLL_EDGE_FAMILY, BACKGROUND_SCROLL_EDGE_BITS[edge])), 0)}`] : []),
     ...[...new Set([...(Blockly.BBasic.titleScrollEdgeSlots || new Map()).values()].map((slot) => slot.varName))]
         .map((varName) => ` ${Blockly.BBasic.nameDB_.getName(varName, Blockly.Names.DEVELOPER_VARIABLE_TYPE)} = 0`),
     ...['pf', 'bk'].filter((kind) => Blockly.BBasic.multicolorFade[kind].from.length || Blockly.BBasic.multicolorFade[kind].to.length)
@@ -7068,8 +7102,11 @@ Blockly.BBasic.generateConfiguration = function() {
   const dpcPlusHiddenTextScore = !(showScore ?? true) && this.isTextMinikernelActive() && config.kernel === 'dpcplus';
   // (The bars keep one color unless the Score tab's "Score bars use the line colors" is ticked, and a Score bars set color block gives them one in any case.)
   const scoreBarFlatCode = (this.scoreBarColorFlat || !config.dpcPlusScoreBarColors) && config.kernel === 'dpcplus' ? 'const scorebarflat = 1' : '';
+  // A two score layout (see generators/bbasic/score-layout.js): its minikernel draws the score, so the kernel's digits are left out (the text minikernel wins).
+  const scoreLayoutCode = !this.isTextMinikernelActive() && scoreLayoutFile(config) ? 'const noscore = 1' : '';
   const scoreConfigurationCode = scoreBarFlatCode + (scoreBarFlatCode && !(showScore ?? true) ? '\n ' : '') + ((showScore ?? true) ? '' : dpcPlusHiddenTextScore ? 'const dpchidescore = 1' :
-    `const ${this.isTextMinikernelActive() ? 'noscoretxt' : 'noscore'} = 1`);
+    `const ${this.isTextMinikernelActive() ? 'noscoretxt' : 'noscore'} = 1`) +
+    (scoreLayoutCode ? (scoreBarFlatCode ? '\n ' : '') + scoreLayoutCode : '');
   // "scorefade" - a standard-kernel-only compile-time gate that adds shading
   // to the score digits based on the live scorecolor value (see the Score
   // category's  color get/set/change blocks on the Actions tab, which
@@ -7090,7 +7127,7 @@ Blockly.BBasic.generateConfiguration = function() {
   // the actual configured value visible in the generated source.
   const scorePaddingConfigurationCode = `const scorepaddinglines = ${config.scorePaddingLines || 0}` +
     // The Score tab's 5 digits option: the standard and DPC+ kernels leave the leftmost digit of the score blank.
-    (scoreDigitsOf(config) === 5 ? '\n const score5digits = 1' : '');
+    (scoreDigitsOf(config) === 5 && !scoreLayoutFile(config) ? '\n const score5digits = 1' : '');
   // The bundled compiler ignores this and gets its digits swapped in directly
   // instead, but it keeps the generated source correct for real batari Basic.
   // Custom digits live in the compiler's include, so there is no directive that
@@ -9843,15 +9880,15 @@ Blockly.BBasic.generateAnimations = function() {
   return [...(partnerResets.length ? [partnerResets.join('\n')] : []), ...hardwareCode, ...extraCode, ...partnerCode].join('\n\n\n');
 };
 import background, {backgroundGetPixelDevVarsNeeded,
-  reserveShakeScreenDevVar, reserveOffsetAreaDevVars, offsetArmSharedVars, offsetByteRange, bgColorFlagBits, rainbowBackgroundBits, rainbowIdBits, BG_COLOR_FLAGS_FAMILY, BG_RAINBOW_ID_FAMILY, BG_COLOR_STEP_FAMILY, reserveBackgroundColorFlagsDevVar, bgColorFlagRef, generateShakeScreenChecks, dpcPlusScrollDivider} from './bbasic/background';
+  reserveShakeScreenDevVar, reserveOffsetAreaDevVars, offsetArmSharedVars, offsetByteRange, bgColorFlagBits, rainbowBackgroundBits, rainbowIdBits, BG_COLOR_FLAGS_FAMILY, BG_RAINBOW_ID_FAMILY, BG_COLOR_STEP_FAMILY, BG_SCROLL_EDGE_FAMILY, reserveBackgroundColorFlagsDevVar, bgColorFlagRef, generateShakeScreenChecks, dpcPlusScrollDivider} from './bbasic/background';
 import bit from './bbasic/bit';
-import {reservePfDrawVars, pfDrawKindsUsed, generatePfDrawStep} from './bbasic/pf-draw';
+import {reservePfDrawVars, pfDrawKindsUsed, generatePfDrawStep, PFD_TERRAIN_DONE_FAMILY, PFD_TERRAIN_DONE_BITS} from './bbasic/pf-draw';
 import collision from './bbasic/collision';
 import color from './bbasic/color';
 import colour from './bbasic/colour';
 import data, {dataDispatchArg1VarName, dataDispatchArg2VarName,
   dataBitDispatchArg3VarName} from './bbasic/data';
-import event from './bbasic/event';
+import event, {everyFramesMask, everyFramesVarName} from './bbasic/event';
 import functionGenerators from './bbasic/function';
 import input from './bbasic/input';
 import logic from './bbasic/logic';
@@ -10010,8 +10047,9 @@ Blockly.BBasic.workspaceToCodeOnce = function(workspace) {
   // touches, and those can take the title variables' place (see the hints in init).
   const hints = (this.titleUnhostedCount > 0 || this.titleScratchPossible) ? findGameplayOnlyNames(inlineProgramSetup(code)) : null;
   const unused = code.includes(SYSTEM_DEFAULT_MARKER) ? findUnusedSystemVars(code) : new Set();
-  // The Text Minikernel's score row follows the background color through the very byte this variable lives in.
-  if (this.isTextMinikernelActive() && this.scoreBkColorIsBackground((useConfigurationStorage().value || {}).scoreBkColor)) {
+  // The Text Minikernel's score row (and a two score layout's, see scoreLayoutBkColorLines in score.js) follows the background color through the very byte
+  // this variable lives in.
+  if ((this.isTextMinikernelActive() || scoreLayoutFile(useConfigurationStorage().value || {})) && this.scoreBkColorIsBackground((useConfigurationStorage().value || {}).scoreBkColor)) {
     unused.delete('backgroundrealcolor');
   }
   if (unused.size || (hints && hints.names.size)) {

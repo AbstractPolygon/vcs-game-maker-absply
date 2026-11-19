@@ -14,8 +14,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'rgb(122, 76, 158)',
-    'tooltip': 'PXE kernel only: every use of the color (0 to 255) is shown as the other color from now on, in the playfield, ' +
-      'background, sprites and score together. Show a color as itself to put it back. Used in rows, it makes colors cycle or flash.',
+    'tooltip': 'PXE kernel only: every use of the color (0 to 255) is shown as the other color, in playfield, background, sprites and score together. Show a color as itself to put it back. Used in rows, it makes colors cycle or flash.',
   },
   {
     'type': 'pxe_screen_mode',
@@ -24,9 +23,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'rgb(122, 76, 158)',
-    'tooltip': 'PXE kernel only: the usual screen shows the score bar at the bottom. Without it the picture fills all 188 lines. As a 48 pixel sprite the ' +
-      'first 48 columns of the playfield are drawn a pixel to a column, in the middle of the screen, in the colors of the playfield (use a playfield width of 64 or 120 columns in Options for ' +
-      'all 48: a 40 column one leaves the last 8 unset) - for big titles and letters.',
+    'tooltip': 'PXE kernel only: the usual screen has the score bar at the bottom; without it the picture fills all 188 lines. As a 48 pixel sprite the first 48 columns of the playfield are drawn a pixel to a column, in the middle of the screen, in the playfield colors (use 64 or 120 columns in Options: with 40 the last 8 stay unset), for big titles and letters.',
   },
   {
     'type': 'pxe_pf_scroll',
@@ -40,8 +37,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'rgb(122, 76, 158)',
-    'tooltip': 'PXE kernel, with a playfield of 64 or 120 columns (Options): moves the part of the playfield the screen shows sideways, 4 pixels to a ' +
-      'column. Left shows what is further left. It stops at the edges of the playfield, or goes round (the map is a ring).',
+    'tooltip': 'PXE kernel, playfield of 64 or 120 columns (Options): moves the shown part of the playfield sideways, 4 pixels to a column. Left shows what is further left. It stops at the edges, or goes round (the map is a ring).',
   },
   {
     'type': 'pxe_pf_scroll_to',
@@ -51,15 +47,14 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'rgb(122, 76, 158)',
-    'tooltip': 'PXE kernel, with a playfield of 64 or 120 columns (Options): the screen shows the playfield from this column (0 is the left edge), ' +
-      'up to the furthest it can go.',
+    'tooltip': 'PXE kernel, playfield of 64 or 120 columns (Options): shows the playfield from this column (0 is the left edge), up to the furthest it can go.',
   },
   {
     'type': 'pxe_pf_scroll_get',
     'message0': 'PXE playfield scroll column',
     'output': 'Number',
     'colour': 'rgb(122, 76, 158)',
-    'tooltip': 'PXE kernel: the column of the playfield at the left edge of the screen (whole columns: the 4 pixel steps of the scroll are rounded down).',
+    'tooltip': 'PXE kernel: the playfield column at the left screen edge (whole columns: the 4 pixel steps are rounded down).',
   },
   {
     'type': 'pxe_pf_column_scroll',
@@ -72,8 +67,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'rgb(122, 76, 158)',
-    'tooltip': 'PXE kernel, with "Each column group has its own scroll and row step" on (Options, a playfield of 40, 64 or 120 columns): moves the group of 8 columns ' +
-      '(group 0 is columns 0 to 7) up or down on its own: it starts at this row of the map, so groups can scroll at different speeds (parallax). The map has 256 rows and goes round.',
+    'tooltip': 'PXE kernel, with the column group parallax option on (Options) (playfield of 40, 64 or 120 columns): the group of 8 columns (group 0 is columns 0 to 7) starts at this row of the map, so groups can scroll at different speeds (parallax). The map has 256 rows and goes round.',
   },
   {
     'type': 'pxe_pf_column_step',
@@ -86,9 +80,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'rgb(122, 76, 158)',
-    'tooltip': 'PXE kernel, with "Each column group has its own scroll and row step" on (Options): how fast the rows of the group of 8 columns go by. 256 divided ' +
-      'by the step is the number of scanlines to a row (16 is rows of 16 lines, 32 rows of 8, 8 rows of 32), so a group with a smaller step has taller rows ' +
-      'and shows less of the map.',
+    'tooltip': 'PXE kernel, with the column group parallax option on (Options): how fast the rows of the group of 8 columns go by. 256 divided by the step is the scanlines to a row (16 is rows of 16 lines, 32 rows of 8, 8 rows of 32); a smaller step gives taller rows and shows less of the map.',
   },
   {
     'type': 'pxe_pf_column_row_get',
@@ -97,8 +89,7 @@ Blockly.defineBlocksWithJsonArray([
     'inputsInline': true,
     'output': 'Number',
     'colour': 'rgb(122, 76, 158)',
-    'tooltip': 'PXE kernel, with "Each column group has its own scroll and row step" on (Options): the row of the map at the top of the screen for the group ' +
-      'of 8 columns (what "column group show row at the top" set).',
+    'tooltip': 'PXE kernel, with the column group parallax option on (Options): the map row at the top of the screen for the group of 8 columns.',
   },
   {
     'type': 'palette_get',
@@ -107,14 +98,13 @@ Blockly.defineBlocksWithJsonArray([
     'inputsInline': true,
     'output': 'Number',
     'colour': 'rgb(122, 76, 158)',
-    'tooltip': 'PXE kernel only: the color the palette shows the color (0 to 255) as now. Read it before changing a color to be able to put it back.',
+    'tooltip': 'PXE kernel only: the color the palette shows the color (0 to 255) as now. Read it before changing a color to put it back.',
   },
   {
     'type': 'palette_is_pal',
     'message0': 'PXE console is PAL',
     'output': 'Boolean',
     'colour': 'rgb(122, 76, 158)',
-    'tooltip': 'PXE kernel only: true when the console runs the game with the PAL colors, false for NTSC (the kernel loads the palette of the ' +
-      'standard it found at start; this looks at color 16 of the palette, so it is wrong if a Palette block changed that color).',
+    'tooltip': 'PXE kernel only: true for PAL colors, false for NTSC (it looks at color 16 of the palette, so it is wrong if a Palette block changed that color).',
   },
 ]);

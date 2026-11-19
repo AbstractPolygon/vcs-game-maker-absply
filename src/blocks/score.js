@@ -9,6 +9,8 @@ const SCORE_DIGIT_OPTIONS = [...Array(6).keys()].map((n) => [`${n + 1}`, `${n + 
 
 // The byte "Score Bar units" counts the bits of when it is inside a custom function (temp1 to temp6 hold the arguments there).
 export const scoreBarUnitsVarName = () => 'scoreBarUnits';
+// The same for the Score left and Score right value blocks (the two values and the digit being added, when they are read inside a Function).
+export const scoreSideValueVarName = (name) => `scoreSideValue${name}`;
 // The same for "Score line colors: set hue", which holds the hue it works out there.
 export const scoreLineHueVarName = () => 'scoreLineHue';
 
@@ -41,6 +43,69 @@ Blockly.defineBlocksWithJsonArray([
     'colour': SCORE_COLOR,
     'tooltip': `Updates the score`,
   },
+  // Two score layouts at once: shows another of the layouts the project names.
+  {
+    'type': 'score_layout_set',
+    'message0': `${SCORE_ICON} Set score layout to %1`,
+    'args0': [{'type': 'field_dropdown', 'name': 'LAYOUT', 'options': [['3 + 3 digits', '3+3'], ['4 + 2 digits', '4+2'], ['5 + 1 digits', '5+1']]}],
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': SCORE_COLOR,
+    'tooltip': 'Shows the score as two scores of 3 + 3, 4 + 2 or 5 + 1 digits (it is still one number, so a score of 123456 shows as 123 456, 1234 56 or 12345 6). Only the layouts the Score tab and these blocks name are put in the ROM. Needs a two score layout on the Score tab (standard kernel); the Score left and Score right blocks then follow the layout showing.',
+  },
+  // Two score layout (Score tab): the left and right scores as numbers.
+  {
+    'type': 'score_left_get',
+    'message0': `${SCORE_ICON} Score left`,
+    'output': 'Number',
+    'colour': SCORE_COLOR,
+    'tooltip': 'The left score of a two score layout as a number, 0 to 255 (a score above 255 reads 255). It follows the layout showing, so with 3+3 a score of 123456 reads 123, with 4+2 it reads 255 (1234). Needs a two score layout (Score tab, standard kernel); 0 without one.',
+  },
+  {
+    'type': 'score_right_get',
+    'message0': `${SCORE_ICON} Score right`,
+    'output': 'Number',
+    'colour': SCORE_COLOR,
+    'tooltip': 'The right score of a two score layout as a number, 0 to 255 (a score above 255 reads 255). It follows the layout showing, so with 3+3 a score of 123456 reads 255 (456), with 4+2 it reads 56. Needs a two score layout (Score tab, standard kernel); 0 without one.',
+  },
+  // Two score layout (Score tab): left score.
+  {
+    'type': 'score_left_set',
+    'message0': `${SCORE_ICON} Score left set to %1`,
+    'args0': [{'type': 'input_value', 'name': 'VALUE', 'check': 'Number'}],
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': SCORE_COLOR,
+    'tooltip': 'Sets the left score of a two score layout (Score tab). 0 to 255, and no more than its digits hold.',
+  },
+  {
+    'type': 'score_left_change',
+    'message0': `${SCORE_ICON} Score left change by %1`,
+    'args0': [{'type': 'input_value', 'name': 'DELTA', 'check': 'Number'}],
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': SCORE_COLOR,
+    'tooltip': 'Adds to the left score of a two score layout (a negative number subtracts). It stops at its largest score (or 0) and never carries into the other score. Up to 255 at a time.',
+  },
+  // Two score layout (Score tab): right score.
+  {
+    'type': 'score_right_set',
+    'message0': `${SCORE_ICON} Score right set to %1`,
+    'args0': [{'type': 'input_value', 'name': 'VALUE', 'check': 'Number'}],
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': SCORE_COLOR,
+    'tooltip': 'Sets the right score of a two score layout (Score tab). 0 to 255, and no more than its digits hold.',
+  },
+  {
+    'type': 'score_right_change',
+    'message0': `${SCORE_ICON} Score right change by %1`,
+    'args0': [{'type': 'input_value', 'name': 'DELTA', 'check': 'Number'}],
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': SCORE_COLOR,
+    'tooltip': 'Adds to the right score of a two score layout (a negative number subtracts). It stops at its largest score (or 0) and never carries into the other score. Up to 255 at a time.',
+  },
   // Block for adding to the score in place.
   {
     'type': `score_change`,
@@ -71,8 +136,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': `Switches the score digits to the primary or the secondary font chosen on the Score tab, at once. ` +
-      `Does nothing without a secondary font.`,
+    'tooltip': `Switches the score digits to the primary or secondary font of the Score tab. Does nothing without a secondary font.`,
   },
   // Block that changes the hue of the DPC+ score lines.
   {
@@ -87,9 +151,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': `DPC+ only: changes the hue of the lines of the score and keeps the brightness each line has on the Score tab, so a gradient can be recolored ` +
-      `while the game runs. Only the hue of the color given is used (its top 4 bits). Use it when the Score tab gives the lines different colors: ` +
-      `then "Score set color" no longer changes the lines of the score.`,
+    'tooltip': `DPC+ only: sets the hue (top 4 bits of the color) of the score lines, keeping the brightness each line has on the Score tab. Needed when the Score tab gives the lines different colors, since Score set color no longer changes them.`,
   },
   // Block that gives the score bars one flat color.
   {
@@ -104,8 +166,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': `Gives the score bars one flat color. Without this block the bars take the color of the score (on DPC+, the color of each line of the score). ` +
-      `Not for the PXE kernel.`,
+    'tooltip': `Gives the score bars one flat color, instead of the score color (on DPC+, the color of each score line). Not for the PXE kernel.`,
   },
   // Block for the color getter.
   {
@@ -156,10 +217,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': 'Starts fading the score\'s color toward the given color over roughly this many frames - ' +
-      'same hue as the target, brightness automatically climbing or dropping from wherever it currently ' +
-      'is. Only needs to be triggered once - the fade keeps running by itself every frame afterward, ' +
-      'even from inside an "if" block that only briefly becomes true, until it reaches the target and stops.',
+    'tooltip': `Fades the score color toward the given color over about this many frames, keeping the hue. Runs once; it keeps going by itself until it reaches the target.`,
   },
   // Block for flashing the score's color: the color alternates with the one the score had, every so many frames, a number of times.
   {
@@ -190,10 +248,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': 'Flashes the color of the score digits, of the score bars, or of both: the color given shows for this many frames, then the color the score had for the same ' +
-      'number of frames, and so on, so many times (a flash is one of each), and the score ends in the color it had. Runs by itself after it is started; started again ' +
-      'while it runs, it starts over with the new color. The bars follow the digits unless a "Score bars set color" block gives them a color: flash the digits alone ' +
-      'in a project that has that block, or flash the bars alone. On DPC+ with "Score bars use the line colors" on (Score tab), the bars are drawn in the colors of the score lines, so they flash with the digits. Not for the PXE kernel.',
+    'tooltip': `Flashes the score digits, the bars or both: the given color shows for this many frames, then the score color for as many, repeated this many times; the score ends in its normal color. Started again while running, it restarts. The bars follow the digits unless a "Score bars set color" block colors them. On DPC+ with "Score bars use the line colors" on (Score tab) the bars flash with the digits. Not for the PXE kernel.`,
   },
   // Block for the background color setter - only takes effect when the
   // project also uses the Text Minikernel (see generators/bbasic/score.js's
@@ -212,9 +267,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': `Updates the score row's background color. Only takes effect when the ` +
-      `Text Minikernel is in use elsewhere in the project (e.g. a "Show text" block) - ` +
-      `the standard score bar's background color is fixed at compile time (Score tab).`,
+    'tooltip': `Sets the score row background color. Only works when the Text Minikernel is used elsewhere in the project; otherwise it is fixed on the Score tab.`,
   },
   // Block for adding to the score's color in place.
   {
@@ -245,8 +298,7 @@ Blockly.defineBlocksWithJsonArray([
     ],
     'output': 'Number',
     'colour': SCORE_COLOR,
-    'tooltip': `Reads a single score digit (0 to 9), counting from the left. ` +
-      `Store it in a variable before comparing it.`,
+    'tooltip': `Reads a score digit (0 to 9), counting from the left. Store it in a variable before comparing.`,
   },
   // Block for a single score digit setter.
   {
@@ -267,8 +319,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': `Sets a single score digit, counting from the left, without ` +
-      `changing the other digits. Use a value from 0 to 9.`,
+    'tooltip': `Sets one score digit, counting from the left. Use 0 to 9.`,
   },
   // Block for changing a single score digit in place.
   {
@@ -289,9 +340,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': `Adds to a single score digit, counting from the left, without changing the other digits. ` +
-      `Use a negative value to subtract. Doesn't wrap or carry into the neighboring digit - keep the ` +
-      `result between 0 and 9 yourself, same as the plain "set" block already requires.`,
+    'tooltip': `Adds to one score digit, counting from the left; a negative value subtracts. Does not wrap or carry: keep the result 0 to 9.`,
   },
   // Block for the score bar getter.
   {
@@ -321,9 +370,7 @@ Blockly.defineBlocksWithJsonArray([
     ],
     'output': 'Number',
     'colour': SCORE_COLOR,
-    'tooltip': `Reads how many units a playfield score bar shows: the number of bits that are set in the bar's pattern (0 to 8). A bar filled by "set health to" ` +
-      `or "change health by" counts the width of its solid block, and a bar filled by "set lives to" or "change lives by" counts its dots. A bar set with a ` +
-      `raw pattern counts the bits of that pattern. (Score Bar reads the pattern itself.)`,
+    'tooltip': `Reads how many units a playfield score bar shows: the bits set in its pattern (0 to 8), such as the width of a health bar or the dots of a lives bar.`,
   },
   // Block for the score bar setter.
   {
@@ -343,8 +390,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': `Enables the playfield score bars (colored using the score's color), and sets a bar's ` +
-      `binary pattern (style). Use %00000000 to %11111111 (each 1 bit lights up a pixel of the bar).`,
+    'tooltip': `Enables the playfield score bars and sets a bar binary pattern, %00000000 to %11111111 (each 1 bit lights a pixel).`,
   },
   // Block for adding to a score bar in place.
   {
@@ -387,8 +433,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': `Enables the playfield score bars, and fills a bar with a solid block of the given ` +
-      `width, growing outward from the score (0 = empty, 8 = completely full). Use 0 to 8.`,
+    'tooltip': `Enables the playfield score bars and fills a bar with a solid block this wide, from the score (0 is empty, 8 is full).`,
   },
   // Block for setting a score bar as a plain "N lives" dot indicator,
   // instead of a raw binary pattern.
@@ -410,8 +455,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': `Enables the playfield score bars, and fills a bar with the given number of evenly ` +
-      `spaced dots, growing outward from the score. Use 0 to 4.`,
+    'tooltip': `Enables the playfield score bars and fills a bar with this many evenly spaced dots (0 to 4), from the score.`,
   },
   // Block for changing a health-style score bar by a number of units.
   {
@@ -432,9 +476,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': `Grows or shrinks a health-style score bar by the given number of units (a literal ` +
-      `negative number shrinks it - a variable amount can only grow it, since the bar has no ` +
-      `separate stored "current value" to read a sign from).`,
+    'tooltip': `Grows or shrinks a health bar by this many units. Only a literal negative number shrinks it; a variable can only grow it.`,
   },
   // Block for changing a lives-style score bar by a number of dots.
   {
@@ -455,9 +497,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': `Adds or removes dots from a lives-style score bar (a literal negative number ` +
-      `removes dots - a variable amount can only add dots, since the bar has no separate stored ` +
-      `"current value" to read a sign from).`,
+    'tooltip': `Adds or removes dots on a lives bar. Only a literal negative number removes dots; a variable can only add them.`,
   },
 ]);
 
@@ -474,7 +514,6 @@ Blockly.Blocks['score_fade_finished'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(SCORE_COLOR);
-    this.setTooltip('Runs the connected blocks once, the moment a matching "Fade Score color" block ' +
-      'reaches its target color. Does nothing if no matching fade ever runs anywhere in the project.');
+    this.setTooltip('Runs once when a matching "Fade Score color" block reaches its target. Does nothing if no matching fade runs in the project.');
   },
 };

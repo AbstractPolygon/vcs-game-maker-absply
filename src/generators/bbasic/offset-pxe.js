@@ -3,7 +3,7 @@
 // The Playfield offset block on the PXE kernel. The DPC+ kernel does it with a program of the project on the coprocessor (offset-arm.js), and the
 // PXE ROM can not hold one, so the 6502 does it a cell at a time through the two functions the ARM program has: pfread (24) and pfpixel (12 sets, 13
 // clears). It moves the pixels as the coprocessor's pass() and columns() do (public/bb19/includes/custom/armprog.c):
-//   a row at a time (directions 0 alternate rows, 1 left, 2 right, 5 alternate the other way round): the pixel that leaves a row goes in at
+//   a row at a time (directions 0 alternate rows, 1 left, 2 right, 5 alternate the other way round, 8 wrap left, 9 wrap right): the pixel that leaves a row goes in at
 //     the next row of the order (from the bottom row up for left, from the top row down for the others), and the pixel the last row of the
 //     order sends out comes in at the first;
 //   a column at a time (3 up, 4 down, 6 alternate columns up and down, 7 down and up): the column turns round in the rows of the area.
@@ -91,7 +91,7 @@ export const buildPxeOffsetBody = (vars, maxRowText, maxColumn = 31) => {
   // One line (a row when byColumn is false, a column when true) turned one cell along, from `lo` to `hi`: `plus` takes the cell after (the
   // pixels move towards lower cells), else the one before. `fixed` is the row (or column) of the line; the pixel `incoming` is put in at the
   // end the pixels come to, and the pixel that went out at the other end is left in pxoFirst.
-  const line = (name, loopVar, fixed, lo, hi, plus, byColumn, incoming) => {
+  const line = (name, loopVar, fixed, lo, hi, plus, byColumn, incoming, beforeEnd = []) => {
     const from = plus ? lo : hi;
     const to = plus ? hi : lo;
     const at = (cell, value) => (byColumn ?
@@ -107,6 +107,7 @@ export const buildPxeOffsetBody = (vars, maxRowText, maxColumn = 31) => {
       `lda ${v.pxoCur}`, 'eor #1', `sta ${v.pxoCur}`, ...at(loopVar, [`lda ${v.pxoCur}`]),
       `@_pxo_${name}_same`, `lda ${loopVar}`, plus ? 'clc' : 'sec', plus ? 'adc #1' : 'sbc #1', `sta ${loopVar}`, `jmp _pxo_${name}_loop`,
       `@_pxo_${name}_done`,
+      ...beforeEnd,
       // the last cell takes the pixel that comes in, unless it is the one it has
       `lda ${incoming}`, `cmp ${v.pxoCur}`, `beq _pxo_${name}_fin`,
       ...at(to, [`lda ${incoming}`]),
@@ -115,7 +116,9 @@ export const buildPxeOffsetBody = (vars, maxRowText, maxColumn = 31) => {
   };
   // A column turned round in the rows y1 to y2 (up: the row takes the one below, the last the first), pxoK the column.
   const column = (name, up) => line(name, v.pxoR, v.pxoK, v.pxoY1, v.pxoY2, up, true, v.pxoFirst);
-  const rowLine = (name, left) => line(name, v.pxoK, v.pxoR, v.pxoX1, v.pxoX2, left, false, v.pxoPin);
+  // (Wrap left and wrap right, directions 8 and 9: the pixel that comes in is the one that went out of the same row, not the one of the row before.)
+  const rowLine = (name, left) => line(name, v.pxoK, v.pxoR, v.pxoX1, v.pxoX2, left, false, v.pxoPin,
+      [`lda ${v.pxoDir}`, 'cmp #8', `bcc _pxo_${name}_nowrap`, `lda ${v.pxoFirst}`, `sta ${v.pxoPin}`, `@_pxo_${name}_nowrap`]);
   return [
     'asm',
     'jmp _pxo_main',
@@ -131,7 +134,7 @@ export const buildPxeOffsetBody = (vars, maxRowText, maxColumn = 31) => {
     `lda ${v.pxoY}`, 'sta DF0WRITE', `lda ${v.pxoC}`, 'sta DF0WRITE', 'lda #255', 'sta CALLFUNCTION', 'rts',
     // A is a row: A comes back 1 when that row moves left (direction 1; direction 0 on the even rows; direction 5 on the odd ones)
     '@_pxo_isleft',
-    `sta ${v.pxoTmp}`, `lda ${v.pxoDir}`, 'cmp #1', 'beq _pxo_yes', 'cmp #0', 'bne _pxo_chk5',
+    `sta ${v.pxoTmp}`, `lda ${v.pxoDir}`, 'cmp #1', 'beq _pxo_yes', 'cmp #8', 'beq _pxo_yes', 'cmp #0', 'bne _pxo_chk5',
     `lda ${v.pxoTmp}`, 'and #1', 'beq _pxo_yes', 'jmp _pxo_no',
     '@_pxo_chk5', 'cmp #5', 'bne _pxo_no', `lda ${v.pxoTmp}`, 'and #1', 'bne _pxo_yes',
     '@_pxo_no', 'lda #0', 'rts', '@_pxo_yes', 'lda #1', 'rts',
@@ -142,7 +145,7 @@ export const buildPxeOffsetBody = (vars, maxRowText, maxColumn = 31) => {
       `@_pxo_ord${i}`]),
     ...['pxoX1', 'pxoX2', 'pxoY1', 'pxoY2'].flatMap((name, i) => [
       `lda ${v[name]}`, `cmp #${i < 2 ? maxColumn + 1 : maxRow + 1}`, `bcc _pxo_clamp${i}`, `lda #${i < 2 ? maxColumn : maxRow}`, `sta ${v[name]}`, `@_pxo_clamp${i}`]),
-    `lda ${v.pxoDir}`, 'cmp #3', ...far('beq', '_pxo_colmode'), 'cmp #4', ...far('beq', '_pxo_colmode'), 'cmp #6', ...far('bcs', '_pxo_colmode'),
+    `lda ${v.pxoDir}`, 'cmp #3', ...far('beq', '_pxo_colmode'), 'cmp #4', ...far('beq', '_pxo_colmode'), 'cmp #6', 'bcc _pxo_rowsok', 'cmp #8', 'bcs _pxo_rowsok', 'jmp _pxo_colmode', '@_pxo_rowsok',
     // rows: direction 1 goes from the bottom row up, the others from the top row down
     `lda ${v.pxoDir}`, 'cmp #1', 'bne _pxo_asc',
     `lda ${v.pxoY2}`, `sta ${v.pxoR}`, `lda ${v.pxoY1}`, 'jmp _pxo_init',

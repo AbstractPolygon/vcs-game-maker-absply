@@ -32,7 +32,7 @@ Blockly.Blocks['scene_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SCENE_COLOR);
-    this.setTooltip('Sets up the background and the sprites of a scene made on the Scene tab.');
+    this.setTooltip('Sets up the background and sprites of a scene made on the Scene tab.');
   },
 };
 
@@ -44,7 +44,7 @@ Blockly.Blocks['scene_set_by_id'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SCENE_COLOR);
-    this.setTooltip('Sets up a scene made on the Scene tab by its ID, the ID of its card on the Data tab.');
+    this.setTooltip('Sets up a scene by its ID, the ID on its card on the Data tab.');
   },
 };
 
@@ -136,9 +136,7 @@ Blockly.Blocks['trigger_on'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SCENE_COLOR);
-    this.setTooltip('Runs the blocks inside once when a sprite touches a trigger of the scene that is showing (a rectangle placed on the Scene tab): ' +
-      'in the frame it comes in, and not again until that sprite has gone out of it. The trigger is picked by its name, so scenes can use the same ' +
-      'names (an "Exit" in every scene); "any trigger" runs for each. Choose which sprites set a trigger off on the Scene tab.');
+    this.setTooltip('Runs the blocks inside once when a sprite touches a trigger (a rectangle on the Scene tab) of the showing scene, and not again until the sprite has left it. Triggers are picked by name, so scenes can reuse names; "any trigger" runs for each. Set which sprites trigger it on the Scene tab.');
   },
 };
 
@@ -157,8 +155,7 @@ Blockly.Blocks['trigger_on_by_number'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SCENE_COLOR);
-    this.setTooltip('Like "On trigger", for the trigger whose number (its place in the list on the card of the scene, starting at 1) and scene ID ' +
-      '(the ID on the card) are given, which can be variables or calculations. A scene ID of 0 means the scene that is showing.');
+    this.setTooltip('Like "On trigger", picking the trigger by its number (its place in the scene card\'s list, from 1) and the scene ID (the ID on the card; 0 is the showing scene). Both can be variables or calculations.');
   },
 };
 
@@ -171,8 +168,6 @@ Blockly.Blocks['trigger_fired'] = {
         .appendField('fired');
     this.setOutput(true, 'Boolean');
     this.setColour(SCENE_COLOR);
-    this.setTooltip('True for one frame when a sprite touched a trigger of the scene that is showing (a rectangle placed on the Scene tab): the frame it ' +
-      'came into it, so the project can play a sound or change the score for it. A trigger acts when a sprite comes into it, and not again until ' +
-      'that sprite has gone out of it. The trigger is picked by its name; "any trigger" is true for each.');
+    this.setTooltip('True for one frame when a sprite touches a trigger (a rectangle on the Scene tab) of the showing scene: the frame it comes in, and not again until it has left. The trigger is picked by name; "any trigger" is true for each.');
   },
 };

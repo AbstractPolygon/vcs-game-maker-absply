@@ -103,9 +103,7 @@ Blockly.Blocks['function_define'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(FUNCTION_COLOR);
-    this.setTooltip('Defines a named, reusable function that returns a value. Read its ' +
-      'arguments with "Function argument" blocks, and end with a "Return" block. Call it ' +
-      'from anywhere with a "Call function" block used as a number.');
+    this.setTooltip('Defines a reusable function that returns a value. Read its arguments with "Function argument" blocks and end with "Return". Call it with a "Call function" block.');
   },
 };
 
@@ -124,9 +122,7 @@ Blockly.Blocks['function_param_get'] = {
         ), 'INDEX');
     this.setOutput(true, 'Number');
     this.setColour(FUNCTION_COLOR);
-    this.setTooltip('Reads one of this function\'s arguments - only meaningful inside ' +
-      'a "Function" block\'s body, in a position a "Call function" block actually ' +
-      'plugged something into.');
+    this.setTooltip('Reads one of this function\'s arguments. Only works inside a "Function" block, where the call plugged in a value.');
   },
 };
 
@@ -141,9 +137,7 @@ Blockly.Blocks['function_return'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(FUNCTION_COLOR);
-    this.setTooltip('Ends the enclosing function immediately, with this value as its ' +
-      'result. A function can have several of these on different branches (e.g. inside ' +
-      'an if/else), same as batari Basic\'s "function" command.');
+    this.setTooltip('Ends the function now with this value as its result. Can be used on several branches.');
   },
 };
 
@@ -368,9 +362,7 @@ Blockly.Blocks['function_call'] = {
   init: function() {
     appendFunctionCallFields(this);
     this.setOutput(true, 'Number');
-    this.setTooltip('Calls a function defined with a "Function" block and returns its ' +
-      'result - plug in as many of the argument slots as that function actually reads ' +
-      '(up to 6), matching them left to right against its "Function argument" blocks.');
+    this.setTooltip('Calls a function and returns its result. Plug in as many of the argument slots (up to 6) as the function reads, matched left to right.');
   },
 };
 
@@ -388,9 +380,7 @@ Blockly.Blocks['function_call_statement'] = {
     appendFunctionCallFields(this);
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
-    this.setTooltip('Calls a function defined with a "Function" block, without needing to ' +
-      'be plugged into anything - use this when you don\'t care what the function returns, ' +
-      'just that it runs.');
+    this.setTooltip('Calls a function and ignores what it returns.');
   },
 };
 

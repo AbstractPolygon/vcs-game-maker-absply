@@ -60,11 +60,7 @@ Blockly.Blocks['speech_say_text'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Speaks a message of the Text tab through an AtariVox (a speech chip in the Player 2 controller port). The text is turned into ' +
-      'speech sounds when the project is built, by rules for English: most plain words are understood, but not all (numbers are spoken as ' +
-      'words). For a phrase that has to be exactly right use "AtariVox say phonemes". The phrase goes out a byte a frame while the game runs, ' +
-      'and the game goes on at once. The preview speaks in either emulator (the AtariVox is plugged in for you while the project has a Speech ' +
-      'block). A project can have at most 254 phrases (each message, phrase of sounds, change of voice and number word is one). The Player 2 joystick can not be used with the AtariVox.');
+    this.setTooltip('Speaks a Text tab message through an AtariVox (a speech chip in the Player 2 controller port). English rules turn the text into speech: most plain words work, not all (numbers are said as words); for an exact phrase use "AtariVox say phonemes". Sent a byte a frame while the game goes on. Max 254 phrases in a project (each message, phrase of sounds, voice change and number word is one). The Player 2 joystick cannot be used with the AtariVox.');
   },
 };
 
@@ -80,13 +76,7 @@ Blockly.Blocks['speech_say'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Speaks a phrase of sounds through an AtariVox (a speech chip in the Player 2 controller port). The words are ' +
-      'separated by spaces: allophones (the sounds of speech, like HE EH LE OWWW for "hello"), sound effects (R0 to R9 robot, A0 to A9 alarm, ' +
-      'B0 to B9 beeps, C0 to C9 biological, D0 to D11 tones, M0 to M2 miscellaneous), PAUSE30 / PAUSE60 / PAUSE90 / PAUSE200 / PAUSE700 / ' +
-      'PAUSE100, FAST, SLOW, STRESS, RELAX, VOLUME n, SPEED n, PITCH n and BEND n (n from 0 to 254), or #n for any byte. The phrase goes out ' +
-      'a byte a frame while the game runs, and the game goes on at once. The preview speaks in either emulator (the AtariVox is plugged in ' +
-      'for you while the project has a Speech block). A project can have at most 254 phrases (each message, phrase of sounds, change of voice and number word is one). The Player 2 joystick ' +
-      'can not be used with the AtariVox.');
+    this.setTooltip('Speaks a phrase of sounds through an AtariVox. Separate words with spaces: allophones (HE EH LE OWWW is "hello"), sound effects (R0-R9 robot, A0-A9 alarm, B0-B9 beeps, C0-C9 biological, D0-D11 tones, M0-M2 miscellaneous), PAUSE30, PAUSE60, PAUSE90, PAUSE200, PAUSE700, PAUSE100, FAST, SLOW, STRESS, RELAX, VOLUME n, SPEED n, PITCH n, BEND n (n 0 to 254), or #n for any byte. Sent a byte a frame while the game goes on. Max 254 phrases in a project (each message, phrase of sounds, voice change and number word is one). The Player 2 joystick cannot be used with the AtariVox.');
   },
 };
 
@@ -101,11 +91,7 @@ Blockly.Blocks['speech_effect'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Plays one of the 43 sound effects of the SpeakJet chip of the AtariVox (robot, alarm, beeps, biological, the tones of a phone ' +
-      'keypad, a sonar ping, a pistol shot and "wow"), made by the chip, so they take almost no ROM. It goes in the queue of the speech blocks ' +
-      'like a phrase: "now" stops what is being sent and plays it, "after the current phrase" waits for the phrase being sent and the one ' +
-      'waiting. The volume and the bend of the voice change the effects too (the bend moves their pitch); the speed and the pitch change speech only in the emulators (a real chip may differ). The play button hears it. A project can have at most ' +
-      '254 phrases (each message, phrase of sounds, sound effect, change of voice and number word is one). The Player 2 joystick can not be used with the AtariVox.');
+    this.setTooltip('Plays one of the 43 SpeakJet sound effects of the AtariVox (made by the chip, so almost no ROM). It joins the speech queue: "now" stops what is being sent and plays it, "after the current phrase" waits for the phrase being sent and the one waiting. Voice volume and bend change the effects; speed and pitch only in the emulators. Max 254 phrases in a project (each message, phrase of sounds, voice change and number word is one). The Player 2 joystick cannot be used with the AtariVox.');
   },
 };
 
@@ -119,8 +105,7 @@ Blockly.Blocks['speech_use_voice'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Puts the AtariVox in a voice of the Vox tab (its volume, speed, pitch and bend), from the next phrase on, until another voice or control ' +
-      'is set. It goes in the queue of the speech blocks, so it comes between the phrases in the order the blocks ran.');
+    this.setTooltip('Sets the AtariVox voice from the Vox tab from the next phrase on, until another voice is set. Queued in order with the phrases.');
   },
 };
 
@@ -133,8 +118,7 @@ Blockly.Blocks['speech_use_voice_id'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Puts the AtariVox in the voice of the Vox tab whose ID (the "ID:n" on its card) is the value (a number or variable), from the next phrase on. ' +
-      'The program picks the voice while it runs. An ID that no voice has does nothing. Every voice goes in the ROM, a few bytes each.');
+    this.setTooltip('Sets the AtariVox voice whose ID (the "ID:n" on its card) is the value (number or variable), from the next phrase on. An ID no voice has does nothing. Every voice goes in the ROM.');
   },
 };
 
@@ -155,9 +139,7 @@ Blockly.Blocks['speech_say_card'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Speaks the message of the Text tab whose ID is the value (a number or variable; the ID is shown on the card). The program ' +
-      'picks the card while it runs. Every card of the project goes in the ROM as speech, so it takes more room than "AtariVox say text". ' +
-      'An ID that no card has says nothing. The play button hears the card when the ID is a number typed in the block.');
+    this.setTooltip('Speaks the Text tab message whose ID is the value (number or variable). Every card goes in the ROM as speech, so it takes more room than "AtariVox say text". An ID no card has says nothing.');
   },
 };
 
@@ -171,9 +153,7 @@ Blockly.Blocks['speech_say_number'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Speaks a number from 0 to 255 (a value or variable) as words, for example the lives left or a level. It works with the speech ' +
-      'blocks around it: "now" stops what is being sent and says it, "after the current phrase" waits for the phrase being sent and the one ' +
-      'waiting. The words for 0 to 99 and for 100 and 200 take about a kilobyte of ROM, once, however many of these blocks there are.');
+    this.setTooltip('Speaks a number from 0 to 255 (value or variable) as words. "now" stops what is being sent and says it, "after the current phrase" waits for the phrase being sent and the one waiting. The words take about 1 KB of ROM, once.');
   },
 };
 
@@ -188,9 +168,7 @@ Blockly.Blocks['speech_voice'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Changes the voice of the AtariVox from the next phrase it is sent: the volume (default 96), the speed (default 114, higher is ' +
-      'faster), the pitch (default 88) or the bend (default 5, from a deep to a high voice). It goes in the queue of the speech blocks, so it ' +
-      'comes between the phrases in the order the blocks ran, and it stays until it is changed again.');
+    this.setTooltip('Changes the AtariVox voice from the next phrase on: volume (default 96), speed (114, higher is faster), pitch (88), bend (5, deep to high). Queued in order with the phrases; stays until changed.');
   },
 };
 
@@ -210,11 +188,7 @@ Blockly.Blocks['avox_memory_save'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Saves a byte (0 to 255) in the memory of the AtariVox (a memory chip on its controller port), kept when the console is off: a ' +
-      'high score or a setting, one byte in each of its slots 0 to 255. Saving waits for the memory to finish, a few milliseconds, so the ' +
-      'picture can jump once: do it between games, not during one. With no AtariVox plugged in nothing happens. The save file counts from the ' +
-      'first of the save files set on the Vox tab (the single file 65 unless changed; the games that came before keep their data in the first ' +
-      '8 KB). In the preview the memory lasts while the preview runs.');
+    this.setTooltip('Saves a byte (0 to 255) in a slot (0 to 255) of the AtariVox memory, kept when the console is off. Saving waits a few milliseconds and the picture can jump: do it between games. Does nothing with no AtariVox. Slots count from the first save file set on the Vox tab (file 65 by default).');
   },
 };
 
@@ -233,9 +207,7 @@ Blockly.Blocks['avox_memory_load'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Loads the byte saved in a slot (0 to 255) of the memory of the AtariVox into a variable. A slot that was never saved holds 255. ' +
-      'With no AtariVox plugged in the variable is left as it was. It takes a few lines of the picture: do it once, not every frame. The save file counts from the first of the ' +
-      'save files set on the Vox tab (the single file 65 unless changed).');
+    this.setTooltip('Loads the byte in a slot (0 to 255) of the AtariVox memory into a variable. A never saved slot holds 255. With no AtariVox the variable is unchanged. Takes a few lines of the picture: do it once, not every frame. Slots count from the first save file set on the Vox tab (file 65 by default).');
   },
 };
 
@@ -248,9 +220,7 @@ Blockly.Blocks['avox_memory_check'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Sets the variable to 1 when a memory answers on the controller port (an AtariVox or SaveKey is plugged in), 0 when not, so a ' +
-      'game can leave out its saving and loading. It takes a few lines of the picture: do it once. The memory is always 32 KB, the same chip in ' +
-      'every AtariVox and SaveKey, so there is no size to read. In the preview the memory is there while the AtariVox is.');
+    this.setTooltip('Sets the variable to 1 when a memory answers on the controller port (an AtariVox or SaveKey), else 0. Takes a few lines of the picture: do it once.');
   },
 };
 
@@ -264,9 +234,7 @@ Blockly.Blocks['avox_highscore_add'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Adds the score of the game to a table of the 10 best scores kept in the memory of the AtariVox, and sets the variable to the place ' +
-      'it takes (1 to 10), or to 0 when it is not among the 10 best or there is no memory. The table is made when the memory is new. A score ' +
-      'equal to one in the table goes below it. Saving takes some tens of milliseconds, so the picture can jump: do it once, when the game is over.');
+    this.setTooltip('Adds the game score to the table of the 10 best scores in the AtariVox memory and sets the variable to its place (1 to 10), or 0 if it is not among them or there is no memory. A tie goes below the older score. Saving takes tens of milliseconds and the picture can jump: do it once, when the game is over.');
   },
 };
 
@@ -280,8 +248,7 @@ Blockly.Blocks['avox_highscore_get'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Puts the score in a place of the table of the 10 best scores (1 is the best) in the score, to show it: it replaces the score of ' +
-      'the game, so show the table when the game is over. A place nobody has taken is 0. With no memory the score is left as it was.');
+    this.setTooltip('Puts the score at a place of the best scores table (1 is best) into the score, replacing the game score, so show it when the game is over. An empty place is 0. With no memory the score is unchanged.');
   },
 };
 
@@ -291,7 +258,7 @@ Blockly.Blocks['avox_highscore_clear'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Sets all the 10 places of the table of the best scores in the memory of the AtariVox to 0.');
+    this.setTooltip('Sets all 10 places of the best scores table in the AtariVox memory to 0.');
   },
 };
 
@@ -301,7 +268,7 @@ Blockly.Blocks['speech_stop'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('Stops sending the rest of the phrase and empties the queue. What the chip has already been sent (up to 64 bytes) is still spoken.');
+    this.setTooltip('Stops sending the phrase and empties the queue. What the chip already got (up to 64 bytes) is still spoken.');
   },
 };
 
@@ -310,8 +277,7 @@ Blockly.Blocks['speech_busy'] = {
     this.appendDummyInput().appendField(`${SPEECH_ICON} AtariVox is still being sent a phrase`);
     this.setOutput(true, 'Boolean');
     this.setColour(SPEECH_COLOR);
-    this.setTooltip('True while the bytes of a phrase are still being sent to the AtariVox, or one is waiting in the queue (the chip may go on speaking ' +
-      'a little after it). Use it to wait for the speech to be sent before the next thing.');
+    this.setTooltip('True while a phrase is still being sent to the AtariVox or waits in the queue (the chip may speak a little longer). Use it to wait before the next thing.');
   },
 };
 

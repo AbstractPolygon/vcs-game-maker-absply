@@ -8,9 +8,7 @@ export const DISPLAY_RAM_AREA_OPTIONS = [
   ['1', '0'], ['2', '1'], ['3', '2'], ['4', '3'], ['5', '4'], ['6', '5'],
 ];
 
-const DISPLAY_RAM_TOOLTIP = 'DPC+ only: the display memory has six areas of 128 spare bytes (numbered 0 to 127) ' +
-  'that work like variables. They are not available while the playfield has more than 127 rows or a background ' +
-  'scrolls (those use the whole memory), and a get takes a few dozen cycles longer than a normal variable.';
+const DISPLAY_RAM_TOOLTIP = 'DPC+ only: six areas of 128 spare bytes (0 to 127) that work like variables. Not available when the playfield has more than 127 rows or a background scrolls. A get takes a few dozen cycles more than a variable.';
 
 Blockly.Blocks['display_ram_set'] = {
   init: function() {
@@ -62,10 +60,7 @@ Blockly.Blocks['display_ram_get'] = {
 // which the kernel points back at its data every frame, so a stream's pointer does not last past drawscreen.
 const DATA_STREAM_OPTIONS = [['1', '1'], ['2', '2'], ['3', '3']];
 
-const DATA_STREAM_TOOLTIP = 'DPC+ only: a data stream is a position in the Display RAM that moves on by one byte after ' +
-  'each read or write. Point it first, then read or write the bytes one after another. Streams are not kept past the ' +
-  'end of the frame (drawscreen), so point them again each frame. Going past byte 127 of an area carries on into the ' +
-  'next area of the display memory.';
+const DATA_STREAM_TOOLTIP = 'DPC+ only: a position in the Display RAM that moves on one byte after each read or write. Point it first, then read or write in turn. It is lost at the end of the frame, so point it again each frame. Past byte 127 of an area it carries on into the next area.';
 
 Blockly.Blocks['data_stream_point'] = {
   init: function() {
@@ -113,8 +108,7 @@ Blockly.Blocks['data_stream_write'] = {
 // Fill and copy a run of Display RAM bytes in one block. DPC+ only. They use data fetchers 5 and 6 and a few of the
 // temporary variables, and stop when they have done COUNT bytes; a run that goes past byte 127 of an area carries on
 // into the next one.
-const BULK_TOOLTIP = 'DPC+ only: works through a run of Display RAM bytes, one after another (up to 255), in ' +
-  'about 22 cycles a byte. Going past byte 127 of an area carries on into the next area of the display memory.';
+const BULK_TOOLTIP = 'DPC+ only: works through a run of Display RAM bytes (up to 255), about 22 cycles a byte. Past byte 127 of an area it carries on into the next area.';
 
 Blockly.Blocks['display_ram_fill'] = {
   init: function() {
@@ -159,7 +153,6 @@ Blockly.Blocks['display_ram_copy'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setStyle('variable_blocks');
-    this.setTooltip(BULK_TOOLTIP + ' Copying goes from the lowest byte up, so a copy that overlaps a later part of ' +
-      'itself repeats bytes.');
+    this.setTooltip(BULK_TOOLTIP + ' Copying goes from the lowest byte up, so an overlapping copy repeats bytes.');
   },
 };

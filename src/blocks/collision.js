@@ -57,9 +57,7 @@ Blockly.defineBlocksWithJsonArray([
     ],
     'output': 'Boolean',
     'colour': 'purple',
-    'tooltip': `Checks if the objects colided. With "use box" ticked, a player and the Playfield are tested with the whole sprite of the ` +
-      `player (its full width and height, whatever pixels are lit in it) instead of the hardware flag; the answer is as of the end of the last frame. ` +
-      `"8x8", "8x4" and "8x2" test only the lowest 8, 4 or 2 lines of the player (all of its width, double and quad wide too), for its feet.`,
+    'tooltip': `With "use box" ticked, a player and the Playfield are tested with the whole sprite of the player (full width and height, whatever pixels are lit) instead of the hardware flag; the answer is as of the end of the last frame. "8x8", "8x4" and "8x2" test only the lowest 8, 4 or 2 lines of the player (all of its width), for its feet.`,
   },
 ]);
 
@@ -90,14 +88,7 @@ const buildCollisionCheckBlock = () => ({
   'previousStatement': null,
   'nextStatement': null,
   'colour': 'purple',
-  'tooltip': 'Tests the whole sprite of the chosen player (its full width and height, whatever pixels are lit in it) ' +
-    'against the Playfield after the blocks that move it have run. If the box would be in a lit pixel, takes back ' +
-    'as much of the move as it needs: the part of it along an axis that is clear is kept, so the player ' +
-    'slides along a wall. Place this before whatever block(s) move the player each frame - it only backs up ' +
-    'and restores position, it does not move the player itself. "8x8", "8x4" and "8x2" test only the lowest 8, 4 or 2 lines of the ' +
-    'player (all of its width, double and quad wide too) instead of the whole sprite, so a player can walk past things ' +
-    'that are higher up. When several of these blocks are for the same player, the whole sprite is used unless every one ' +
-    'says 8x8, 8x4 or 8x2 (the most lines of them is used). The frames setting is kept for older projects and has no effect.',
+  'tooltip': 'Tests the whole sprite of the player (full width and height, whatever pixels are lit) against the Playfield after the blocks that move it have run. If the box would be in a lit pixel, takes back as much of the move as needed: the part along a clear axis is kept, so the player slides along a wall. Place it before the block(s) that move the player each frame; it only backs up and restores position. "8x8", "8x4" and "8x2" test only the lowest 8, 4 or 2 lines of the player (all of its width), so it can walk past things higher up. With several of these blocks for one player, the whole sprite is used unless every one says 8x8, 8x4 or 8x2 (the most lines is used). The frames setting has no effect (older projects).',
 });
 
 // A jump for a player, with gravity and landing on the pixels of the playfield (see generators/bbasic/collision.js). It goes inside an if
@@ -120,17 +111,7 @@ const buildPlatformerBlock = () => ({
   'previousStatement': null,
   'nextStatement': null,
   'colour': 'purple',
-  'tooltip': 'Put this in an if block (with a block like "joystick 0 fire") in the update event: each time the player presses ' +
-    'the button the player jumps, when it is standing on something, or in the air if multi-jump is on and it has jumped fewer ' +
-    'times than the number set here (at most 4). From the moment a project has this block the player is moved up and down like in ' +
-    'a platformer, every frame, by gravity too. The jump starts at the jump speed ' +
-    '(pixels a frame, 1 to 16); gravity (in eighths of a pixel a frame, 1 to 16) slows the rise and then pulls the player ' +
-    'down, up to the max fall speed (pixels a frame, 1 to 16); and the player stops on top of a lit pixel of the playfield ' +
-    '(and hits its head on one above). The numbers can be any Math or variable block. A player standing on a pixel does not ' +
-    'move at all, so it does not jitter. Walking off an edge makes it fall, and counts as a jump used. Left and right are ' +
-    'moved by the other blocks; with "stop at walls left and right" ticked, a move to the left or right that would put the player (its ' +
-    'whole box) in a lit pixel of the playfield is taken back, so the player stops against a wall. (Not needed with an "Undo last move" ' +
-    'block for the same player, which does that already.)',
+  'tooltip': 'Put this in an if block (with e.g. "joystick 0 fire") in the update event: each press of the button jumps, when standing on something, or in the air if multi-jump is on and it has jumped fewer times than the number set here (at most 4). Once a project has this block the player is moved up and down like in a platformer every frame, by gravity too. Jump speed (pixels a frame, 1 to 16); gravity (eighths of a pixel a frame, 1 to 16) slows the rise then pulls down, up to the max fall speed (pixels a frame, 1 to 16); the player stops on top of a lit playfield pixel (and hits its head on one above). The numbers can be any Math or variable block. Walking off an edge makes it fall and counts as a jump used. Left and right are moved by other blocks; with "stop at walls left and right" ticked, a move that would put the player (whole box) in a lit playfield pixel is taken back. (Not needed with an "Undo last move" block for the same player.)',
 });
 
 // True while a player moved by the Jump block is jumping (going up), falling, standing on the ground, or moving (its x or y changed in the last frame); and
@@ -146,9 +127,7 @@ const buildPlatformerStateBlock = () => ({
   ],
   'output': 'Boolean',
   'colour': 'purple',
-  'tooltip': 'True while the player, moved by the "Platform" block, is jumping (going up), falling (going down), standing on the ' +
-    'ground (on a playfield pixel), landed (true for the single frame in which it came down onto the ground, not while it stays there), or ' +
-    'moving (its x or y was different a frame ago, in any direction). Use it in an if block, to change the animation for each, for example.',
+  'tooltip': 'True while the player moved by the "Platform" block is jumping (going up), falling (going down), standing on the ground (on a playfield pixel), landed (true for the one frame it came down, not while it stays) or moving (its x or y differed a frame ago). Use it in an if block.',
 });
 
 // The number of jumps a player moved by the Jump block has made since it last stood on the ground (a number for the comparison blocks).
@@ -160,9 +139,7 @@ const buildPlatformerJumpsBlock = () => ({
   ],
   'output': 'Number',
   'colour': 'purple',
-  'tooltip': 'How many jumps the player, moved by the "Platform" block, has made since it last stood on the ground: 0 on the ground, 1 after ' +
-    'the first jump, 2 after a second one in the air (with multi-jump on), up to 4. Walking off an edge counts as a jump used. Use it with a ' +
-    'comparison block in an if block, for example "jumps made = 2".',
+  'tooltip': 'Jumps made since the player last stood on the ground: 0 on the ground, 1 after the first jump, 2 after a second in the air (multi-jump on), up to 4. Walking off an edge counts as a jump used.',
 });
 
 Blockly.defineBlocksWithJsonArray([
@@ -201,8 +178,6 @@ Blockly.defineBlocksWithJsonArray([
     ],
     'output': 'Boolean',
     'colour': 'purple',
-    'tooltip': 'True for the one frame in which the two sprites begin to overlap (starts), or stop overlapping (stops). Overlap is the ' +
-      'boxes of the two sprites touching, as of the end of the last frame. Each block takes two bits of memory, shared with the other ' +
-      'blocks of its kind.',
+    'tooltip': 'True for the one frame in which the two sprites begin to overlap (starts) or stop overlapping (stops). Overlap is the boxes of the two sprites touching, as of the end of the last frame. Each block takes two bits of memory, shared with other blocks of its kind.',
   },
 ]);

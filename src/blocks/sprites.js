@@ -1,4 +1,8 @@
 import * as Blockly from 'blockly/core';
+import {registerExtension, numberDefaultsExtension} from './extension';
+
+// The gravity block's direction starts at 128: down.
+registerExtension('object_gravity_defaults', numberDefaultsExtension({PULL: 3, MAXFALL: 4, ANGLE: 128}));
 
 import {processPlayerAnimationsStorageDefaults} from '../generators/bbasic/sprites';
 import {usePlayerAnimationsStorage, useConfigurationStorage} from '../hooks/project';
@@ -60,7 +64,7 @@ const buildAnimationSelectBlock = ({icon, colour, storageFactory}) => {
           block.setColour(wanted);
         }, 0);
       });
-      this.setTooltip('Selects one of the animations by name and reports its number');
+      this.setTooltip('Reports the animation\'s number.');
     },
   };
 };
@@ -97,13 +101,7 @@ const buildAnimationSetBlock = ({icon, colour, storageFactory}) => {
       // sprite_player_animation_select's comment just above - VAR here is
       // an animation-list index too, never a "player0..."-prefixed name.
       Blockly.Extensions.apply('sprite_player_field_sync', this, false);
-      this.setTooltip('Sets the chosen player\'s active animation by name, in one step. "restart" ' +
-        'on (the default) plays the new animation from its first frame, or from the frame number set after it (1 is the first; a ' +
-        'number past the last frame starts on the last one); off carries on from the ' +
-        'current position in the animation that was playing. "loop" ' +
-        'on (the default) replays it from the start every time it ends; off plays it once and ' +
-        'leaves it on its last frame (see "Player animation has finished" to react to that ' +
-        'moment).');
+      this.setTooltip('"restart": play from the first frame (or the frame number given; 1 is the first, past the last starts on the last), else carry on from the current position. "loop" off plays it once and stays on the last frame.');
     },
   };
 };
@@ -138,13 +136,7 @@ const buildAnimationSetByIdBlock = ({icon, colour}) => {
       this.setNextStatement(true);
       this.setColour(colour);
       Blockly.Extensions.apply('sprite_player_field_sync', this, false);
-      this.setTooltip('Sets the chosen player\'s active animation directly by its numeric list ' +
-        'position (0-based, top to bottom) - for a fixed animation picked by name instead, see ' +
-        '"set animation to" above. "restart" on (the default) plays the new animation from its first frame; off ' +
-        'carries on from the current position in the animation that was playing. ' +
-        '"loop" on (the default) replays it from the start every time ' +
-        'it ends; off plays it once and leaves it on its last frame (see "Player animation has ' +
-        'finished" to react to that moment).');
+      this.setTooltip('Sets the animation by its list position (0-based, top to bottom). "restart": play from the first frame, else carry on from the current position. "loop" off plays it once and stays on the last frame.');
     },
   };
 };
@@ -166,9 +158,7 @@ const buildAnimationIdGetBlock = ({icon, colour}) => {
       this.setOutput(true, 'Number');
       this.setColour(colour);
       Blockly.Extensions.apply('sprite_player_field_sync', this, false);
-      this.setTooltip('Reads the chosen player\'s currently playing animation as its numeric ' +
-        'list position (0-based, top to bottom) - for a fixed animation\'s ID by name instead, ' +
-        'see "Player animation [name]", which does the reverse (name to ID).');
+      this.setTooltip('The number of the playing animation: its list position (0-based, top to bottom).');
     },
   };
 };
@@ -193,9 +183,7 @@ const buildAnimationFinishedBlock = ({icon, colour}) => {
       this.setNextStatement(true);
       this.setColour(colour);
       Blockly.Extensions.apply('sprite_player_field_sync', this, false);
-      this.setTooltip('Runs the connected blocks once, the moment a non-looping animation (see ' +
-        'the "loop" checkbox on the Set Animation blocks) reaches its last frame and stops. ' +
-        'Never fires for a looping animation (the default), which never actually stops.');
+      this.setTooltip('Runs once when a non-looping animation reaches its last frame. Never runs for a looping animation.');
     },
   };
 };
@@ -283,8 +271,9 @@ const MISSILE_FIRE_DEFAULT_ANGLE_OPTIONS_16 = [
 const buildMissileFireDefaultAngleOptions = function() {
   // eslint-disable-next-line no-invalid-this
   const block = this.getSourceBlock && this.getSourceBlock();
-  const is16 = block && block.getFieldValue('DIRECTIONS16') === 'TRUE';
-  return is16 ? MISSILE_FIRE_DEFAULT_ANGLE_OPTIONS_16 : MISSILE_FIRE_DEFAULT_ANGLE_OPTIONS_8;
+  const mode = block && block.getFieldValue('DIRECTIONS16');
+  // (Any direction does not use the default, but keeps the finer list so that a value picked before stays valid.)
+  return mode === 'TRUE' || mode === 'ANY' ? MISSILE_FIRE_DEFAULT_ANGLE_OPTIONS_16 : MISSILE_FIRE_DEFAULT_ANGLE_OPTIONS_8;
 };
 // Wires the DIRECTIONS16 checkbox so toggling it both refreshes
 // DEFAULT_ANGLE's  dynamic option list (FieldDropdown caches its
@@ -310,16 +299,31 @@ const setupFireDefaultAngleSync = (block) => {
   if (!directions16Field || !defaultAngleField) return;
   directions16Field.setValidator(function(newValue) {
     // eslint-disable-next-line no-invalid-this
-    const wasOn = this.getValue() === 'TRUE';
-    const isOn = newValue === 'TRUE';
-    if (wasOn !== isOn) {
+    const wasFine = this.getValue() !== 'FALSE';
+    const isFine = newValue !== 'FALSE';
+    if (wasFine !== isFine) {
       const current = parseInt(defaultAngleField.getValue(), 10) || 0;
-      const translated = isOn ? current * 2 : Math.floor(current / 2);
+      const translated = isFine ? current * 2 : Math.floor(current / 2);
       defaultAngleField.getOptions();
       defaultAngleField.setValue(String(translated));
     }
     return newValue;
   });
+  // Any direction has no default angle and no "same speed" box (every angle moves at the same speed): their rows are hidden. Whenever the value is set, also
+  // when a saved project loads it with the events off.
+  const syncRows = (value) => {
+    ['DEFAULT_INPUT', 'EVENSPEED_INPUT'].forEach((name) => {
+      const input = block.getInput(name);
+      if (input) input.setVisible(value !== 'ANY');
+    });
+  };
+  const setValueOriginal = directions16Field.doValueUpdate_;
+  directions16Field.doValueUpdate_ = function(newValue) {
+    // eslint-disable-next-line no-invalid-this
+    setValueOriginal.call(this, newValue);
+    syncRows(newValue);
+  };
+  syncRows(directions16Field.getValue());
   defaultAngleField.getOptions();
 };
 
@@ -484,7 +488,7 @@ const buildMissileVarOptionsFn = (extraOptionsFor) => function() {
 // shape) rather than duplicating it.
 export const registerDropdownFieldSyncExtension = (extensionName, dropdownFieldName, namePrefixFor) => {
   const colourFor = (value) => (/^pool(all)?$/.test(value) ? SPRITE_POOL_COLOUR : value === '1' ? 'blue' : EXTRA_PLAYER_NUMBER.test(value) ? extraPlayerColour(value) : 'red');
-  Blockly.Extensions.register(extensionName, function() {
+  registerExtension(extensionName, function() {
     // eslint-disable-next-line no-invalid-this
     const block = this;
     const dropdownField = block.getField(dropdownFieldName);
@@ -620,8 +624,7 @@ const buildCombinedPlayerVarBlocks = ({icon, colour}) => {
       'output': ['Number', 'Boolean'],
       colour,
       'extensions': ['sprite_player_field_sync'],
-      'tooltip': 'Reads information about whichever player is selected. Visibility is 1 while the ' +
-        'player is shown and 0 while it is hidden.',
+      'tooltip': 'Visibility is 1 while the player is shown, 0 while hidden.',
     },
     // Block for the setter.
     {
@@ -692,11 +695,7 @@ const buildCombinedPlayerVarBlocks = ({icon, colour}) => {
       'nextStatement': null,
       colour,
       'extensions': ['sprite_player_field_sync', 'sprite_player_set_loop_visibility_sync'],
-      'tooltip': 'Updates information about whichever player is selected. Setting Visibility to hidden can also move the player to x 0, y 0 ' +
-        '(the checkbox): a hidden sprite that is left on the rows of a shown one can make the shown one drop out on every other frame. Setting Animation ' +
-        'shows a "loop" checkbox - on (the default) replays it from the start every time it ' +
-        'ends; off plays it once and leaves it on its last frame (see "Player animation has ' +
-        'finished" to react to that moment).',
+      'tooltip': 'Setting Visibility to hidden can also move the player to x 0, y 0 (the checkbox): a hidden sprite left on the rows of a shown one can make the shown one drop out every other frame. Animation has a "loop" checkbox: off plays it once and stays on the last frame.',
     },
     // Block for adding to a variable in place.
     {
@@ -756,7 +755,7 @@ const buildCombinedPlayerVarBlocks = ({icon, colour}) => {
 // registerDropdownFieldSyncExtension above - that one's shared with the
 // combined Missile blocks too, which have no Animation option or
 // LOOP_INPUT to toggle at all.
-Blockly.Extensions.register('sprite_player_set_loop_visibility_sync', function() {
+registerExtension('sprite_player_set_loop_visibility_sync', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   const varField = block.getField('VAR');
@@ -812,7 +811,7 @@ Blockly.Extensions.register('sprite_player_set_loop_visibility_sync', function()
 });
 
 // Bounce's spread input starts with a number block (a shadow, so it can be replaced), also on a block made without one (an older project).
-Blockly.Extensions.register('object_bounce_spread_prefill', function() {
+registerExtension('object_bounce_spread_prefill', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   setTimeout(() => {
@@ -832,7 +831,7 @@ Blockly.Extensions.register('object_bounce_spread_prefill', function() {
 
 // Bounce's angle number is only shown while "set angle manually" is ticked.
 // Same deferred-render reasoning as the extension above.
-Blockly.Extensions.register('object_bounce_manual_angle_sync', function() {
+registerExtension('object_bounce_manual_angle_sync', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   const manualField = block.getField('MANUAL');
@@ -918,8 +917,7 @@ const buildCombinedMissileVarBlocks = ({icon, colour}) => {
       'nextStatement': null,
       colour,
       'extensions': ['sprite_missile_field_sync'],
-      'tooltip': 'Updates information about whichever missile is selected. With the DPC+ kernel the missile ' +
-        'also has a Color, and a Height of 0 hides it while a Height of 1 draws it on every other line.',
+      'tooltip': 'With the DPC+ kernel the missile also has a Color, and a Height of 0 hides it while 1 draws it on every other line.',
     },
     // Block for adding to a variable in place.
     {
@@ -1066,8 +1064,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
       'previousStatement': null,
       'nextStatement': null,
       colour,
-      'tooltip': 'PXE kernel only: with masking on a sprite that goes past the left or right edge of the screen is cut off there, instead of ' +
-        'showing up on the other side (and the sprite does not jump when x gets high). Player 0 has no masking.',
+      'tooltip': 'PXE kernel only: with masking on, a sprite past the left or right screen edge is cut off there instead of showing on the other side. Player 0 has no masking.',
     },
     // Block for pausing/resuming a player's animation.
     {
@@ -1092,7 +1089,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
       'nextStatement': null,
       colour,
       'extensions': ['sprite_player_field_sync'],
-      'tooltip': 'Plays or pauses the chosen player\'s animation',
+      'tooltip': 'Plays or pauses the animation.',
     },
     // Points this player directly at a slice of the ROM's bank 1 code
     // (plus a runtime offset) instead of one of its defined animation
@@ -1137,16 +1134,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
       'nextStatement': null,
       colour,
       'extensions': ['sprite_player_field_sync'],
-      'tooltip': 'Makes the chosen player display raw ROM bytes as its graphic, instead of one ' +
-        'of its normal animation frames - the same trick Yars\' Revenge used for its "neutral ' +
-        'zone" static effect. Always reads from bank 1 (regardless of which bank this block ' +
-        'itself ends up in). Leave "offset" unplugged for an automatically shimmering pattern ' +
-        '(it defaults to the frame counter) - or plug in a custom expression to control exactly ' +
-        'which bytes show. This keeps overriding the player\'s graphic every frame, even over a ' +
-        'normal animation frame set afterward, until the separate "stop ROM noise" block is used ' +
-        '- it does NOT affect player width/quantity (NUSIZ) - a size set with the "set width/' +
-        'quantity" block above still applies normally on top of this. See the separate ' +
-        '"rainbow colors" block for a different color on every row of the player too.',
+      'tooltip': 'Shows raw ROM bytes (always from bank 1) as the player\'s graphic instead of its animation frames, until "stop ROM noise" is used, even over animation frames set later. Leave "offset" unplugged for a shimmering pattern (the frame counter), or plug in an expression. It does not affect width/quantity (NUSIZ).',
     },
     // ROM noise (above) sets a runtime "active" flag that keeps overriding
     // this player's graphic pointer every single frame, forever, once
@@ -1172,10 +1160,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
       'nextStatement': null,
       colour,
       'extensions': ['sprite_player_field_sync'],
-      'tooltip': 'Switches the chosen player back to showing its normal animation frames again, ' +
-        'undoing the "display ROM noise" block above - that block keeps overriding the graphic ' +
-        'every frame until this one is used, even if a normal animation frame is set in the ' +
-        'meantime.',
+      'tooltip': 'Undoes "display ROM noise": the player shows its animation frames again.',
     },
     // A different color on every scanline of this player - a REAL, existing
     // batari Basic kernel feature ("playercolors"/"player1colors" kernel
@@ -1211,19 +1196,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
       'nextStatement': null,
       colour,
       'extensions': ['sprite_player_field_sync', 'rainbow_legacy_hues'],
-      'tooltip': 'Gives the chosen player a different color on every one of its rows, reading ' +
-        'real ROM bytes the same way the "display ROM noise" block does - works with any graphic, ' +
-        'a normal animation frame or ROM noise. Leave "offset" unplugged for an automatically ' +
-        'shimmering pattern (it defaults to the frame counter). "Colors from ... to" keeps the colors to ' +
-        'a range of color values (0 to 255, it can go round: 240 to 16 is 240 up to 255, then 0 up to 16): the rows then show a ramp of the colors in it, ' +
-        'one color value after the other. 0 to 15 is the shades of gray, 16 to 31 the shades of gold, 32 to 47 orange, and so on (a hue each 16 values, ' +
-        'the first one the darkest); a range of more than 64 values is sampled. 0 to 255 leaves the colors as they are. A block saved with a span of hues ' +
-        'keeps it (shown after the numbers; the numbers do not apply while it is set) until one of its hues is set to "any hue". Turns on a real batari Basic ' +
-        'kernel feature that repurposes the matching missile\'s (Missile 0 for Player 0, Missile 1 ' +
-        'for Player 1) hardware circuitry to do this, so that missile can no longer be used as a ' +
-        'sprite anywhere in the project while this block is used (same tradeoff as the "blank ' +
-        'lines between background rows" option) - and for Player 0 specifically, paddle input ' +
-        'becomes unavailable too.',
+      'tooltip': 'Gives the player a different color on each row, read from ROM like "display ROM noise"; works with any graphic. Leave "offset" unplugged for a shimmering pattern (the frame counter). "Colors from ... to" limits the colors to a range of values (0 to 255, may go round: 240 to 16), shown as a ramp; 16 values make a hue (0 to 15 gray, 16 to 31 gold, 32 to 47 orange...), ranges over 64 values are sampled, 0 to 255 leaves colors as they are. A saved span of hues is kept (shown after the numbers, and the numbers do not apply) until a hue is set to "any hue". Uses the matching missile (Missile 0 for Player 0, Missile 1 for Player 1), which then cannot be a sprite anywhere in the project, and for Player 0 paddle input becomes unavailable.',
     },
     // Same "active flag only ever gets set, never cleared" gap as
     // sprite_player_rom_noise_stop above, for the rainbow-colors trigger
@@ -1254,12 +1227,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
       'nextStatement': null,
       colour,
       'extensions': ['sprite_player_field_sync'],
-      'tooltip': 'Stops the chosen player\'s "rainbow colors" block from continuing to override ' +
-        'its row colors every frame. With the Options tab\'s "Enable per-row sprite colors" ' +
-        'toggle on, the player goes back to each animation frame\'s declared colors (or the ' +
-        'default color if none were set); without that toggle, the color pointer just stays ' +
-        'wherever rainbow colors last left it, since batari Basic has no way to fully return to ' +
-        'a single flat color once this kernel feature is active.',
+      'tooltip': 'Stops "rainbow colors" for the player. With the Options tab\'s "Enable per-row sprite colors" on, it goes back to each frame\'s declared colors (or the default color); without it, the color pointer stays where rainbow colors left it.',
     },
   ]);
 };
@@ -1306,7 +1274,7 @@ const SEEK_OBJECT_COLOURS = {
 // unconditionally on every setValue call instead, XML load or live edit
 // alike (confirmed as a real reported bug: toolbox flyout copies all
 // stayed the same colour regardless of their  preset OBJECT field).
-Blockly.Extensions.register('object_seek_colour_sync', function() {
+registerExtension('object_seek_colour_sync', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   const objectField = block.getField('OBJECT');
@@ -1332,7 +1300,7 @@ Blockly.Extensions.register('object_seek_colour_sync', function() {
 // for a JS init()-style block definition just to name a wrapping input.
 // Validator-based, not setOnChange - same reasoning as
 // registerDropdownFieldSyncExtension's comment above.
-Blockly.Extensions.register('sprite_inertia_accelerate_action_sync', function() {
+registerExtension('sprite_inertia_accelerate_action_sync', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   const actionField = block.getField('ACTION');
@@ -1406,9 +1374,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'purple',
-    'tooltip': 'Makes the first sprite follow the second one, the given number of pixels to the right (X) and down (Y) of ' +
-      'it (a negative number goes left or up), every frame until it is unlocked. When the second sprite is a player ' +
-      'facing left (flipped), the first one is put on the other side of it and flipped too, so a sword stays in the same hand.',
+    'tooltip': 'Makes the first sprite follow the second, the given pixels right (X) and down (Y) of it (negative goes left or up), every frame until unlocked. When the second sprite is a player facing left (flipped), the first goes on the other side and flips too.',
   },
   {
     'type': 'sprite_unlock',
@@ -1423,7 +1389,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'purple',
-    'tooltip': 'Lets a sprite locked to another one move freely again; it stays where it is.',
+    'tooltip': 'The sprite stays where it is.',
   },
 ]);
 
@@ -1474,21 +1440,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync'],
-    'tooltip': 'Moves the chosen player/missile/ball automatically, a few pixels every ' +
-      'frame, toward the given X/Y - each axis moves independently by up to "speed" pixels ' +
-      'a frame, so it arrives diagonally when both axes have similar distances left and ' +
-      'moves in a straight line once one axis catches up, stopping exactly on arrival. Its ' +
-      'Height/visibility is never touched by this block, same as "Fire missile". Every ' +
-      'time this block actually runs, it immediately updates that object\'s target/' +
-      'speed, even if it\'s still moving toward a previous target - place this behind a ' +
-      'rate limiter (e.g. an "every X frames" block) if the target/speed shouldn\'t reset ' +
-      'every single frame. "throttle movement", when checked AND this block is placed ' +
-      'directly inside an "every X frames" block, slows the actual movement itself down to ' +
-      'that same rate (one step every X frames) instead of moving every frame regardless - ' +
-      'unchecked (the default), movement always happens every frame once triggered, no ' +
-      'matter what wraps this block. "one axis at a time", when checked, makes it move along X until it ' +
-      'is in the target column, then along Y, never both in the same frame (unchecked, the default, it ' +
-      'moves both at once).',
+    'tooltip': 'Moves the object toward X/Y by up to "speed" pixels a frame, each axis separately, and stops exactly on arrival. It does not touch Height/visibility. Each run resets the target/speed, so put it behind a rate limiter (e.g. "every X frames") if that should not happen every frame. "throttle movement", directly inside an "every X frames" block, moves one step every X frames instead of every frame. "one axis at a time" moves along X to the target column, then along Y.',
   },
   // A plain boolean value (plugs into an "if", same as collision_get/
   // background_fade_active elsewhere in this codebase - a bare 'output':
@@ -1514,9 +1466,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Boolean',
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync'],
-    'tooltip': 'True once a matching "Move" block (same player/missile/ball choice) reaches its ' +
-      'target X/Y, and stays true until that object is given a new Move target. Always false ' +
-      'if no matching Move block ever runs anywhere in the project.',
+    'tooltip': 'True once a matching "Move" block (same object) reaches its target, until it is given a new target. False if no matching Move block runs.',
   },
   // True once a Fire block's object has gone off the screen and stopped there.
   {
@@ -1532,10 +1482,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Boolean',
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync'],
-    'tooltip': 'True once a missile, ball or player that a "Fire" block launched has gone off the edge of the ' +
-      'screen and stopped (it is put at the top left corner, out of sight), and stays true until a "Fire" block ' +
-      'launches it again. It is not true when "Stop fired" or a collision stopped it. Always false if no "Fire" ' +
-      'block ever launches that object, or while "Bounce off screen edges" keeps it in play.',
+    'tooltip': 'True once an object a "Fire" block launched has gone off the screen edge and stopped (it is put at the top left corner), until a "Fire" block launches it again. Not true when "Stop fired" or a collision stopped it. False if no "Fire" block launches it, or while "Bounce off screen edges" keeps it in play.',
   },
   // Same "one block, OBJECT dropdown covers all 5 names" shape as object_
   // seek_to above, reusing the same SEEK_OBJECT_OPTIONS/object_seek_colour_
@@ -1565,10 +1512,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync'],
-    'tooltip': 'Turns automatic playfield-scroll following on or off for this object. While on, every ' +
-      '"Playfield scroll" block using Up/Down/Up (2x)/Down (2x) also shifts this object\'s Y position ' +
-      'by the same amount, so it stays in the same spot relative to the scrolling background instead of ' +
-      'the screen. Has no effect on Left/Right scrolling. Accepts true/false or 1/0.',
+    'tooltip': 'While on, every "Playfield scroll" block using Up/Down/Up (2x)/Down (2x) also shifts this object\'s Y by the same amount, so it keeps its place on the scrolling background. No effect on Left/Right scrolling. Accepts true/false or 1/0.',
   },
   // Read-only companion to the setter above - same OBJECT dropdown/colour
   // extension, just reading the same runtime bit back instead of writing it.
@@ -1585,8 +1529,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Boolean',
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync'],
-    'tooltip': 'True while this object currently has playfield-scroll following turned on (see ' +
-      '"set scroll with playfield to").',
+    'tooltip': 'True while playfield-scroll following is on for this object.',
   },
   // Same "one block, OBJECT dropdown covers all 5 names" shape as
   // object_seek_to above, and the same per-choice colour extension
@@ -1658,13 +1601,13 @@ Blockly.defineBlocksWithJsonArray([
     // wrapped in an ANONYMOUS auto-created dummy input Blockly.Block.
     // prototype.interpolate_ generates for any fields left unclaimed at
     // the end of a message row - impossible to look up and hide later.
-    'message1': '%1 %2 16 directions %3',
+    'message1': '%1 %2 %3',
     'args1': [
       {'type': 'field_label', 'text': ' '},
       {
-        'type': 'field_checkbox',
+        'type': 'field_dropdown',
         'name': 'DIRECTIONS16',
-        'checked': false,
+        'options': [['8 directions', 'FALSE'], ['16 directions', 'TRUE'], ['any direction', 'ANY']],
       },
       {'type': 'input_dummy', 'name': 'DIRECTIONS16_INPUT'},
     ],
@@ -1683,23 +1626,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync', 'sprite_inertia_accelerate_action_sync'],
-    'tooltip': 'Start: begins accelerating the chosen player/missile/ball toward the given ' +
-      'direction - every frame from now on, its velocity moves "rate" closer to that direction\'s ' +
-      'X/Y, up to "max speed" per axis, until Stop runs. Direction is 0-7 (0=Up, 1=Up-Right, ' +
-      '2=Right, 3=Down-Right, 4=Down, 5=Down-Left, 6=Left, 7=Up-Left, clockwise from Up, same scale ' +
-      'as "Fire") - or 0-15 on the same clockwise-from-Up scale, if "16 directions" below is checked, ' +
-      'same coarse approximation "Fire"\'s 16-direction mode uses (the 8 extra directions each ' +
-      'push their dominant axis at the full rate and the other axis at half rate). Plug in a ' +
-      '"Joystick direction (8-way)" block for player-controlled thrust, or a plain number for a ' +
-      'fixed direction. Running Start again while already accelerating just updates the direction/' +
-      'rate/max speed in place, without resetting velocity. Stop: velocity is left exactly where it ' +
-      'is (still moving the object every frame) unless "Decelerate" is also turned on for it, same ' +
-      'as taking your foot off the gas rather than braking - use "Decelerate" to actually slow it ' +
-      'back down. "Fine": rate becomes a fraction of a pixel per frame (0-255, representing ' +
-      '0-255/256ths) instead of whole pixels, so acceleration/movement can ramp up and down more ' +
-      'gradually - costs 2 extra hidden bytes per axis, and can\'t be combined with 16 directions. ' +
-      'Turning this on or off must match whatever "Decelerate" (if any) uses for the same object - ' +
-      'mixing Fine and non-Fine on the same object between the two blocks isn\'t supported.',
+    'tooltip': 'Start: every frame the velocity moves "rate" closer to the direction, up to "max speed" per axis, until Stop. Direction is 0-7 (0=Up, 1=Up-Right, 2=Right, 3=Down-Right, 4=Down, 5=Down-Left, 6=Left, 7=Up-Left, same as "Fire"), or 0-15 with "16 directions" (the extra directions push the dominant axis at full rate and the other at half). Running Start again updates direction/rate/max speed without resetting velocity. Stop leaves the velocity as it is (the object keeps moving) unless "Decelerate" is on. "Fine": rate is a fraction of a pixel a frame (0-255, in 256ths); costs 2 extra bytes per axis, and cannot be used with 16 directions. Must match "Decelerate" on the same object. Any direction: 0-255 is a full turn (0 up, 64 right, 128 down, 192 left), the rate and the speed limit are split between x and y by the sine and cosine (uses Fine); 8 and 16 direction blocks of the same object are turned into a heading.',
   },
   {
     'type': 'sprite_inertia_decelerate',
@@ -1735,24 +1662,13 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync'],
-    'tooltip': 'Start: every frame from now on, the chosen player/missile/ball\'s velocity ' +
-      'moves "rate" closer to 0 per axis (real friction/drag), clamped at exactly 0 so it never ' +
-      'overshoots into moving the opposite way - turns itself back off automatically once velocity ' +
-      'reaches exactly 0 on both axes, same as running "Stop", so it stops re-checking already-' +
-      'stopped movement every frame; running Start again always turns it back on. Independent of ' +
-      'Accelerate - an object can accelerate and decelerate at the same time (net effect: whichever ' +
-      'rate wins that frame), or decelerate by itself to coast to a stop after "Stop accelerating". ' +
-      '"Fine": rate becomes a fraction of a pixel per frame (0-255, representing 0-255/256ths) ' +
-      'instead of whole pixels, and movement itself slows through sub-1-pixel-per-frame speeds ' +
-      '(skipping frames automatically) as it approaches 0, instead of jumping straight from 1px/' +
-      'frame to a dead stop - costs 2 extra hidden bytes per axis. Must match whatever "Accelerate" ' +
-      '(if any) uses for the same object.',
+    'tooltip': 'Start: every frame the velocity moves "rate" closer to 0 per axis, never past it; turns itself off once both axes reach 0 (running Start again turns it on). Works with Accelerate at the same time, or alone to coast to a stop. "Fine": rate is a fraction of a pixel a frame (0-255, in 256ths) and movement slows through sub-pixel speeds; costs 2 extra bytes per axis. Must match "Accelerate" on the same object.',
   },
   // Gravity for a fired object: it keeps its Fire movement and falls (or, after a Bounce, rises) on top of it, in a curve. The speed is the vertical
   // speed of the object's Fine inertia (see sprite_inertia_accelerate), so Bounce reflects it too.
   {
     'type': 'object_gravity',
-    'message0': `${INERTIA_ICON} %1 Gravity %2 %3 speed up every %4 frames, max fall speed %5`,
+    'message0': `${INERTIA_ICON} %1 %2 %3 gravity %4 max fall speed %5`,
     'args0': [
       {
         'type': 'field_dropdown',
@@ -1767,7 +1683,7 @@ Blockly.defineBlocksWithJsonArray([
       {'type': 'input_dummy'},
       {
         'type': 'input_value',
-        'name': 'RATE',
+        'name': 'PULL',
         'check': 'Number',
       },
       {
@@ -1785,17 +1701,39 @@ Blockly.defineBlocksWithJsonArray([
         'options': [['100%', '4'], ['75%', '3'], ['50%', '2'], ['25%', '1'], ['0%', '0']],
       },
     ],
+    'message2': '%1 pull toward direction %2',
+    'args2': [
+      {'type': 'field_label', 'text': ' '},
+      {'type': 'input_value', 'name': 'ANGLE', 'check': 'Number'},
+    ],
     'inputsInline': true,
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'purple',
+    'extensions': ['object_seek_colour_sync', 'object_gravity_defaults'],
+    'tooltip': 'Start: the fall speed grows every frame by this many eighths of a pixel (1 to 16, the same as the gravity of the Platform block: a smooth fall, not a jump of a whole pixel) up to "max fall speed" (pixels a frame), on top of Fire movement, so a fired object follows a curve. Start sets the fall speed to 0, so run it when the object is fired. "Bounce keeps": when a Bounce block turns the object back from above or below, the fall speed turns round and keeps this much of its size (100% never settles). Gravity does not look at the playfield: use a Bounce block when it hits something. Stop: gravity off, fall speed 0. The direction is a full turn of 256 (128 down, 0 up, 64 right, 192 left): the object is pulled that way, at most 7 pixels a frame.',
+  },
+  // Starts or stops the gravity of an object, with the numbers a Gravity block gave it (the Start and Stop of the Gravity block, without its numbers).
+  {
+    'type': 'object_gravity_control',
+    'message0': `${INERTIA_ICON} %1 gravity %2`,
+    'args0': [
+      {
+        'type': 'field_dropdown',
+        'name': 'ACTION',
+        'options': [['Start', 'start'], ['Stop', 'stop']],
+      },
+      {
+        'type': 'field_dropdown',
+        'name': 'OBJECT',
+        'options': SEEK_OBJECT_DROPDOWN_OPTIONS,
+      },
+    ],
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': 'purple',
     'extensions': ['object_seek_colour_sync'],
-    'tooltip': 'Start: from now on the player, missile or ball is pulled down: its fall speed (pixels a frame) grows by 1 every so many frames (1, 2, 4, 8, 16 or 32: ' +
-      'another number is taken down to one of these; a variable or other block is the number of frames less 1) up to "max fall speed", and it moves by that, on top of ' +
-      'its Fire movement, so a fired object follows a curve. Start also sets the fall speed to 0, so run it when the object is fired. "Bounce keeps": when a Bounce block ' +
-      'turns the object back from something above or below it, the fall speed turns round and keeps this much of its size (100% never settles; less loses height at every ' +
-      'bounce). Gravity does not look at the playfield by itself: use a Bounce block when it hits something. Number blocks in this block that are the same in every ' +
-      'Gravity block of the object take no memory. Stop: gravity is off and the fall speed is 0.',
+    'tooltip': 'Start: turns the gravity of the object on again, with the speed up, max fall speed, bounce and direction a "Gravity" block with its numbers gave it (it starts falling from 0). Stop: the object stops falling at once (its fall speed is set to 0); Fire movement and other Inertia are not touched. No effect on an object no "Gravity" block uses.',
   },
   // One block, OBJECT dropdown covers all 5 names (same shape as
   // object_seek_to/the Inertia blocks above) - replaces the old, separate
@@ -1879,30 +1817,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync', 'object_bounce_manual_angle_sync', 'object_bounce_spread_prefill'],
-    'tooltip': 'Reflects the chosen player/missile/ball off of whatever it just collided with, ' +
-      'guessing which kind of surface was hit the same way Combat (1977) does: the first frame ' +
-      'it\'s stuck, mirrors as if a vertical wall was hit; if still stuck the next frame, tries a ' +
-      'horizontal wall instead; if still stuck after that, gives up guessing and just reverses ' +
-      'outright (assume a corner). Reflects Fire\'s fired direction (missile/ball only) AND/OR ' +
-      'Inertia\'s velocity (any of the 5 - see "Accelerate"/"Decelerate"), whichever the chosen ' +
-      'object actually has in use - has no effect at all on an object using neither. Call this ' +
-      'EVERY frame the collision persists (place it behind whatever check decides it should bounce ' +
-      '- a collision block, a screen-edge X/Y comparison, etc. - it doesn\'t detect anything by ' +
-      'itself) so it can tell consecutive stuck frames apart from a brand new hit. With "off screen ' +
-      'edges" ticked it works differently: no collision is needed and nothing is guessed. Place it ' +
-      'where it runs every frame (for example in a Gameplay update event) and it bounces the object ' +
-      'the moment it goes past the left, right, top or bottom edge of the screen, flipping the ' +
-      'matching direction (left/right edges flip horizontal movement, top/bottom flip vertical), ' +
-      'putting it back on the edge, and keeping a fired missile or ball moving instead of letting ' +
-      'it stop off-screen. With "set angle manually" unticked the ' +
-      'reflection is automatic. Ticked, a fired missile or ball leaves the surface at the angle ' +
-      'you give (0-7, or 0-15 when the Fire block uses 16 directions, clockwise from up) instead. It applies to ' +
-      'collision bounces only, not to "off screen edges". "random angle spread" (missile/ball with Fire only): ticked, ' +
-      'the angle it leaves at is also turned by a random amount of 0 to the chosen number of direction steps (1-4, a value above 4 counts as 4) either way, ' +
-      'around the reflected angle (or the manual angle). It also applies to "off screen edges" bounces. Unticked, nothing is worked out for it. ' +
-      'The choice after "steps" keeps the angle it leaves at in one half of the circle (the top, bottom, left or right half, which is up, down, left or right of ' +
-      'the object): an angle the spread puts in the other half is mirrored over the line between the halves, so it leaves at the matching angle in the allowed ' +
-      'half. A bounce off a wall that faces away from the chosen half sends the object back into that wall, then the usual stuck-frame guesses apply.',
+    'tooltip': 'Reflects the object off what it just collided with, guessing the surface: the first stuck frame mirrors as off a vertical wall; still stuck the next frame, a horizontal wall; still stuck after that, it reverses (a corner). Reflects Fire\'s direction (missile/ball only) and/or Inertia\'s velocity, whichever the object uses; no effect on an object using neither. Run it every frame the collision persists, behind whatever decides it should bounce (it detects nothing itself). With "off screen edges" ticked no collision is needed: place it where it runs every frame and it bounces the object at the left, right, top or bottom edge, puts it back on the edge, and keeps a fired missile or ball in play. "set angle manually" ticked: a fired missile or ball leaves at the angle given (0-7, 0-15 with 16 directions, 0-255 with any direction, clockwise from up); not for "off screen edges". "random angle spread" (missile/ball with Fire only): turns the leaving angle by a random 0 to the chosen steps (1-4, above 4 counts as 4; with any direction a step is 22.5 degrees) either way; applies to "off screen edges" too. The choice after "steps" keeps the angle in one half of the circle (top, bottom, left or right): an angle in the other half is mirrored over the line between them. A bounce off a wall facing away from the chosen half sends the object back into that wall, then the stuck-frame guesses apply.',
   },
   // Cancels what a Fire block started: the object stops moving where it is.
   // Same OBJECT dropdown and colour sync as object_bounce above.
@@ -1920,10 +1835,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync'],
-    'tooltip': 'Stops a missile or ball that a "Fire" block launched from moving, leaving it exactly ' +
-      'where it is right now - its height and visibility are not touched (use "Missile: set ' +
-      'Height" to hide it), and a later "Fire" block launches it again. Has no effect on a player, ' +
-      'or on an object no "Fire" block ever launched.',
+    'tooltip': 'Stops a missile or ball a "Fire" block launched, where it is. Height and visibility are not touched (use "Missile: set Height" to hide it). No effect on a player or on an object no "Fire" block launched.',
   },
 ]);
 
@@ -2023,7 +1935,7 @@ const buildCombinedMissileFireBlock = ({icon, colour}) => {
       this.appendValueInput('ANGLE')
           .setCheck('Number')
           .appendField('at angle');
-      this.appendDummyInput()
+      this.appendDummyInput('DEFAULT_INPUT')
           .appendField('default')
           .appendField(new Blockly.FieldDropdown(buildMissileFireDefaultAngleOptions), 'DEFAULT_ANGLE');
       // Pixels per frame, 0 (stands still) to 7: a number block, variable or any
@@ -2036,23 +1948,20 @@ const buildCombinedMissileFireBlock = ({icon, colour}) => {
           .appendField(' ')
           .appendField(new Blockly.FieldCheckbox('FALSE'), 'THROTTLE')
           .appendField('throttle movement');
+      // The values of the old checkbox stay: FALSE is 8 directions and TRUE is 16 (saved projects load as before).
+      const directionsField = new Blockly.FieldDropdown([['8 directions', 'FALSE'], ['16 directions', 'TRUE'], ['any direction', 'ANY']]);
+      directionsField.setTooltip('8 or 16 directions, or any direction: the angle is 0-255, a full turn (0 up, 64 right, 128 down, 192 left), 255 is an angle like the rest and "default" is not used.');
       this.appendDummyInput()
           .appendField(' ')
-          .appendField(new Blockly.FieldCheckbox('FALSE'), 'DIRECTIONS16')
-          .appendField('16 directions');
+          .appendField(directionsField, 'DIRECTIONS16');
       const evenSpeedField = new Blockly.FieldCheckbox('FALSE');
-      evenSpeedField.setTooltip('Every direction moves at the same speed. Without it a diagonal (and a halfway angle) moves about 1.4 times faster ' +
-        'than straight up, down, left or right. Ticked, a straight shot takes an extra pixel now and then to match (about 1.4 times the speed). ' +
-        'Costs one byte of memory for the object, and its speed is kept in a variable.');
-      this.appendDummyInput()
+      evenSpeedField.setTooltip('Every direction moves at the same speed. Without it a diagonal (and a halfway angle) is about 1.4 times faster than straight. Ticked, a straight shot takes an extra pixel now and then to match. Costs one byte of memory for the object.');
+      this.appendDummyInput('EVENSPEED_INPUT')
           .appendField(' ')
           .appendField(evenSpeedField, 'EVENSPEED')
           .appendField('same speed at every angle');
       const playfieldCheckField = new Blockly.FieldCheckbox('FALSE');
-      playfieldCheckField.setTooltip('Moves the object one pixel at a time and checks the playfield after ' +
-        'each one, stopping on the first lit playfield pixel it reaches. Without it a fast object can ' +
-        'jump over a thin playfield pixel without ever touching it, so no collision is detected. ' +
-        'Costs a little extra time every frame while the object is moving.');
+      playfieldCheckField.setTooltip('Moves one pixel at a time and checks the playfield after each, stopping on the first lit pixel. Without it a fast object can jump over a thin playfield pixel. Costs a little extra time every frame it moves.');
       this.appendDummyInput()
           .appendField(' ')
           .appendField(playfieldCheckField, 'PFCHECK')
@@ -2070,37 +1979,13 @@ const buildCombinedMissileFireBlock = ({icon, colour}) => {
         this.setColour(fireColourFor(newValue));
         return newValue;
       });
+      // Every number input starts with a number (a shadow block, which shows even when a saved project has no block there), as in the toolbox.
+      [['X', 0], ['Y', 0], ['ANGLE', 0], ['SPEED', 1]].forEach(([inputName, value]) => {
+        const input = this.getInput(inputName);
+        if (input && input.connection) input.connection.setShadowState({type: 'math_number', fields: {NUM: value}});
+      });
       setupFireDefaultAngleSync(this);
-      this.setTooltip('Launches the chosen missile from the given starting X/Y position (e.g. a ' +
-        'paired player\'s X/Y position blocks, for a traditional "fire from the player" missile), ' +
-        'moving it automatically (a few pixels every frame) until it goes off-screen, where it ' +
-        'simply stops moving - the missile\'s Height/visibility is never touched by this ' +
-        'block, so it never changes size or disappears automatically; use "Missile: set Height" ' +
-        'yourself if you want it hidden once it stops. Angle is 0-7 ' +
-        '(0=Up, 1=Up-Right, 2=Right, 3=Down-Right, 4=Down, 5=Down-Left, 6=Left, 7=Up-Left, clockwise ' +
-        'from Up) - or 0-15 on the same clockwise-from-Up scale, if "16 directions" below is checked. ' +
-        'Plug in a "Joystick direction (8-way)" block to fire toward wherever the ' +
-        'joystick is pushed, a plain number for a fixed direction, or a variable holding an angle ' +
-        'computed elsewhere. 255 (or any other value outside the valid range) means "no clear direction" (e.g. ' +
-        'a centered joystick) - "default" is used instead whenever that happens, so ' +
-        'the missile still fires (in whichever direction "default" picks) rather than doing ' +
-        'nothing. Every time this block actually runs, it (re)launches the missile right away, ' +
-        'even if a previous shot is still in flight - resetting its position to whatever X/Y it\'s ' +
-        'given at that moment. Because of that, this should be placed behind a rate limiter ' +
-        '(e.g. an "every X frames" block) rather than something that stays true every single frame ' +
-        '(like "if Fire then ..." alone), or it\'ll keep resetting the shot every frame instead ' +
-        'of letting it fly. "throttle movement", when checked AND this block is placed directly ' +
-        'inside an "every X frames" block, slows the actual in-flight movement down to that same ' +
-        'rate (one step every X frames) instead of moving every frame regardless - unchecked (the ' +
-        'default), it always moves every frame once fired, no matter what wraps this block. ' +
-        '"16 directions", when checked, doubles the angle resolution to 0-15 (each of the original ' +
-        '8 compass points, plus one halfway between each pair) instead of 0-7 - the two extra ' +
-        'directions between each compass point move at full speed on their dominant axis and half ' +
-        'speed on the other, the same coarse approximation classic 2600 games (e.g. Combat\'s ' +
-        'ricocheting shells) used instead of real trigonometry. "default" above offers all 16 of ' +
-        'those directions once this is checked (just the original 8 otherwise) - already-picked ' +
-        'values are translated onto the new scale automatically when this is toggled, so it always ' +
-        'lines up with the angle scale currently in use.');
+      this.setTooltip('Launches the missile from the given X/Y, moving it until it goes off-screen, where it stops. Height/visibility is never touched; use "Missile: set Height" to hide it. Angle is 0-7 (0=Up, 1=Up-Right, 2=Right, 3=Down-Right, 4=Down, 5=Down-Left, 6=Left, 7=Up-Left), 0-15 with "16 directions", or 0-255 with "any direction" (a full turn: 64 is right, 128 down; 255 is an angle, no default). 255 (or any value outside the range) means no direction (e.g. a centered joystick): "default" is used instead. Each run relaunches the missile from the given X/Y even if a shot is in flight, so put it behind a rate limiter (e.g. "every X frames"), not something true every frame. "throttle movement", directly inside an "every X frames" block, moves one step every X frames instead of every frame. "16 directions" doubles the angle resolution to 0-15; the extra directions move full speed on the dominant axis and half on the other. Picked values are translated onto the new scale when toggled.');
     },
   };
 };
@@ -2188,12 +2073,7 @@ Blockly.Blocks['sprite_fire_angle_get'] = {
       this.setColour(colourFor(newValue));
       return newValue;
     });
-    this.setTooltip('The direction the chosen missile or ball was last fired in by a "Fire" block: ' +
-      '0 Up, 1 Up-Right, 2 Right, 3 Down-Right, 4 Down, 5 Down-Left, 6 Left, 7 Up-Left (or 0-15 on ' +
-      'the finer scale when a Fire block for it has "16 directions" ticked). Read it when a collision ' +
-      'happens to get the angle the object was travelling at - before a "Bounce" block runs, which ' +
-      'turns it around. It plugs straight into the "Find playfield pixel" block\'s direction and ' +
-      'into a Fire block\'s angle. Only meaningful for an object a Fire block launched.');
+    this.setTooltip('The direction the missile or ball was last fired in by a "Fire" block: 0 Up, 1 Up-Right, 2 Right, 3 Down-Right, 4 Down, 5 Down-Left, 6 Left, 7 Up-Left (0-15 with "16 directions", 0-255 with "any direction"). Read it on a collision, before a "Bounce" block turns it around. Only meaningful for an object a Fire block launched.');
   },
 };
 
@@ -2216,10 +2096,7 @@ Blockly.Blocks['sprite_fire_speed_set'] = {
       this.setColour(colourFor(newValue));
       return newValue;
     });
-    this.setTooltip('Changes the speed, in pixels per frame (0 to 7), of the chosen missile or ball ' +
-      'that a "Fire" block launched. It takes effect on the next frame and keeps the direction. 0 ' +
-      'holds it still without cancelling the Fire (set the speed back to move it again; "Stop ' +
-      'fired" cancels it). Has no effect on an object no "Fire" block launches.');
+    this.setTooltip('Changes the speed (pixels a frame, 0 to 7) of a missile or ball a "Fire" block launched, from the next frame, keeping its direction. 0 holds it still without cancelling the Fire ("Stop fired" cancels it). No effect on an object no "Fire" block launches.');
   },
 };
 
@@ -2254,9 +2131,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': PRIORITY_COLOUR,
-    'tooltip': `Chooses whether the playfield and ball are drawn in front of, or behind, all ` +
-      `players and missiles. This is a single switch for the whole screen - it can't be set ` +
-      `per-sprite - but it can be changed at any time during the game.`,
+    'tooltip': `Chooses whether the playfield and ball are drawn in front of or behind all players and missiles. One switch for the whole screen, changeable at any time.`,
   },
 ]);
 
@@ -2293,7 +2168,7 @@ const PLAYER_FADE_COLOUR = 'red';
 // setOnChange - see registerDropdownFieldSyncExtension's  comment above
 // for why (setOnChange never fires for a toolbox flyout block built from
 // XML with events disabled).
-Blockly.Extensions.register('sprite_player_fade_colour_sync', function() {
+registerExtension('sprite_player_fade_colour_sync', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   const varField = block.getField('VAR');
@@ -2334,16 +2209,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': PLAYER_FADE_COLOUR,
     'extensions': ['sprite_player_fade_colour_sync'],
-    'tooltip': 'Starts fading Player 0 or Player 1\'s color toward the given color over roughly ' +
-      'this many frames - same hue as the target, brightness automatically climbing or dropping ' +
-      'from wherever it currently is, whichever direction actually gets closer. Only needs to be ' +
-      'triggered once - the fade keeps running by itself every frame afterward, even from inside ' +
-      'an "if" block that only briefly becomes true, until it reaches the target and stops. Also ' +
-      'fades that player\'s missile (missile0 for Player 0, missile1 for Player 1) for free - ' +
-      'on real Atari 2600 hardware, a missile always shares its player\'s color register, so ' +
-      'there\'s no separate missile color to fade. With the DPC+ kernel a missile has a separate color register ' +
-      '(the Missile Color option), and the fade carries it along with the player\'s. A DPC+ player can only fade to a fixed color ' +
-      '(a color block, not a calculated value).',
+    'tooltip': 'Fades the player\'s color toward the given color over about this many frames, in the same hue. Needs triggering only once; it keeps running every frame until it reaches the target. Also fades the player\'s missile (missile0 for Player 0, missile1 for Player 1); with the DPC+ kernel the missile has a separate color register (the Missile Color option) and the fade carries it along. A DPC+ player can only fade to a fixed color (a color block, not a calculated value).',
   },
 ]);
 
@@ -2362,9 +2228,7 @@ Blockly.Blocks['sprite_player_fade_finished'] = {
     this.setNextStatement(true);
     this.setColour(PLAYER_FADE_COLOUR);
     Blockly.Extensions.apply('sprite_player_fade_colour_sync', this, false);
-    this.setTooltip('Runs the connected blocks once, the moment a matching "Fade" block (same ' +
-      'Player 0/Player 1 choice) reaches its target color. Does nothing if no matching fade ' +
-      'ever runs anywhere in the project.');
+    this.setTooltip('Runs once when a matching "Fade" block (same player) reaches its target color. Does nothing if no matching fade runs.');
   },
 };
 
@@ -2381,8 +2245,6 @@ Blockly.Blocks['sprite_player_fade_active'] = {
     this.setOutput(true, 'Boolean');
     this.setColour(PLAYER_FADE_COLOUR);
     Blockly.Extensions.apply('sprite_player_fade_colour_sync', this, false);
-    this.setTooltip('True while Player 0 or Player 1\'s color is in the middle of a "Fade" - from ' +
-      'the moment a "Fade" block triggers it until it reaches its target color, false the ' +
-      'rest of the time.');
+    this.setTooltip('True from when a "Fade" block triggers until it reaches its target color.');
   },
 };

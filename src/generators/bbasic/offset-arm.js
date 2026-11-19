@@ -5,10 +5,10 @@ import {displayRamSlotAddress} from './spill';
 // The coprocessor program of the DPC+ kernel's Playfield offset block and playfield box test (functions 64 and 68 and up of
 // public/bb19/includes/custom/main.c, built with DPC_OFFSET). The program is the compiled armprog.c (a self-contained, position independent Thumb
 // routine), placed in the ROM as data in a subroutine, and the coprocessor is given the place of it (the way the sound engine is given its waveforms).
-// Offset function numbers: 68 alternate, 69 left, 70 right, 71 up, 72 down, 73 alternate the other way round, 74 alternate columns up and down, 75 alternate columns down and up. The box test is function 128 and up (128 plus the height).
+// Offset function numbers: 68 alternate, 69 left, 70 right, 71 up, 72 down, 73 alternate the other way round, 74 alternate columns up and down, 75 alternate columns down and up, 76 wrap left and 77 wrap right (the pixel that leaves a row comes back at the other end of the same row). The box test is function 128 and up (128 plus the height).
 export const ARM_PROGRAM_SUBROUTINE = '_dpc_arm_program';
 export const OFFSET_ARM_PROGRAM = '_dpc_arm_program_code';
-export const OFFSET_ARM_FUNCTION = {alternate: 68, left: 69, right: 70, up: 71, down: 72, alternate_rl: 73, alternate_ud: 74, alternate_du: 75};
+export const OFFSET_ARM_FUNCTION = {alternate: 68, left: 69, right: 70, up: 71, down: 72, alternate_rl: 73, alternate_ud: 74, alternate_du: 75, wrap_left: 76, wrap_right: 77};
 
 // The program is one of the files of public/bb19/includes/custom/prog, each made from armprog.c for the set of its functions a project needs: the letters of its
 // name are o (the Playfield offset block), b (the playfield box test), c (the circle block), p (the pixel finding and the bounce of the ball and the missiles),

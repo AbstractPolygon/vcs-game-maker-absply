@@ -12,6 +12,7 @@ import {migrateLegacyPlayerBlocksInLocalStorage} from './hooks/migrate-player-bl
 import {migrateLegacyBounceBlocksInLocalStorage} from './hooks/migrate-bounce-blocks';
 import {migrateLegacyBallFireBlocksInLocalStorage} from './hooks/migrate-ball-fire-blocks';
 import {migrateLegacyInertiaAccelerateBlocksInLocalStorage} from './hooks/migrate-inertia-accelerate-blocks';
+import {migrateLegacyGravityBlocksInLocalStorage} from './hooks/migrate-gravity-blocks';
 import {migrateLegacyJoystickBlocksInLocalStorage} from './hooks/migrate-joystick-blocks';
 import {migrateLegacyKeypadBlocksInLocalStorage} from './hooks/migrate-keypad-blocks';
 import {migrateRainbowRangeInLocalStorage} from './hooks/migrate-rainbow-range';
@@ -64,6 +65,9 @@ migrateLegacyBallFireBlocksInLocalStorage();
 // ACTION dropdown - see that function's comment, same "run before anything
 // else reads the workspace" timing as the migrations above.
 migrateLegacyInertiaAccelerateBlocksInLocalStorage();
+
+// The first number of the Gravity block: frames between speed-ups became eighths of a pixel a frame (see hooks/migrate-gravity-blocks.js).
+migrateLegacyGravityBlocksInLocalStorage();
 
 // Rewrites any old input_joy0_*/input_joy1_* blocks left over from before
 // Joystick 0/1 shared one combined block type per feature - see that

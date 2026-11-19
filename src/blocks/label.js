@@ -87,9 +87,7 @@ Blockly.Blocks['label_define'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(LABEL_COLOR);
-    this.setTooltip('A named place in the code that a "Go to label" block can jump to, with the blocks inside it. The code ' +
-      'goes on with the blocks inside the label and then with the blocks after it. The jump and the label have to be in the ' +
-      'same event, subroutine or function.');
+    this.setTooltip('A named place a "Go to label" block can jump to, in the same event, subroutine or function. The blocks inside run, then the blocks after it.');
     this.setOnChange(() => {
       if (!block.workspace || block.workspace.isFlyout) return;
       const name = block.getFieldValue('NAME');
@@ -112,8 +110,7 @@ Blockly.Blocks['label_goto'] = {
     // The code after a jump is never reached, so nothing follows it in the stack.
     this.setNextStatement(false);
     this.setColour(LABEL_COLOR);
-    this.setTooltip('Jumps to a "Label" block in the same event, subroutine or function (batari Basic goto). ' +
-      'Put it at the end of a stack, often inside an "if".');
+    this.setTooltip('Jumps to a "Label" block in the same event, subroutine or function. Put it at the end of a stack.');
     if (this.workspace) ensureGotoListener(this.workspace);
     this.setOnChange(() => {
       if (!block.workspace || block.workspace.isFlyout) return;
@@ -135,8 +132,7 @@ Blockly.Blocks['subroutine_return'] = {
     // The code after a return is never reached, so nothing follows it in the stack.
     this.setNextStatement(false);
     this.setColour(LABEL_COLOR);
-    this.setTooltip('Ends the subroutine this block is in and goes back to the "Call" block that ran it (batari Basic return). ' +
-      'A subroutine also returns by itself after its last block.');
+    this.setTooltip('Ends the subroutine and goes back to the "Call" block that ran it. A subroutine also returns after its last block.');
     this.setOnChange(() => {
       if (!block.workspace || block.workspace.isFlyout) return;
       const root = block.getRootBlock();

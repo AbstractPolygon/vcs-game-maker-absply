@@ -7,7 +7,7 @@ import {flagPoolVar, flagPoolBit} from './flag-pool';
 import {NARROW_TILE_WIDTH, STANDARD_TILE_LOAD_NAME, TILE_SET_FUNCTION} from './pf-tiles';
 import {OFFSET_ARM_FUNCTION, buildOffsetArmCall, ensureArmProgram, ARM_FIND_PIXEL_FUNCTION, buildPixArmCall} from './offset-arm';
 import {fireObjectName} from '../../utils/fire-object';
-import {pfDrawBlockCode, pfDrawCircleCode, pfDrawCenteredAreaCode, pfDrawStopFillCode, pfDrawFillDoneCode} from './pf-draw';
+import {pfDrawBlockCode, pfDrawCircleCode, pfDrawCenteredAreaCode, pfDrawStopFillCode, pfDrawFillDoneCode, pfDrawTerrainDoneCode} from './pf-draw';
 import {EXTRA_PLAYER_NAME} from '../../utils/pxe';
 import {effectiveBackgroundRows, backgroundDataRows, backgroundFadeTimerVarName, backgroundFadePaceVarName,
   backgroundFadeTargetVarName, fadeFlagsVarName, FADE_STEPS, rowFadeStartColor, multicolorFadeVarName,
@@ -15,7 +15,7 @@ import {effectiveBackgroundRows, backgroundDataRows, backgroundFadeTimerVarName,
   backgroundGetPixelXVarName, backgroundGetPixelYVarName,
   collisionPixelColumnVarName, collisionPixelRowVarName, areaClearLeftVarName,
   backgroundScrollRowVarName, backgroundScrollRowMaxVarName,
-  backgroundScrollEdgeFlagsVarName, BACKGROUND_SCROLL_EDGE_BITS, backgroundScrollStartVarName, backgroundScrollShiftVarName,
+  BACKGROUND_SCROLL_EDGE_BITS, backgroundScrollStartVarName, backgroundScrollShiftVarName,
   dpcPlusPlainScrollVarName, dpcPlusPlainColorScrollVarName,
   backgroundTransitionVarName, backgroundTransitionCountVarName, backgroundScrollActiveVarName, backgroundColorBgVarName,
   BACKGROUND_SCROLL_PATCH_SUBROUTINE_NAME, backgroundColorOffsetVarName, dpcPlusPfresOf} from '../../blocks/background';
@@ -130,6 +130,8 @@ export const BG_COLOR_FLAGS_FAMILY = 'bgColorFlags';
 export const BG_RAINBOW_ID_FAMILY = 'bgRainbowId';
 // DPC+ color lists: the number of the background's pair of row steps (see planColorSteps in bbasic.js).
 export const BG_COLOR_STEP_FAMILY = 'bgColorStep';
+// The flags of "When background scroll reaches": a bit for each edge a block watches (see BACKGROUND_SCROLL_EDGE_BITS for the number of an edge in the block's numbering).
+export const BG_SCROLL_EDGE_FAMILY = 'backgroundScrollEdgeFlags';
 export const BG_COLOR_OVERRIDE_BITS = {COLUBK: 0, COLUPF: 1};
 // How many bits the number of the loaded background takes (0 when it is not kept), at most four.
 export const rainbowBackgroundBits = (backgroundCount) => Math.min(4, Math.ceil(Math.log2(backgroundCount + 1)));
@@ -177,9 +179,10 @@ export const reserveOffsetAreaDevVars = (reserveDevVar, used, coprocessor = fals
   }
   if (!used) return;
   const {b1, m1, b2, m2, pixel, mask} = OFFSET_AREA_VARS;
-  reserveDevVar(b1, undefined, 'Playfield offset area: the left column, then its byte of the row');
+  // (With a playfield box test in the project the left and right column are in the bytes of the box test, which only hold a position while a test runs: see offsetArmSharedVars.)
+  if (!shared.b1) reserveDevVar(b1, undefined, 'Playfield offset area: the left column, then its byte of the row');
   reserveDevVar(m1, undefined, 'Playfield offset area: the bit of the left column in its byte');
-  reserveDevVar(b2, undefined, 'Playfield offset area: the right column, then its byte of the row');
+  if (!shared.b2) reserveDevVar(b2, undefined, 'Playfield offset area: the right column, then its byte of the row');
   reserveDevVar(m2, undefined, 'Playfield offset area: the bit of the right column in its byte');
   reserveDevVar(pixel, undefined, 'Playfield offset area: the pixel that goes in at the next row');
   mask.forEach((name, i) => reserveDevVar(name, undefined, `Playfield offset area: the columns of the area in byte ${i} of a row`));
@@ -714,10 +717,13 @@ export default (Blockly) => {
     const bounceLines = [];
     // A Fire angle from a Fire block set to 16 directions counts 0-15, not 0-7.
     let is16 = false;
+    // (An any direction heading is turned into the nearest of 16 directions for the finder.)
+    let anyFired = false;
     if (dirBlock && dirBlock.type === 'sprite_fire_angle_get') {
       const field = dirBlock.getFieldValue('MISSILE');
       const fired = fireObjectName(field);
-      is16 = (Blockly.BBasic.missileFire16UsedFor || new Set()).has(fired);
+      anyFired = (Blockly.BBasic.missileFireAnyUsedFor || new Set()).has(fired);
+      is16 = (Blockly.BBasic.missileFire16UsedFor || new Set()).has(fired) || anyFired;
       const stage = Blockly.BBasic.superchipRwPairs[missileBounceStageVarName(fired)];
       if (stage) {
         bounceLines.push(
@@ -736,7 +742,7 @@ export default (Blockly) => {
     const suffix = Blockly.BBasic.bankJumpSuffix(
         Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(name));
     return [
-      `temp5 = ${direction}`,
+      ...(anyFired ? [`temp5 = ${direction} + 8`, 'temp5 = temp5 / 16'] : [`temp5 = ${direction}`]),
       ...bounceLines,
       `gosub ${name}${suffix}`,
     ].join('\n') + '\n';
@@ -1703,11 +1709,33 @@ export default (Blockly) => {
   };
 
   Blockly.BBasic['background_fill_circle'] = function(block) {
-    return pfDrawCircleCode(Blockly, block.getFieldValue('OPERATION'), drawArg(block, 'X'), drawArg(block, 'Y'), drawArg(block, 'RADIUS'), ...drawPadding(block));
+    return pfDrawCircleCode(Blockly, block.getFieldValue('OPERATION'), drawArg(block, 'X'), drawArg(block, 'Y'), drawArg(block, 'RADIUS'), ...drawPadding(block), block.getFieldValue('SPREAD') === 'TRUE');
   };
 
   Blockly.BBasic['background_flood_fill'] = function(block) {
     return pfDrawBlockCode(Blockly, 'fill', block.getFieldValue('OPERATION'), [drawArg(block, 'X'), drawArg(block, 'Y')]);
+  };
+  // Generate terrain: the side is bits 1-0 of the header (0 bottom, 1 top, 2 left, 3 right).
+  const TERRAIN_SIDES = {BOTTOM: 0, TOP: 1, LEFT: 2, RIGHT: 3};
+  Blockly.BBasic['background_generate_terrain'] = function(block) {
+    return pfDrawBlockCode(Blockly, 'terrain', 'on', [drawArg(block, 'MIN', '3'), drawArg(block, 'MAX', '6'), drawArg(block, 'ROUGH', '2'), `((${drawArg(block, 'OVER', '0')}) & 15) + ((${drawArg(block, 'CAVES', '0')}) & 7) * 16${block.getFieldValue('TILE') === 'TRUE' ? ' + 128' : ''}`, 'rand'], TERRAIN_SIDES[block.getFieldValue('SIDE')] || 0);
+  };
+  Blockly.BBasic['background_generate_terrain_done'] = function(block) {
+    return [pfDrawTerrainDoneCode(Blockly, {ALL: 4, BOTTOM: 0, TOP: 1, LEFT: 2, RIGHT: 3}[block.getFieldValue('WHICH')] ?? 4), Blockly.BBasic.ORDER_ATOMIC];
+  };
+  // The same as the condition block, with the blocks to run inside: they run in the one frame the condition is true.
+  Blockly.BBasic['background_when_terrain_done'] = function(block) {
+    const condition = pfDrawTerrainDoneCode(Blockly, {ALL: 4, BOTTOM: 0, TOP: 1, LEFT: 2, RIGHT: 3}[block.getFieldValue('WHICH')] ?? 4);
+    const body = Blockly.BBasic.statementToCode(block, 'DO').trim();
+    if (condition === '0') return '';
+    const number = Blockly.BBasic.blockNumbers.next();
+    return `
+if ${condition} then goto _terraindone_${number}_run
+goto _terraindone_${number}_end
+@ _terraindone_${number}_run
+${body}
+@ _terraindone_${number}_end
+`;
   };
   Blockly.BBasic['background_flood_fill_stop'] = function() {
     return pfDrawStopFillCode(Blockly);
@@ -1736,8 +1764,11 @@ export default (Blockly) => {
   const buildOffsetBody = ({direction: requested, byte1, byte2, dpcPlus, superchip}) => {
     const label = offsetSubroutineName(requested, byte1, byte2, dpcPlus, superchip);
     // "Alternate rows right and left" is the alternating routine with the rows turned the other way round (the odd rows go left).
-    const flip = requested === 'alternate_rl';
-    const direction = flip ? 'alternate' : requested;
+    // (Wrap left and wrap right: the pixel that leaves a row comes in at the other end of the same row; all left and all right carry it into the next row.)
+    const wrap = requested === 'wrap_left' || requested === 'wrap_right';
+    const base = wrap ? requested.slice(5) : requested;
+    const flip = base === 'alternate_rl';
+    const direction = flip ? 'alternate' : base;
     const br = (mnemonic) => (flip ? (mnemonic === 'bne' ? 'beq' : 'bne') : mnemonic);
     const lab = (name) => `${label}_${name}`;
     const at = (name) => `@${lab(name)}`;
@@ -1755,18 +1786,25 @@ export default (Blockly) => {
     // One pixel left or right with the pixel that leaves going to the next row: the carry flows through the bytes of
     // the row as it did for a single row, but it starts as the pixel that came out of the previous row (kept in Y, or
     // X with DPC+) and the pixel this row loses is kept for the next. Left, it is the left pixel that leaves and the
-    // right end is where the new one comes in; right, the other way round.
+    // right end is where the new one comes in; right, the other way round. With wrap (all left, all right) the pixel
+    // that leaves is the one that comes in at the other end of the same row: the carry starts as it.
     const carryReg = dpcPlus ? 'x' : 'y';
     const keepExit = dpcPlus ? ['pha'] : ['sta temp6'];
     const takeExit = dpcPlus ? ['pla', 'tax'] : ['ldy temp6'];
-    const leftLines = () => [
+    const leftLines = (wrap = false) => (wrap ? [
+      `lda ${readAddr(byte1)}`, leftIsHigh(byte1) ? 'asl' : 'lsr',
+      ...[...bytes].reverse().flatMap((byte) => rotate(leftIsHigh(byte) ? 'rol' : 'ror', byte)),
+    ] : [
       `lda ${readAddr(byte1)}`, leftIsHigh(byte1) ? 'asl' : 'lsr', 'lda #0', 'rol', ...keepExit, `t${carryReg}a`, 'lsr',
       ...[...bytes].reverse().flatMap((byte) => rotate(leftIsHigh(byte) ? 'rol' : 'ror', byte)), ...takeExit,
-    ];
-    const rightLines = () => [
+    ]);
+    const rightLines = (wrap = false) => (wrap ? [
+      `lda ${readAddr(byte2)}`, leftIsHigh(byte2) ? 'lsr' : 'asl',
+      ...bytes.flatMap((byte) => rotate(leftIsHigh(byte) ? 'ror' : 'rol', byte)),
+    ] : [
       `lda ${readAddr(byte2)}`, leftIsHigh(byte2) ? 'lsr' : 'asl', 'lda #0', 'rol', ...keepExit, `t${carryReg}a`, 'lsr',
       ...bytes.flatMap((byte) => rotate(leftIsHigh(byte) ? 'ror' : 'rol', byte)), ...takeExit,
-    ];
+    ]);
     // The pixel that leaves a row, as 0 or 1 in the carry register, from the playfield byte `load` loads.
     const exitLeft = (load) => [load, leftIsHigh(byte1) ? 'asl' : 'lsr', 'lda #0', 'rol', `ta${carryReg}`];
     const exitRight = (load) => [load, leftIsHigh(byte2) ? 'lsr' : 'asl', 'lda #0', 'rol', `ta${carryReg}`];
@@ -1821,7 +1859,7 @@ export default (Blockly) => {
       if (direction === 'alternate') {
         lines.push('txa', 'and #4', `${br('bne')} ${lab('right')}`, ...leftLines(), `jmp ${lab('next')}`, at('right'), ...rightLines());
       } else {
-        lines.push(...(direction === 'left' ? leftLines() : rightLines()));
+        lines.push(...(direction === 'left' ? leftLines(wrap) : rightLines(wrap)));
       }
       lines.push(at('next'), 'cpx temp5', `beq ${lab('done')}`,
           ...(down ? ['inx', 'inx', 'inx', 'inx'] : ['dex', 'dex', 'dex', 'dex']), `jmp ${lab('row')}`, at('done'));
@@ -1842,7 +1880,7 @@ export default (Blockly) => {
       if (direction === 'alternate') {
         lines.push('tya', 'and #1', `${br('bne')} ${lab('right')}`, ...leftLines(), `jmp ${lab('write')}`, at('right'), ...rightLines());
       } else {
-        lines.push(...rightLines());
+        lines.push(...rightLines(wrap));
       }
       lines.push(at('write'));
       bytes.forEach((byte) => {
@@ -1861,7 +1899,7 @@ export default (Blockly) => {
       const fetchersOf = (byte) => [`DF${byte}`];
       lines.push(...peek(byte1, 'temp5'), leftIsHigh(byte1) ? 'asl' : 'lsr', 'lda #0', 'rol', 'tax', 'ldy temp6', at('row'),
           ...pointFetchers(null, fetchersOf), ...bytes.flatMap((byte) => [`lda DF${byte}DATA`, `sta ${scratch(byte)}`]),
-          ...leftLines(), ...pointFetchers(null, fetchersOf),
+          ...leftLines(wrap), ...pointFetchers(null, fetchersOf),
           ...bytes.flatMap((byte) => [`lda ${scratch(byte)}`, `sta DF${byte}WRITE`]),
           'cpy temp5', `beq ${lab('done')}`, 'dey', `jmp ${lab('row')}`, at('done'));
     } else if (!dpcPlus) {
@@ -1957,8 +1995,11 @@ export default (Blockly) => {
   // (offsetb1 and offsetb2 are the columns when it is called), the masks and the pixel on its way to the next row.
   const buildAreaOffsetBody = ({direction: requested, dpcPlus, superchip, v}) => {
     const label = `_background_offset_${requested}_area${dpcPlus ? 'd' : superchip ? 's' : ''}`;
-    const flip = requested === 'alternate_rl';
-    const direction = flip ? 'alternate' : requested;
+    // (Wrap left and wrap right: the pixel that leaves a row comes in at the other end of the same row; all left and all right carry it into the next row.)
+    const wrap = requested === 'wrap_left' || requested === 'wrap_right';
+    const base = wrap ? requested.slice(5) : requested;
+    const flip = base === 'alternate_rl';
+    const direction = flip ? 'alternate' : base;
     const br = (mnemonic) => (flip ? (mnemonic === 'bne' ? 'beq' : 'bne') : mnemonic);
     const lab = (name) => `${label}_${name}`;
     const at = (name) => `@${lab(name)}`;
@@ -1988,8 +2029,9 @@ export default (Blockly) => {
         const bitVar = which === 1 ? v.m1 : v.m2;
         return ['txa', 'clc', `adc ${byteVar}`, 'tay', `lda ${v.pixel}`, 'eor playfield,y', `and ${bitVar}`, 'eor playfield,y', `sta ${writeBase},y`];
       };
-      const row = (toLeft) => [...exitPixel(toLeft ? 1 : 2), 'sta temp6', ...chain(toLeft), ...entry(toLeft ? 2 : 1),
-        'lda temp6', `sta ${v.pixel}`];
+      // (wrap: all left and all right, the pixel that leaves comes in at the other end of the same row.)
+      const row = (toLeft, wrap = false) => [...exitPixel(toLeft ? 1 : 2), 'sta temp6', ...(wrap ? [`sta ${v.pixel}`] : []), ...chain(toLeft),
+        ...entry(toLeft ? 2 : 1), 'lda temp6', `sta ${v.pixel}`];
       if (isAlternateColumns(direction)) {
         // Alternate columns up and down, a byte at a time (see buildOffsetBody): the new byte is only used in the columns of the area, which
         // are in the byte's mask. temp5 and temp6 are the last and first row times four.
@@ -2025,7 +2067,7 @@ export default (Blockly) => {
           lines.push('txa', 'and #4', `${br('beq')} ${lab('leftrow')}`, `jmp ${lab('rightrow')}`, at('leftrow'), ...row(true), `jmp ${lab('next')}`,
               at('rightrow'), ...row(false));
         } else {
-          lines.push(...row(direction === 'left'));
+          lines.push(...row(direction === 'left', wrap));
         }
         lines.push(at('next'), 'cpx temp5', `bne ${lab('more')}`, `jmp ${lab('done')}`, at('more'),
             ...(down ? ['inx', 'inx', 'inx', 'inx'] : ['dex', 'dex', 'dex', 'dex']), `jmp ${lab('row')}`, at('done'));
@@ -2054,11 +2096,12 @@ export default (Blockly) => {
       // DPC+: each of the four columns is in display RAM at dffraclow/dffrachi, one byte a row, read and written through the data fetchers.
       // The bytes of a row are loaded into temp1 to temp4; the pixel on its way to the next row is in a variable, and the pixel that leaves
       // goes on the stack. The first and last row are in temp5 and temp6, and Y is the row.
-      const rotateRow = (toLeft) => {
+      // (wrap: all left and all right, the pixel that leaves comes in at the other end of the same row.)
+      const rotateRow = (toLeft, wrap = false) => {
         const noEntry = fresh('noentry');
         const [exitByte, exitBit, entryByte, entryBit] = toLeft ? [v.b1, v.m1, v.b2, v.m2] : [v.b2, v.m2, v.b1, v.m1];
         return [
-          `ldx ${exitByte}`, 'lda temp1,x', `and ${exitBit}`, 'cmp #1', 'lda #0', 'rol', 'pha',
+          `ldx ${exitByte}`, 'lda temp1,x', `and ${exitBit}`, 'cmp #1', 'lda #0', 'rol', 'pha', ...(wrap ? [`sta ${v.pixel}`] : []),
           'clc', ...order(toLeft).flatMap((byte) => [
             `lda ${v.mask[byte]}`, 'eor #$FF', `and temp${byte + 1}`, 'pha', `lda temp${byte + 1}`, rotate(byte, toLeft),
             `and ${v.mask[byte]}`, `sta temp${byte + 1}`, 'pla', `ora temp${byte + 1}`, `sta temp${byte + 1}`]),
@@ -2094,7 +2137,7 @@ export default (Blockly) => {
           lines.push('tya', 'and #1', `${br('beq')} ${lab('leftrow')}`, `jmp ${lab('rightrow')}`, at('leftrow'), ...rotateRow(true),
               `jmp ${lab('write')}`, at('rightrow'), ...rotateRow(false));
         } else {
-          lines.push(...rotateRow(false));
+          lines.push(...rotateRow(false, wrap));
         }
         lines.push(at('write'));
         allBytes.forEach((byte) => {
@@ -2111,7 +2154,7 @@ export default (Blockly) => {
         const fetchersOf = (byte) => [`DF${byte}`];
         lines.push(...peekPixel('temp5', 1), 'ldy temp6', at('row'),
             ...pointFetchers(null, fetchersOf), ...allBytes.flatMap((byte) => [`lda DF${byte}DATA`, `sta temp${byte + 1}`]),
-            ...rotateRow(true), ...pointFetchers(null, fetchersOf),
+            ...rotateRow(true, wrap), ...pointFetchers(null, fetchersOf),
             ...allBytes.flatMap((byte) => [`lda temp${byte + 1}`, `sta DF${byte}WRITE`]),
             'cpy temp5', `bne ${lab('more')}`, `jmp ${lab('done')}`, at('more'), 'dey', `jmp ${lab('row')}`, at('done'));
       } else {
@@ -2160,7 +2203,7 @@ export default (Blockly) => {
       const v = Object.fromEntries(PXE_OFFSET_VARS.map((name) => [name, placed[name] || resolvePxo(name)]));
       if (!Blockly.BBasic.subroutines[PXE_OFFSET_ROUTINE]) Blockly.BBasic.subroutines[PXE_OFFSET_ROUTINE] = buildPxeOffsetBody(v, maxRow, pfMaxColumn(config)).join('\n');
       const suffix = Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(PXE_OFFSET_ROUTINE));
-      const direction = {alternate: 0, left: 1, right: 2, up: 3, down: 4, alternate_rl: 5, alternate_ud: 6, alternate_du: 7}[block.getFieldValue('DIRECTION')] || 0;
+      const direction = {alternate: 0, left: 1, right: 2, up: 3, down: 4, alternate_rl: 5, alternate_ud: 6, alternate_du: 7, wrap_left: 8, wrap_right: 9, wrap_up: 3, wrap_down: 4}[block.getFieldValue('DIRECTION')] || 0;
       // A byte of the extended RAM is stored through temp1; the routine puts the corners in order and inside the playfield.
       const put = (name, value) => (!placed[name] ? `${v[name]} = ${value}\n` : /^\d+$/.test(value) ?
         ['asm', `lda #${value}`, `sta ${v[name]}`, '@end'].join('\n') + '\n' :
@@ -2171,7 +2214,8 @@ export default (Blockly) => {
     }
     const dpcPlus = config.kernel === 'dpcplus';
     const superchip = !dpcPlus && !!config.enableSuperchip;
-    const direction = block.getFieldValue('DIRECTION');
+    // (Wrap up and wrap down are all up and all down: a column already wraps round its rows.)
+    const direction = {wrap_up: 'up', wrap_down: 'down'}[block.getFieldValue('DIRECTION')] || block.getFieldValue('DIRECTION');
     const whole = block.getFieldValue('WHOLE') === 'TRUE';
     // (With groups of columns that have separate rows the coprocessor keeps each group to the rows it has, see offset in armprog.c.)
     const groupRows = dpcPlus && !!Blockly.BBasic.dpcPlusGroupFracVars;
@@ -2224,7 +2268,8 @@ export default (Blockly) => {
     }
     const resolve = (canonicalName) => Blockly.BBasic.nameDB_.getName(canonicalName, Blockly.Names.DEVELOPER_VARIABLE_TYPE);
     const v = {
-      b1: resolve(OFFSET_AREA_VARS.b1), m1: resolve(OFFSET_AREA_VARS.m1), b2: resolve(OFFSET_AREA_VARS.b2), m2: resolve(OFFSET_AREA_VARS.m2),
+      b1: resolve((Blockly.BBasic.offsetArmShared || {}).b1 || OFFSET_AREA_VARS.b1), m1: resolve(OFFSET_AREA_VARS.m1),
+      b2: resolve((Blockly.BBasic.offsetArmShared || {}).b2 || OFFSET_AREA_VARS.b2), m2: resolve(OFFSET_AREA_VARS.m2),
       pixel: resolve(OFFSET_AREA_VARS.pixel), mask: OFFSET_AREA_VARS.mask.map(resolve),
     };
     const name = `_background_offset_${direction}_area${dpcPlus ? 'd' : superchip ? 's' : ''}`;
@@ -2323,7 +2368,8 @@ export default (Blockly) => {
 
   Blockly.BBasic[`background_change_hv_line`] = function(block) {
     const kind = block.getFieldValue('DIRECTION') === 'pfvline' ? 'vline' : 'hline';
-    return pfDrawBlockCode(Blockly, kind, block.getFieldValue('OPERATION'), [drawArg(block, 'X'), drawArg(block, 'Y'), drawArg(block, 'LENGTH', '2')]);
+    return pfDrawBlockCode(Blockly, kind, block.getFieldValue('OPERATION'), [drawArg(block, 'X'), drawArg(block, 'Y'), drawArg(block, 'LENGTH', '2')],
+        kind === 'vline' ? 4 : 0);
   };
 
   Blockly.BBasic[`background_draw_line`] = function(block) {
@@ -2561,7 +2607,7 @@ export default (Blockly) => {
     // condition is the bB test (an "if" body, without the "if"/"then").
     const edgeWatches = Blockly.BBasic.backgroundScrollEdgeWatches || new Set();
     const edgeFlag = (edge) =>
-      `${resolveVar(backgroundScrollEdgeFlagsVarName())}{${BACKGROUND_SCROLL_EDGE_BITS[edge]}}`;
+      `${resolveVar(flagPoolVar(BG_SCROLL_EDGE_FAMILY))}{${flagPoolBit(BG_SCROLL_EDGE_FAMILY, BACKGROUND_SCROLL_EDGE_BITS[edge])}}`;
     const setEdgeFlag = (edge, condition) => {
       if (edgeWatches.has(edge)) lines.push(` if ${condition} then ${edgeFlag(edge)} = 1`);
     };
@@ -2719,7 +2765,7 @@ export default (Blockly) => {
       Blockly.BBasic.nameDB_.getName(canonicalName, Blockly.Names.DEVELOPER_VARIABLE_TYPE);
     const watches = Blockly.BBasic.backgroundScrollEdgeWatches || new Set();
     if (!watches.has(edge)) return '';
-    const flag = `${resolveVar(backgroundScrollEdgeFlagsVarName())}{${BACKGROUND_SCROLL_EDGE_BITS[edge]}}`;
+    const flag = `${resolveVar(flagPoolVar(BG_SCROLL_EDGE_FAMILY))}{${flagPoolBit(BG_SCROLL_EDGE_FAMILY, BACKGROUND_SCROLL_EDGE_BITS[edge])}}`;
     const labelEnd = `_bgscrolledge_${Blockly.BBasic.blockNumbers.next()}_end`;
     return '\n' + [
       `if !${flag} then goto ${labelEnd}`,

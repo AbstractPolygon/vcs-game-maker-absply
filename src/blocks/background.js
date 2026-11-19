@@ -2,6 +2,7 @@
 
 import {superchipOn} from '../utils/superchip';
 import * as Blockly from 'blockly/core';
+import {registerExtension, numberDefaultsExtension} from './extension';
 
 import {useBackgroundsStorage, useConfigurationStorage} from '../hooks/project';
 import {cardOptions} from '../utils/card-refs';
@@ -607,10 +608,7 @@ const BACKGROUND_PFPIXEL_OPTIONS = [
 ];
 
 // (How the Draw blocks draw: see generators/bbasic/pf-draw.js.)
-const DRAW_QUEUE_TOOLTIP = 'The drawing is done at the end of the frame, a pixel at a time for as long as the frame has time to spare, so a big ' +
-  'shape is spread over a few frames instead of making the screen roll; the code right after the block still sees the playfield as it was. The ' +
-  'Draw blocks (pixel, lines, area, circle, fill) are drawn one after the other in the order they ran. When too many are waiting, the ones ' +
-  'waiting and this one are drawn at once.';
+const DRAW_QUEUE_TOOLTIP = 'Drawn at the end of the frame, over several frames if big, in the order the Draw blocks ran.';
 
 const BACKGROUND_FILL_OPTIONS = [
   [`${CHECKBOX_CHECKED_ICON} Fill`, 'on'],
@@ -660,7 +658,7 @@ const BACKGROUND_PFSCROLL_OPTIONS = [
 // sprite-colors gate this pattern is modeled on, Left/Right genuinely
 // doesn't function under Superchip's kernel at all, so there's no
 // "keeps working as it did" case worth preserving here.
-Blockly.Extensions.register('background_scroll_direction_sync', function() {
+registerExtension('background_scroll_direction_sync', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   const field = block.getField('DIRECTION');
@@ -699,21 +697,7 @@ Blockly.Blocks['background_scroll'] = {
     this.setNextStatement(true);
     this.setColour(BACKGROUND_COLOR);
     Blockly.Extensions.apply('background_scroll_direction_sync', this, false);
-    this.setTooltip(`Scrolls the background in the given direction. Left/Right aren't offered while Superchip ` +
-        `RAM is enabled (Options tab) - real batari Basic doesn't support horizontal playfield scrolling ` +
-        `on that kernel. "stop at top/bottom edge", when checked, ` +
-        `tracks how far Up/Down/Up (2x)/Down (2x) scrolling has moved within the CURRENT background's ` +
-        `real row count (not just the fixed 12-row window batari Basic's pfscroll rotates through) ` +
-        `and skips the scroll instead of continuing past the top (row 0) or the bottom (this background's ` +
-        `last row). Has no effect on Left/Right, which have no edge to stop at - the standard kernel's ` +
-        `playfield is always exactly 32 columns wide, so there's nothing beyond it to scroll into. Position ` +
-        `is tracked regardless of whether this checkbox is on, so "Playfield scroll position" always ` +
-        `reflects where the current background actually is, even from a scroll block that doesn't stop at ` +
-        `the edges itself. "scroll playfield colors", when checked (and per-row playfield colors are on in ` +
-        `the Options tab), moves each row's color along with its pixels for Up/Down/Up (2x)/Down (2x), ` +
-        `instead of the colors staying where they are on the screen. "scroll background colors" does the same for ` +
-        `the background row colors (DPC+ with per-row background colors on). Use them on every scroll block of a ` +
-        `project that scrolls colors. To scroll just the colors, use "Playfield scroll colors" instead.`);
+    this.setTooltip('Scrolls the background in the given direction. Left/Right are not offered with Superchip RAM on. "stop at top/bottom edge" skips the scroll at the top or bottom row of the current background (no effect on Left/Right). "Playfield scroll position" is tracked either way. "scroll playfield colors" (with per-row playfield colors on) moves each row\'s color with its pixels for Up/Down; "scroll background colors" does the same for the background row colors (DPC+ with per-row background colors). Tick them on every scroll block of a project that scrolls colors. "Playfield scroll colors" scrolls only the colors.');
   },
 };
 
@@ -737,12 +721,7 @@ Blockly.Blocks['background_scroll_colors'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(BACKGROUND_COLOR);
-    this.setTooltip('Scrolls just the row colors in the given direction and leaves the playfield ' +
-        'pixels where they are, so it works without scrolling the playfield. It needs per-row ' +
-        'playfield colors (the Options tab). The standard kernel moves the colors a whole playfield row at a ' +
-        'time; DPC+ moves them a scanline at a time. The playfield colors and the background colors (DPC+ with ' +
-        'per-row background colors) scroll separately: check the ones this block moves. "stop at top/bottom ' +
-        'edge", when checked, stops the colors at the top or bottom of the background instead of wrapping around.');
+    this.setTooltip('Scrolls only the row colors in the given direction, leaving the playfield pixels. Needs per-row playfield colors (Options tab). The standard kernel moves them a playfield row at a time, DPC+ a scanline at a time. Playfield colors and background colors (DPC+ with per-row background colors) scroll separately: check the ones to move. "stop at top/bottom edge" stops at the top or bottom instead of wrapping.');
   },
 };
 
@@ -752,10 +731,14 @@ export const BACKGROUND_OFFSET_OPTIONS = [
   ['alternate rows right and left', 'alternate_rl'],
   ['all left', 'left'],
   ['all right', 'right'],
+  ['wrap left', 'wrap_left'],
+  ['wrap right', 'wrap_right'],
   ['alternate columns up and down', 'alternate_ud'],
   ['alternate columns down and up', 'alternate_du'],
   ['all up', 'up'],
   ['all down', 'down'],
+  ['wrap up', 'wrap_up'],
+  ['wrap down', 'wrap_down'],
 ];
 // Moves the pixels of the whole playfield, or of an area of it, by one pixel (column or row), wrapping around inside
 // the area. Run every few frames it makes the holes of a wall drift sideways, like the shield in Yars' Revenge.
@@ -775,17 +758,7 @@ Blockly.Blocks['background_offset'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(BACKGROUND_COLOR);
-    this.setTooltip(`Moves the pixels of the playfield by one step in the chosen direction, so holes in a wall drift ` +
-        `along (the shield in Yars' Revenge). A pixel that leaves the end of a row carries on at the start of the next row ` +
-        `and one that leaves the last row comes back on the first, and "all up" and "all down" wrap the top and ` +
-        `the bottom. "alternate rows left and right" moves one row left, the next right, and so on, so the ` +
-        `pixels run along the rows like a belt ("alternate rows right and left" starts the other way round: the first row ` +
-        `of the playfield goes right, the next left). "alternate columns up and down" moves one column up, the next down, and so on, ` +
-        `each column wrapping from the top to the bottom ("alternate columns down and up" starts the other way round: the first ` +
-        `column goes down, the next up). Untick "whole playfield" to move just an area: its left and right edges ` +
-        `are any of the playfield's columns 0 to 31 (0 to 39, 63 or 119 with a wider PXE playfield) and its top and bottom are rows counted from 0 like "Playfield get ` +
-        `pixel". Run it every few frames ` +
-        `for a slower drift. Pixels only move; per-row colors stay where they are.`);
+    this.setTooltip('Moves the playfield pixels one step in the chosen direction. All left/all right: a pixel leaving a row carries on at the start of the next row (the last row wraps to the first). Wrap left/right: it comes back at the other end of the same row. All up/all down and wrap up/wrap down: the row that leaves the top comes in at the bottom of the area, and the other way round (the same move). "alternate rows left and right" moves the first row left, the next right, and so on ("right and left" starts the other way); "alternate columns up and down" does the same for columns. Untick "whole playfield" to move an area: left and right edges are columns 0 to 31 (0 to 39, 63 or 119 with a wider PXE playfield), top and bottom are rows from 0 as in "Playfield get pixel". Per-row colors stay put. Run it every few frames for a slower drift.');
   },
   mutationToDom: function() {
     const container = Blockly.utils.xml.createElement('mutation');
@@ -872,17 +845,15 @@ Blockly.Blocks['background_fill_circle'] = {
     this.appendValueInput('PAD_RIGHT').setCheck('Number').appendField('right');
     this.appendValueInput('PAD_TOP').setCheck('Number').appendField('top');
     this.appendValueInput('PAD_BOTTOM').setCheck('Number').appendField('bottom');
+    this.appendDummyInput('SPREAD_ROW')
+        .appendField(new Blockly.FieldCheckbox(false), 'SPREAD')
+        .appendField('over several frames');
     this.setInputsInline(true);
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(BACKGROUND_COLOR);
     Blockly.Extensions.apply('background_circle_padding_sync', this, false);
-    this.setTooltip(`Sets, clears or flips every playfield pixel within the radius (in playfield pixels, up to 15) of the center column and row, the ` +
-      `same numbers as "Playfield get pixel". A pixel is in the circle when its distance from the center is no more than the radius. ` +
-      `Any part of the circle outside the playfield is ignored. The padding is how many columns at the left and at the right of the ` +
-      `playfield, and how many rows at the top and at the bottom, the block leaves alone whatever it does (set, clear or flip): 0 draws to the ` +
-      `edges. It can be one number for all the sides or a number for each. ${DRAW_QUEUE_TOOLTIP} ` +
-      `Can't be used inside a custom function.`);
+    this.setTooltip(`Sets, clears or flips every playfield pixel within the radius (up to 15) of the center column and row, the same numbers as "Playfield get pixel". Parts outside the playfield are ignored. Padding is how many columns at each side and rows at the top and bottom are left alone (0 draws to the edges): one number for all sides or one for each. ${DRAW_QUEUE_TOOLTIP} Can't be used inside a custom function.`);
   },
 };
 
@@ -915,18 +886,13 @@ Blockly.Blocks['background_fill_area'] = {
     this.setNextStatement(true, null);
     this.setColour(BACKGROUND_COLOR);
     Blockly.Extensions.apply('background_area_mode_sync', this, false);
-    this.setTooltip(`Sets, clears or flips every playfield pixel in a rectangle (columns 0-31, 0-39, 0-63 or 0-119 with a wider PXE playfield, and rows from 0, ` +
-      `the same numbers as "Playfield get pixel"). "from": the rectangle between the two corners, which can be given in either order. "centered at": ` +
-      `a rectangle of the width and height (in playfield pixels) with the column and row in the middle of it, an even width or height having the extra ` +
-      `pixel to the right or below; its padding is how many columns at the left and at the right of the playfield, and how many rows at the top and ` +
-      `at the bottom, it leaves alone (0 draws to the edges), one number for all the sides or one for each. Any part of the rectangle outside the ` +
-      `playfield is ignored. ${DRAW_QUEUE_TOOLTIP} Can't be used inside a custom function.`);
+    this.setTooltip(`Sets, clears or flips every playfield pixel in a rectangle (columns 0-31, 0-39, 0-63 or 0-119 with a wider PXE playfield; rows from 0, as in "Playfield get pixel"). "from": between two corners, in either order. "centered at": the width and height (in pixels) around the column and row; an even size has the extra pixel to the right or below. Padding is how many columns at each side and rows at the top and bottom are left alone (0 draws to the edges): one number for all sides or one for each. Parts outside the playfield are ignored. ${DRAW_QUEUE_TOOLTIP} Can't be used inside a custom function.`);
   },
 };
 
 // Shows the inputs of the mode picked (the second corner, or the width, the height and the padding) and hides the others, and the padding input(s) of
 // the padding mode picked: applied at once and whenever either field changes (a validator of the field, as the circle's padding is, below).
-Blockly.Extensions.register('background_area_mode_sync', function() {
+registerExtension('background_area_mode_sync', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   const modeField = block.getField('MODE');
@@ -985,7 +951,7 @@ Blockly.Extensions.register('background_area_mode_sync', function() {
 // The column input of the two "Convert" blocks only means something under DPC+ when a background gives the four groups of columns separate rows (a row then
 // depends on the group the column is in): it is shown then, and hidden otherwise (a value in it stays where it is). Looked at when the block is made and
 // after every change of the workspace, since the backgrounds and the options are set on other tabs.
-Blockly.Extensions.register('background_convert_column_sync', function() {
+registerExtension('background_convert_column_sync', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   const separateRows = () => {
@@ -1012,7 +978,7 @@ Blockly.Extensions.register('background_convert_column_sync', function() {
 });
 
 // 'input_fire_pattern_frames_sync' in blocks/input.js: it also runs for a block built from the toolbox).
-Blockly.Extensions.register('background_circle_padding_sync', function() {
+registerExtension('background_circle_padding_sync', function() {
   // eslint-disable-next-line no-invalid-this
   const block = this;
   const modeField = block.getField('PADMODE');
@@ -1114,7 +1080,7 @@ Blockly.Blocks['background_select'] = {
         .appendField(new Blockly.FieldDropdown(buildBackgroundOptions), 'VAR');
     this.setOutput(true, 'Number');
     this.setColour(BACKGROUND_COLOR);
-    this.setTooltip('Selects a background');
+    this.setTooltip('Selects a background.');
   },
 };
 
@@ -1132,11 +1098,7 @@ Blockly.Blocks['background_transition'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(BACKGROUND_COLOR);
-    this.setTooltip('Starts scrolling another background in, one row at a time, instead of swapping to it. ' +
-      'Each "Playfield scroll" block that moves the same way (Up or Down, 1x or 2x) then brings in one more row of ' +
-      'the new background, and once its rows fill the screen it is the background showing. Scrolling the ' +
-      'other way waits until the transition is over. Row colors change over to the new background when it ' +
-      'is complete. Standard kernel only. The backgrounds should have the same size.');
+    this.setTooltip('Scrolls another background in one row at a time instead of swapping to it. Each "Playfield scroll" block moving the same way (Up or Down, 1x or 2x) brings in one more row; when its rows fill the screen it becomes the background showing. Scrolling the other way waits until the transition is over. Row colors change over when it completes. Standard kernel only. The backgrounds should be the same size.');
   },
 };
 
@@ -1151,6 +1113,9 @@ Blockly.Blocks['background_set_select'] = {
     this.setTooltip('Updates the background');
   },
 };
+
+registerExtension('background_terrain_defaults', numberDefaultsExtension({MIN: 3, MAX: 6, ROUGH: 2, OVER: 0, CAVES: 0}));
+registerExtension('background_fill_defaults', numberDefaultsExtension({X: 16, Y: 5}));
 
 Blockly.defineBlocksWithJsonArray([
   // Block for the setter.
@@ -1255,13 +1220,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': 'Starts fading the background or playfield color toward the given color over roughly ' +
-      'this many frames - same hue as the target, brightness automatically climbing or dropping from ' +
-      'wherever it currently is, whichever direction actually gets closer. Only needs to be triggered ' +
-      'once - the fade keeps running by itself every frame afterward, even from inside an "if" block ' +
-      'that only briefly becomes true, until it reaches the target and stops. With per-row playfield ' +
-      '(or, on DPC+, per-row background) colors on, every row fades from the color it has to the target, ' +
-      'which has to be a color from the color picker block, starting from the background\'s row colors.',
+    'tooltip': 'Fades the background or playfield color toward the given color over roughly this many frames, keeping the hue of the target. Trigger it once; the fade keeps running every frame, even from an "if" that is only briefly true. With per-row playfield (or, on DPC+, per-row background) colors on, every row fades from its color to the target, which must be a color from the color picker block.',
   },
   {
     'type': `background_fade_rows_from`,
@@ -1289,11 +1248,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': 'Starts every playfield (or background) row at the brightness of the chosen color and fades each ' +
-      'row up or down to its real color from the Background editor, over roughly this many frames. Needs ' +
-      '"Enable per-row playfield colors" (Options tab; for the background rows, "Enable per-row background ' +
-      'colors" on DPC+) and a color from the color picker block. Only needs to be triggered once. Switching ' +
-      'backgrounds cancels it. "Fade color to" does the opposite, from the row colors down to a color.',
+    'tooltip': 'Starts every playfield (or background) row at the brightness of the chosen color and fades each row to its real color from the Background editor over roughly this many frames. Needs "Enable per-row playfield colors" (Options tab; for background rows, "Enable per-row background colors" on DPC+) and a color from the color picker block. Trigger it once. Switching backgrounds cancels it. "Fade color to" does the opposite.',
   },
   // Block for reading a playfield pixel
   {
@@ -1314,7 +1269,7 @@ Blockly.defineBlocksWithJsonArray([
     'inputsInline': true,
     'output': 'Boolean',
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Reads a pixel of the background; can only be used on "if" statements`,
+    'tooltip': 'Reads a pixel of the background; can only be used on "if" statements.',
   },
   // Block for checking a whole area of the playfield
   {
@@ -1329,11 +1284,7 @@ Blockly.defineBlocksWithJsonArray([
     'inputsInline': true,
     'output': 'Boolean',
     'colour': BACKGROUND_COLOR,
-    'tooltip': `True when every playfield pixel in the rectangle between the two corners is off (columns ` +
-      `0-31 (0-39, 0-63 or 0-119 with a wider PXE playfield) and rows from 0, the same numbers as "Playfield get pixel"). The corners can be given in ` +
-      `either order, and any part of the rectangle outside the playfield is ignored. It reads the pixels ` +
-      `one by one, so a big area takes a while: use it now and then (for example when a brick is cleared), ` +
-      `not on every frame. Can't be used inside a custom function.`,
+    'tooltip': 'True when every playfield pixel in the rectangle between the two corners is off (columns 0-31, 0-39, 0-63 or 0-119 with a wider PXE playfield; rows from 0, as in "Playfield get pixel"). Corners can be in either order; parts outside the playfield are ignored. It reads pixel by pixel, so a big area is slow: do not use it every frame. Can\'t be used inside a custom function.',
   },
   // Block for setting a playfield pixel
   {
@@ -1434,9 +1385,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Draws a straight line of any angle between two playfield points, unlike ` +
-      `"Background Horizontally/Vertically pixels", which only draws straight up/down or ` +
-      `left/right. ${DRAW_QUEUE_TOOLTIP}`,
+    'tooltip': `Draws a straight line of any angle between two playfield points. ${DRAW_QUEUE_TOOLTIP}`,
   },
   // The fill (the bucket of the graphic editors) and the blocks that stop it and tell when it is done.
   {
@@ -1451,10 +1400,51 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Fill: sets every playfield pixel that is off and joined to the pixel at X and Y (up, down, left or right, through pixels that are ` +
-      `off), up to the pixels that are on, like the fill tool of the graphic editors. Erase: clears every pixel that is on and joined to it, up ` +
-      `to the pixels that are off. Nothing happens when the pixel at X and Y is already the way the fill makes it. It keeps a few places to come ` +
-      `back to as it goes: a very winding area can be left partly filled (more of them on DPC+). ${DRAW_QUEUE_TOOLTIP}`,
+    'extensions': ['background_fill_defaults'],
+    'tooltip': `Fill: sets every off pixel joined to the pixel at X and Y (up, down, left or right) up to the on pixels. Erase: clears every on pixel joined to it. Nothing happens if that pixel is already the way the fill makes it. It keeps only a few places to come back to, so a very winding area can be left partly filled (more places on DPC+). ${DRAW_QUEUE_TOOLTIP}`,
+  },
+  // Random hills along one side of the playfield, drawn by the drawing engine (see generators/bbasic/pf-draw.js).
+  {
+    'type': 'background_generate_terrain',
+    'message0': `${BACKGROUND_ICON} Playfield generate terrain on %1 height min %2 max %3 roughness %4 overhangs %5 caves %6 %7 tile`,
+    'args0': [
+      {'type': 'field_dropdown', 'name': 'SIDE', 'options': [['bottom', 'BOTTOM'], ['top', 'TOP'], ['left', 'LEFT'], ['right', 'RIGHT']]},
+      {'type': 'input_value', 'name': 'MIN', 'check': 'Number'},
+      {'type': 'input_value', 'name': 'MAX', 'check': 'Number'},
+      {'type': 'input_value', 'name': 'ROUGH', 'check': 'Number'},
+      {'type': 'input_value', 'name': 'OVER', 'check': 'Number'},
+      {'type': 'input_value', 'name': 'CAVES', 'check': 'Number'},
+      {'type': 'field_checkbox', 'name': 'TILE', 'checked': false},
+    ],
+    'inputsInline': true,
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': BACKGROUND_COLOR,
+    'extensions': ['background_terrain_defaults'],
+    'tooltip': `Random ground along an edge, kept between the two heights in pixels. Roughness 0 to 8: 0 is flat, more changes height and turns the ground more often. Overhangs 0 to 4: how many ledges with a gap below. Caves 0 to 4: how many gaps under the surface. Tile: the end of the edge comes back to the height of its start (horizontally on the bottom and top, vertically on the left and right), so it can be repeated. Uses the random seed. Clear the playfield first. Colors are not changed. ${DRAW_QUEUE_TOOLTIP}`,
+  },
+  {
+    'type': 'background_generate_terrain_done',
+    'message0': `${BACKGROUND_ICON} Playfield %1 terrain done`,
+    'args0': [
+      {'type': 'field_dropdown', 'name': 'WHICH', 'options': [['all', 'ALL'], ['bottom', 'BOTTOM'], ['top', 'TOP'], ['left', 'LEFT'], ['right', 'RIGHT']]},
+    ],
+    'output': 'Boolean',
+    'colour': BACKGROUND_COLOR,
+    'tooltip': `True for one frame, the one after the terrain of that side is finished (all: after no terrain is left to draw). Can only be used on "if" statements.`,
+  },
+  {
+    'type': 'background_when_terrain_done',
+    'message0': `${BACKGROUND_ICON} When playfield %1 terrain is done`,
+    'args0': [
+      {'type': 'field_dropdown', 'name': 'WHICH', 'options': [['all', 'ALL'], ['bottom', 'BOTTOM'], ['top', 'TOP'], ['left', 'LEFT'], ['right', 'RIGHT']]},
+    ],
+    'message1': '%1',
+    'args1': [{'type': 'input_statement', 'name': 'DO'}],
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': BACKGROUND_COLOR,
+    'tooltip': 'Runs the blocks inside once, in the frame after the terrain of that side is finished (all: after no terrain is left to draw). Put it in code that runs every frame.',
   },
   {
     'type': 'background_flood_fill_stop',
@@ -1462,7 +1452,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Stops the fill being drawn and takes the fills still waiting out of the queue (the other Draw blocks waiting are still drawn).`,
+    'tooltip': 'Stops the fill being drawn and removes waiting fills from the queue (other waiting Draw blocks are still drawn).',
   },
   {
     'type': 'background_flood_fill_done',
@@ -1478,8 +1468,7 @@ Blockly.defineBlocksWithJsonArray([
     'args0': [],
     'output': 'Number',
     'colour': BACKGROUND_COLOR,
-    'tooltip': `The playfield's vertical resolution in rows - the Superchip RAM pfres setting ` +
-      `if that's turned on (Options tab), otherwise the standard 11-row default.`,
+    'tooltip': 'The playfield height in rows: the Superchip RAM pfres setting if on (Options tab), otherwise 11.',
   },
   // Blocks for converting between playfield pixel coordinates (columns
   // 0-31, rows 0-10/pfres-1 - the same space background_get_pixel/
@@ -1525,9 +1514,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Number',
     'colour': BACKGROUND_COLOR,
     'extensions': ['background_convert_column_sync'],
-    'tooltip': `Converts a playfield pixel column (0-31, 0-39, 0-63 or 0-119 with a wider PXE playfield) or row to the matching Player/Missile/Ball X or ` +
-      `Y coordinate. Under DPC+, when the four playfield columns of a background have separate rows, a row means the rows of the playfield column ` +
-      `that the column (0-31, the empty one is the first column) is in.`,
+    'tooltip': 'Converts a playfield pixel column (0-31, 0-39, 0-63 or 0-119 with a wider PXE playfield) or row to the matching Player/Missile/Ball X or Y coordinate. Under DPC+, when the four playfield columns of a background have separate rows, a row means the rows of the playfield column that the column (0-31) is in.',
   },
   {
     'type': `background_sprite_to_pixel`,
@@ -1560,9 +1547,7 @@ Blockly.defineBlocksWithJsonArray([
     'output': 'Number',
     'colour': BACKGROUND_COLOR,
     'extensions': ['background_convert_column_sync'],
-    'tooltip': `Converts a Player/Missile/Ball X or Y coordinate to the matching playfield pixel column ` +
-      `(0-31) or row. Under DPC+, when the four playfield columns of a background have separate rows, a row means the rows of the playfield column ` +
-      `that the column (0-31, the empty one is the first column) is in.`,
+    'tooltip': 'Converts a Player/Missile/Ball X or Y coordinate to the matching playfield pixel column (0-31) or row. Under DPC+, when the four playfield columns of a background have separate rows, a row means the rows of the playfield column that the column (0-31) is in.',
   },
   // Given a sprite that just registered a hardware collision with the
   // Playfield (see collision_get/collision_check_position in blocks/
@@ -1601,12 +1586,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Works out which exact playfield column/row the chosen sprite is touching right now ` +
-      `- place this right after a "Collided <sprite> and Playfield" check. "Moving right"/"moving ` +
-      `down" should reflect the sprite's CURRENT direction of travel (wire in whatever variable ` +
-      `already tracks that) - used to pick the right neighboring pixel if the sprite's exact position ` +
-      `doesn't land precisely on a playfield pixel. Read the result with "Playfield collision column" ` +
-      `/ "Playfield collision row" right after this runs.`,
+    'tooltip': 'Finds which playfield column/row the chosen sprite is touching. Place it right after a "Collided <sprite> and Playfield" check. "Moving right"/"moving down" should match the sprite\'s current direction (use the variable that tracks it). Read the result with "Playfield collision column" / "Playfield collision row".',
   },
   // The same block, but taking one direction of travel instead of the two
   // "moving right"/"moving down" true/false inputs, so every direction works
@@ -1637,13 +1617,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Works out which exact playfield column/row the chosen sprite is touching right now ` +
-      `- place this right after a "Collided <sprite> and Playfield" check. "Moving in direction" is ` +
-      `the way the sprite is travelling: 0 Up, 1 Up-Right, 2 Right, 3 Down-Right, 4 Down, 5 Down-Left, ` +
-      `6 Left, 7 Up-Left (the same numbers as the Fire block's angle and the joystick direction ` +
-      `block), or 255 for no direction. It is used to pick the right neighboring pixel if the ` +
-      `sprite's exact position doesn't land precisely on a playfield pixel. Read the result with ` +
-      `"Playfield collision column" / "Playfield collision row" right after this runs.`,
+    'tooltip': 'Finds which playfield column/row the chosen sprite is touching. Place it right after a "Collided <sprite> and Playfield" check. "Moving in direction": 0 Up, 1 Up-Right, 2 Right, 3 Down-Right, 4 Down, 5 Down-Left, 6 Left, 7 Up-Left (as the Fire block angle and joystick direction), or 255 for none. Read the result with "Playfield collision column" / "Playfield collision row".',
   },
   {
     'type': `background_collision_pixel_column`,
@@ -1651,8 +1625,7 @@ Blockly.defineBlocksWithJsonArray([
     'args0': [],
     'output': 'Number',
     'colour': BACKGROUND_COLOR,
-    'tooltip': `The playfield column (0-31, 0-39, 0-63 or 0-119 with a wider PXE playfield) found by the last "Find playfield pixel collided with" ` +
-      `block that ran - meaningless if read before that block has run this frame.`,
+    'tooltip': 'The playfield column (0-31, 0-39, 0-63 or 0-119 with a wider PXE playfield) found by the last "Find playfield pixel collided with" block. Meaningless before that block has run this frame.',
   },
   {
     'type': `background_collision_pixel_row`,
@@ -1660,8 +1633,7 @@ Blockly.defineBlocksWithJsonArray([
     'args0': [],
     'output': 'Number',
     'colour': BACKGROUND_COLOR,
-    'tooltip': `The playfield row found by the last "Find playfield pixel collided with" block that ` +
-      `ran - meaningless if read before that block has run this frame.`,
+    'tooltip': 'The playfield row found by the last "Find playfield pixel collided with" block. Meaningless before that block has run this frame.',
   },
   // Per-row color noise for the playfield, the background twin of the player
   // "rainbow colors" block.
@@ -1681,14 +1653,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
     'extensions': ['rainbow_legacy_hues'],
-    'tooltip': `Gives every playfield row a different color, reading real ROM bytes the same way ` +
-      `the player "rainbow colors" block does. Leave "offset" unplugged for an automatically ` +
-      `shimmering pattern (it defaults to the frame counter), or plug in a number to hold or ` +
-      `scroll the pattern yourself. "Colors from ... to" keeps the colors to a range of color values (0 to 255, it can go round; 0 to 15 is the shades of gray, ` +
-      `16 to 31 the shades of gold, and so on; a range of more than 64 values is sampled); 0 to 255 leaves them as they are. A block saved with a span of hues keeps it ` +
-      `(shown after the numbers; the numbers do not apply while it is set) until one of its hues is set to "any hue". Needs "Playfield row colors" turned on in Options; with it ` +
-      `off this block does nothing. Loading a background restores that background's row colors ` +
-      `only until the next frame, so use "Stop background rainbow colors" to go back to its row colors.`,
+    'tooltip': 'Gives every playfield row a different color. Leave "offset" unplugged for a shimmering pattern (it follows the frame counter), or plug in a number to hold or scroll the pattern. "Colors from ... to" limits the colors to a range of values (0 to 255, it can go round; 0 to 15 is grays, 16 to 31 golds, and so on; a range over 64 values is sampled); 0 to 255 leaves them as they are. A block saved with a span of hues keeps it (shown after the numbers; the numbers do not apply while it is set) until a hue is set to "any hue". Needs "Playfield row colors" on in Options, or it does nothing. Loading a background restores its row colors only until the next frame: use "Stop background rainbow colors" to go back to them.',
   },
   {
     'type': `background_rainbow_colors_stop`,
@@ -1697,19 +1662,17 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Stops "Playfield rainbow colors" and puts the playfield rows back to the row colors of the ` +
-      `background that is loaded (the colors set for it in the Background tab). The playfield pixels ` +
-      `are left alone.`,
+    'tooltip': 'Stops "Playfield rainbow colors" and puts the rows back to the loaded background\'s row colors (Background tab). Pixels are left alone.',
   },
   // Block for clearing every playfield pixel at once
   {
     'type': `background_clear`,
-    'message0': `${BACKGROUND_ICON} Playfield clear all pixels`,
+    'message0': `${BACKGROUND_ICON} Playfield clear`,
     'args0': [],
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Turns off every playfield pixel, the same as batari Basic's "pfclear".`,
+    'tooltip': 'Turns off every playfield pixel (batari Basic\'s "pfclear").',
   },
   // Read-only - how far Up/Down scrolling has moved the CURRENTLY shown
   // background from its top row (0 = top, at most that background's
@@ -1723,9 +1686,7 @@ Blockly.defineBlocksWithJsonArray([
     'args0': [],
     'output': 'Number',
     'colour': BACKGROUND_COLOR,
-    'tooltip': `How many rows Up/Down scrolling has moved the currently shown background from its top ` +
-      `row (0 = top). Only updated by "Playfield scroll" blocks using Up/Down/Up (2x)/Down (2x) - Left/` +
-      `Right don't affect it. Resets to 0 whenever a different background is switched to.`,
+    'tooltip': 'How many rows Up/Down scrolling has moved the shown background from its top row (0 = top). Only "Playfield scroll" blocks using Up/Down/Up (2x)/Down (2x) change it. Resets to 0 when a different background is switched to.',
   },
   // Jumps the scroll position to a chosen row instead of always starting at
   // the top - see this block's generator in generators/bbasic/background.js.
@@ -1743,12 +1704,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Moves the scroll to start at this row of the background (0 = the top, the default). For ` +
-      `example, with a 64-row background and a 12-row screen, 32 shows rows 32 to 43. A row past the ` +
-      `last scrollable one is clamped to it. Only does anything for a background taller than the ` +
-      `screen. Works whether it comes before or after a "Set background" block in the same event, and ` +
-      `sprites that follow the scroll aren't moved. Use it right after switching backgrounds, or ` +
-      `later to jump the view.`,
+    'tooltip': 'Starts the scroll at this row of the background (0 = top, the default); with a 64-row background and a 12-row screen, 32 shows rows 32 to 43. A row past the last scrollable one is clamped. Only does anything for a background taller than the screen. Works before or after a "Set background" block in the same event; sprites that follow the scroll are not moved.',
   },
   // The playfield tilemap (DPC+, the Options tab's "Keep backgrounds as tiles"): one tile put in while the game runs.
   {
@@ -1763,11 +1719,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Puts a tile in the playfield (DPC+ with "Keep backgrounds as tiles" on, Options tab): column 0 to 3 (each 8 pixels wide, from ` +
-      `the left; 0 to 7, each 4 pixels wide, with 4-pixel tiles), row the playfield row (the tile that has that row is replaced), tile its number (shown by the tile tool of the Playfield tab). ` +
-      `The tile numbers come from the backgrounds and can change when a background is edited. Add 128 to a tile number for the tile flipped left ` +
-      `to right (when there are 128 tiles or fewer). On the standard kernel a tile is kept for the column it is in (the numbers the Tiles button ` +
-      `shows there), and adding 128 does not flip it. Collision and the pixel blocks see the new tile.`,
+    'tooltip': 'Puts a tile in the playfield (DPC+ with "Keep backgrounds as tiles" on, Options tab): column 0 to 3 (each 8 pixels wide; 0 to 7, each 4 pixels wide, with 4-pixel tiles), the playfield row (the tile with that row is replaced), and the tile number (shown by the tile tool of the Playfield tab). Tile numbers come from the backgrounds and can change when one is edited. Add 128 to flip a tile left to right (with 128 tiles or fewer). On the standard kernel a tile is kept for its column (numbers as in the Tiles button) and adding 128 does not flip it. Collision and pixel blocks see the new tile.',
   },
   // Back to the top row: the same as "Set playfield scroll to row" 0.
   {
@@ -1777,9 +1729,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': `Puts the playfield back exactly as it was before it scrolled: the top row of the background at the top, as it is when a ` +
-      `background is switched to (the same as "Set playfield scroll to row" 0), with the pixels drawn on the playfield since kept where ` +
-      `they were drawn. Works whether it comes before or after a "Set background" block in the same event, and sprites that follow the scroll aren't moved.`,
+    'tooltip': 'Puts the playfield back as before it scrolled: the top row of the background at the top (the same as "Set playfield scroll to row" 0), keeping pixels drawn since. Works before or after a "Set background" block in the same event; sprites that follow the scroll are not moved.',
   },
   // Block for drawing the screen
   {
@@ -1816,11 +1766,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': 'Vibrates the whole screen up and down by one scanline, every other frame, for roughly ' +
-      'this many frames (at most 127; a longer count is shortened to 127), then stops automatically. Only needs to be triggered once - the shake keeps ' +
-      'running by itself every frame afterward, even from inside an "if" block that only briefly ' +
-      'becomes true, same as "Fade color to". Triggering it again while already shaking restarts the ' +
-      'countdown at the new frame count, rather than stacking.',
+    'tooltip': 'Vibrates the screen up and down one scanline, every other frame, for roughly this many frames (at most 127; a longer count becomes 127), then stops. Trigger it once; it keeps running every frame, even from an "if" that is only briefly true. Triggering it again while shaking restarts the countdown.',
   },
   // DPC+ only (see blockly-toolbox.xml.hbs's own {{#if kernelIsDpcPlus}}
   // gate) - the standard kernel derives its playfield row height from
@@ -1845,13 +1791,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': 'DPC+ only: sets how many scanlines tall each playfield row is drawn - unlike the ' +
-      'standard kernel, DPC+ has no built-in default for this, so a block like this needs to run ' +
-      'somewhere (once at startup is enough) or the playfield renders at whatever height happens to ' +
-      'be left in RAM. Also controls per-row playfield/background color resolution if either is ' +
-      'enabled (Options tab) - they stay locked to this same row height. Running this again with a ' +
-      'different value re-flows every row live, which is exactly how DPC+ projects implement things ' +
-      'like a title screen with different proportions than the main game.',
+    'tooltip': 'DPC+ only: sets how many scanlines tall each playfield row is. DPC+ has no default, so run this somewhere (once at startup is enough) or the height is whatever is left in RAM. Per-row playfield/background color resolution (Options tab) follows this height. Running it again with a different value re-flows every row live.',
   },
 ]);
 
@@ -1891,9 +1831,7 @@ Blockly.Blocks['background_fade_finished'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(BACKGROUND_COLOR);
-    this.setTooltip('Runs the connected blocks once, the moment a matching "Fade" block (same Background/' +
-      'Playfield choice) reaches its target color. Does nothing if no matching fade ever runs anywhere ' +
-      'in the project.');
+    this.setTooltip('Runs the blocks inside once when a matching "Fade" block (same Background/Playfield choice) reaches its target color. Does nothing if no matching fade runs in the project.');
   },
 };
 
@@ -1913,9 +1851,7 @@ Blockly.Blocks['background_scroll_edge_reached'] = {
     this.setPreviousStatement(true);
     this.setNextStatement(true);
     this.setColour(BACKGROUND_COLOR);
-    this.setTooltip('Runs the connected blocks once, each time a "Playfield scroll" (Up/Down) moves the ' +
-      'view onto the top row or the bottom row of the current background. Reaching the edge by "Set ' +
-      'background scroll to row" or by switching backgrounds does not count.');
+    this.setTooltip('Runs the blocks inside once each time a "Playfield scroll" (Up/Down) moves the view onto the top or bottom row of the current background. Reaching the edge by "Set background scroll to row" or by switching backgrounds does not count.');
   },
 };
 
@@ -1936,7 +1872,6 @@ Blockly.Blocks['background_fade_active'] = {
         .appendField(`${COLOR_ICON} color fade active?`);
     this.setOutput(true, 'Boolean');
     this.setColour(BACKGROUND_COLOR);
-    this.setTooltip('True while the Background or Playfield color is in the middle of a "Fade" - from the ' +
-      'moment a "Fade" block triggers it until it reaches its target color, false the rest of the time.');
+    this.setTooltip('True from when a "Fade" block starts a fade of the Background or Playfield color until it reaches its target, false otherwise.');
   },
 };
