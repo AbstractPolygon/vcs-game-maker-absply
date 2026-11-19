@@ -2,8 +2,9 @@
 # Builds the DPC+ coprocessor programs that are kept in the ROM as data (public/bb19/includes/custom/prog, see src/generators/bbasic/offset-arm.js):
 # one for each set of the functions of armprog.c, named by the letters of the sets it has (o offset, b box test, c circle, p pixel finding and bounce,
 # f fire movement, a sound engine, t playfield tilemap, n its 4-pixel tiles (only with t), r backgrounds as runs (never with t: a build keeps one
-# or the other), in that order), then g for the build with -DGROUPS. The sets left out are given as -DNOOFFSET -DNOBOX -DNOCIRCLE -DNOPIX -DNOFIRE
-# -DNOAUDIO -DNOTILES -DNONARROW -DNORUNS.
+# or the other), k the Generate terrain block (function 113), in that order), then g for the build with -DGROUPS. The sets left out are given as -DNOOFFSET -DNOBOX -DNOCIRCLE -DNOPIX -DNOFIRE
+# -DNOAUDIO -DNOTILES -DNONARROW -DNORUNS -DNOTERRAIN.
+# FROM=<first set number> builds only the programs from that number of the sets up (512: the ones with k, the others were built before k was added and a build with -DNOTERRAIN of them is the same).
 # usage: TC=<the bin folder of arm-none-eabi-gcc 10.3> sh tools/armprog/build.sh [out folder, default public/bb19/includes/custom/prog]
 cd "$(dirname "$0")/../.." || exit 1
 TC="${TC:-/c/tmp/armtc/x/gcc-arm-none-eabi-10.3-2021.10/bin}"
@@ -14,8 +15,8 @@ mkdir -p "$OUT"
 # The linker script: the entry first, at 0 (the program is position independent).
 # (The Fire table's place, FT in armprog.c, last: the generator puts the project's table over it, see fillArmProgram in src/generators/bbasic/offset-arm.js.)
 echo 'SECTIONS { . = 0; .text : { *(.text.entry) *(.text*) *(.rodata*) *(.data*) *(.firetab) } }' > "$WORK/l.ld"
-LETTERS="o b c p f a t n r"
-flag() { case $1 in o) echo NOOFFSET;; b) echo NOBOX;; c) echo NOCIRCLE;; p) echo NOPIX;; f) echo NOFIRE;; a) echo NOAUDIO;; t) echo NOTILES;; n) echo NONARROW;; r) echo NORUNS;; esac; }
+LETTERS="o b c p f a t n r k"
+flag() { case $1 in o) echo NOOFFSET;; b) echo NOBOX;; c) echo NOCIRCLE;; p) echo NOPIX;; f) echo NOFIRE;; a) echo NOAUDIO;; t) echo NOTILES;; n) echo NONARROW;; r) echo NORUNS;; k) echo NOTERRAIN;; esac; }
 # One program into $1 (a file) with the defines in $2: each step's file is deleted first, so a step that writes nothing can not leave the one before.
 compile() {
   rm -f "$WORK/p.o" "$WORK/p.elf" "$1"
@@ -27,7 +28,7 @@ compile() {
 # (Twice the build has made one program a few bytes different from a compile of it alone, not seen again: each program is compiled twice and
 # kept when both are the same; when they are not, a third time, and the one two of them agree on is kept, with a warning.)
 n=0
-for mask in $(seq 1 511); do
+for mask in $(seq "${FROM:-1}" 1023); do
   # (n is only built with t, r never with t.)
   [ $(( mask & 192 )) -eq 128 ] && continue
   [ $(( mask & 320 )) -eq 320 ] && continue

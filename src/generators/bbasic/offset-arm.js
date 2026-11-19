@@ -12,14 +12,14 @@ export const OFFSET_ARM_FUNCTION = {alternate: 68, left: 69, right: 70, up: 71, 
 
 // The program is one of the files of public/bb19/includes/custom/prog, each made from armprog.c for the set of its functions a project needs: the letters of its
 // name are o (the Playfield offset block), b (the playfield box test), c (the circle block), p (the pixel finding and the bounce of the ball and the missiles),
-// f (the movement of an object a Fire block launched with the playfield check on), a (the DPC+ sound engine: the waveform rebuild and the volume mix, functions 104 and 105), t (the playfield tilemap, functions 106 and 108 to 111), n (its 4-pixel tiles, only with t) and r (the backgrounds kept as runs, function 112, never with t) in that order, then g when the groups of columns have separate rows. Built with arm-none-eabi-gcc 10.3 as
+// f (the movement of an object a Fire block launched with the playfield check on), k (the Generate terrain block, function 113), a (the DPC+ sound engine: the waveform rebuild and the volume mix, functions 104 and 105), t (the playfield tilemap, functions 106 and 108 to 111), n (its 4-pixel tiles, only with t) and r (the backgrounds kept as runs, function 112, never with t) in that order, then g when the groups of columns have separate rows. Built with arm-none-eabi-gcc 10.3 as
 // `-c -Os -mcpu=arm7tdmi -mthumb -fPIC` with -DNOOFFSET, -DNOBOX, -DNOCIRCLE, -DNOPIX, -DNOFIRE, -DNOAUDIO, -DNOTILES, -DNONARROW and -DNORUNS for the sets it does not have and -DGROUPS, linked with a script that
 // puts .text.entry first, and turned into a binary with objcopy. Only the functions of a project are in its ROM.
 // The generated code only has a line that names the file and the numbers of the project's rows (see fillArmProgram, which is run on the code before it is compiled).
 // The four bytes A5 5A C3 3C near the end of a program that has a box test, an offset or a circle are put over by those numbers: the increment of a line to its row, the last
 // row, whether a line is held to 191 first, and whether the groups of columns have separate rows, in which case the increment and last row
 // of each group are in the display memory instead, see GROUP_ROWS_TABLE_OFFSET.
-export const armProgramKey = (rows, features = 'ob') => `${['o', 'b', 'c', 'p', 'f', 'a', 't', 'n', 'r'].filter((f) => features.includes(f)).join('')}${rows && rows.groups ? 'g' : ''}`;
+export const armProgramKey = (rows, features = 'ob') => `${['o', 'b', 'c', 'p', 'f', 'a', 't', 'n', 'r', 'k'].filter((f) => features.includes(f)).join('')}${rows && rows.groups ? 'g' : ''}`;
 const ARM_PROGRAM_LINE = /^[ \t]*;ARM_PROGRAM (\S+) (\d+) (\d+) (\d) (\d)[ \t\r]*$/m;
 
 // The subroutine that holds the program (only data; never called). rows: the numbers of the project's rows for the box test (see above).
@@ -39,7 +39,7 @@ const armProgramState = new WeakMap();
 export const ensureArmProgram = (Blockly, rows, features = '') => {
   const subroutines = Blockly.BBasic.subroutines;
   const state = armProgramState.get(subroutines) || {rows: undefined, features: ''};
-  const wanted = {rows: rows || state.rows, features: ['o', 'b', 'c', 'p', 'f', 'a', 't', 'n', 'r'].filter((f) => features.includes(f) || state.features.includes(f)).join('')};
+  const wanted = {rows: rows || state.rows, features: ['o', 'b', 'c', 'p', 'f', 'a', 't', 'n', 'r', 'k'].filter((f) => features.includes(f) || state.features.includes(f)).join('')};
   if (subroutines[ARM_PROGRAM_SUBROUTINE] && wanted.rows === state.rows && wanted.features === state.features) return;
   armProgramState.set(subroutines, wanted);
   subroutines[ARM_PROGRAM_SUBROUTINE] = buildArmProgramBody(wanted.rows, wanted.features);
@@ -121,6 +121,18 @@ export const buildGroupRowsLoad = (increments, lastRows) => [
 // The lines of a Playfield circle block: the coprocessor is given the place of the program, then the function (96 plus 0 set, 1 clear, 2 flip), the
 // center column and row, the radius, the padding of the left, right, top and bottom, and the last row of the playfield. Each operand is an operand of lda.
 export const OFFSET_ARM_CIRCLE_FUNCTION = {on: 96, off: 97, flip: 98};
+// The lines of a Generate terrain block (function 113 of armprog.c, the set k): the coprocessor is given the place of the program, then the function, the side, the
+// least and the most height, the roughness, the overhangs and caves packed, the random number the terrain starts from, the last row and the last column. Each operand
+// is an operand of lda. The whole terrain is drawn in the call.
+export const OFFSET_ARM_TERRAIN_FUNCTION = 113;
+export const buildTerrainArmCall = ({side, least, most, rough, packed, seed, lastRow, lastColumn}) => [
+  'asm',
+  'lda #<C_function', 'sta DF0LOW', 'lda #(>C_function) & $0F', 'sta DF0HI',
+  ...[`#${OFFSET_ARM_TERRAIN_FUNCTION}`, side, least, most, rough, packed, seed, `#${lastRow}`, `#${lastColumn}`].flatMap((operand) => [`lda ${operand}`, 'sta DF0WRITE']),
+  'lda #255', 'sta CALLFUNCTION',
+  '@end',
+].join('\n');
+
 export const buildCircleArmCall = ({operation, cx, cy, radius, padLeft, padRight, padTop, padBottom, last}) => [
   'asm',
   'lda #<C_function', 'sta DF0LOW', 'lda #(>C_function) & $0F', 'sta DF0HI',

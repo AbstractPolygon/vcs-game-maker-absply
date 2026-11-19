@@ -15,12 +15,9 @@ export const SCORE_LAYOUTS = {
 export const scoreLayoutOf = (config) => {
   const layout = SCORE_LAYOUTS[config.scoreLayout] ? config.scoreLayout : 'normal';
   if (layout === 'normal') return 'normal';
-  if (config.kernel === 'dpcplus' || isPxe(config) || (config.showScore ?? true) === false) return 'normal';
+  if (!scoreLayoutUsable(config)) return 'normal';
   return layout;
 };
-
-// The asm file of the layout (null for the normal score).
-export const scoreLayoutFile = (config) => SCORE_LAYOUTS[scoreLayoutOf(config)].file;
 
 // The amount that one point of the left score adds to the score (1000 for 3+3, 100 for 4+2 and 10 for 5+1), and the largest right score (999, 99, 9).
 export const scoreLayoutLeftUnit = (layout) => 10 ** SCORE_LAYOUTS[layout].right;
@@ -30,7 +27,7 @@ export const scoreLayoutRightMax = (layout) => 10 ** SCORE_LAYOUTS[layout].right
 // scoreLayoutBkColorLines in score.js) go right after that label, as the project's score routine for the standard kernel does.
 export const withScoreLayoutBkColor = (text, generator) => {
   const lines = text.split(/\r?\n/);
-  const at = lines.findIndex((line) => /^minikernel[0-9]*$/.test(line.trim()));
+  const at = lines.findIndex((line) => /^minikernel[a-z0-9]*$/.test(line.trim()));
   if (at < 0) throw new Error('the score minikernel has no minikernel label');
   lines.splice(at + 1, 0, ...generator.scoreLayoutBkColorLines().split('\n'));
   return lines.join('\n');
@@ -39,10 +36,31 @@ export const withScoreLayoutBkColor = (text, generator) => {
 // Several layouts in one project: the Score tab's layout (index 0, shown from the start) and every other two score layout a "Set score layout" block
 // names, in the order of SCORE_LAYOUTS. Only these layouts' minikernels are put in the ROM. [] where no two score layout can be used; one entry is
 // the plain case with one minikernel and nothing to switch.
+// The one score layout (normal) can be one of them: it is then drawn by a routine made from the score code of the standard kernel (scoreNormalMinikernelFrom),
+// so that the kernel can leave it out (noscore) and call the dispatcher. A project that names no other layout has no list at all.
 export const scoreLayoutKeysOf = (config, used = []) => {
+  if (!scoreLayoutUsable(config)) return [];
   const first = scoreLayoutOf(config);
-  if (first === 'normal') return [];
-  return [first, ...Object.keys(SCORE_LAYOUTS).filter((key) => key !== 'normal' && key !== first && used.includes(key))];
+  const others = Object.keys(SCORE_LAYOUTS).filter((key) => key !== first && used.includes(key));
+  if (first === 'normal' && !others.length) return [];
+  return [first, ...others];
+};
+
+// Where a layout's layouts can be used at all: the standard kernel with the score showing.
+export const scoreLayoutUsable = (config) => !(config.kernel === 'dpcplus' || isPxe(config) || (config.showScore ?? true) === false);
+
+// The name of a layout's asm file in the ROM (the one score layout has no file of batari's: it is made from the kernel, see below).
+export const scoreLayoutFileOf = (layout) => (layout === 'normal' ? 'scorenormal.asm' : SCORE_LAYOUTS[layout].file);
+
+// The standard kernel's score code (between ifnconst noscore and its endif) as a routine named minikernel, for the one score layout in a ROM that
+// leaves that code out (noscore) because it switches layouts. The kernel's text is used as it is, so the score has what that code has (score bars, fade,
+// the 5 digit switch). The routine ends with rts where the kernel's code falls through.
+export const scoreNormalMinikernelFrom = (kernelText) => {
+  const lines = kernelText.split(/\r?\n/);
+  const start = lines.findIndex((line) => /^\s*ifnconst noscore\s*$/.test(line));
+  const end = lines.findIndex((line, i) => i > start && /^\s*endif ;noscore/.test(line));
+  if (start < 0 || end < 0) throw new Error('the standard kernel has no score code between ifnconst noscore and endif');
+  return ['minikernel', ...lines.slice(start + 1, end), ' rts'].join('\n');
 };
 
 // The label of a layout's routine when more than one is in the ROM (the dispatcher keeps the name minikernel).

@@ -1,6 +1,8 @@
 import * as Blockly from 'blockly/core';
 
 import {DICE_ICON} from './icon';
+import {registerExtension} from './extension';
+import {useConfigurationStorage} from '../hooks/project';
 
 const RAND_OPTIONS = [
   ['0 to 1', '(rand/128)'],
@@ -65,6 +67,24 @@ Blockly.defineBlocksWithJsonArray([
 // seeding both with the exact same byte would only ever reach 256 of
 // rand16's  65,536 possible combined starting states, since the two
 // would always start in lockstep.
+// The second number of "Set random seed" (and the word before it) only has a use on DPC+: it is hidden with any other kernel (the way the column of the
+// background blocks is, see background_scroll_direction_sync in blocks/background.js).
+registerExtension('random_seed_second_sync', function() {
+  // eslint-disable-next-line no-invalid-this
+  const block = this;
+  const apply = () => {
+    const input = block.getInput('SEED2');
+    if (!input || block.disposed || !block.workspace || !block.workspace.rendered) return;
+    const wanted = ((useConfigurationStorage() || {}).value || {}).kernel === 'dpcplus';
+    if (input.isVisible() === wanted) return;
+    input.setVisible(wanted);
+    if (typeof block.queueRender === 'function') block.queueRender();
+    else if (typeof block.render === 'function') block.render();
+  };
+  block.setOnChange(apply);
+  setTimeout(apply, 0);
+});
+
 Blockly.defineBlocksWithJsonArray([
   {
     'type': `random_seed_set`,
@@ -86,6 +106,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'icon': DICE_ICON,
     'colour': 'purple',
+    'extensions': ['random_seed_second_sync'],
     'tooltip': `Reseeds the random number generator so "Random" blocks do not repeat the same sequence every start. Clamped to 0-255. Seed it with a value that differs between playthroughs. The second number is for DPC+ only (0-255): it fills the other two bytes of the 32-bit generator, so DPC+ has 65536 starts; 0 and other kernels ignore it.`,
   },
 ]);

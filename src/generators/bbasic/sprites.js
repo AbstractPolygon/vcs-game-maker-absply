@@ -576,6 +576,11 @@ export const inertiaDecelActiveBit = (name) => flagPoolBit(INERTIA_DECEL_FLAGS_F
 export const OBJECT_GRAVITY_FLAGS_FAMILY = 'objectGravityFlags';
 export const objectGravityFlagsVarName = () => flagPoolVar(OBJECT_GRAVITY_FLAGS_FAMILY);
 export const objectGravityBit = (name) => flagPoolBit(OBJECT_GRAVITY_FLAGS_FAMILY, spriteOwnBit(name));
+// Start gravity turns the gravity on in the first frame it runs and not while it keeps running every frame: a Start sets the "ran" bit of the object, and
+// turns the gravity on when the bit was not set at the end of the last frame (once a frame, in generateGravityChecks, the bits move from "ran" to "ran last frame").
+export const OBJECT_GRAVITY_RAN_FAMILY = 'objectGravityRan';
+export const OBJECT_GRAVITY_RAN_LAST_FAMILY = 'objectGravityRanLast';
+const gravityRanRef = (Blockly, family, name) => `${Blockly.BBasic.nameDB_.getName(flagPoolVar(family), Blockly.Names.DEVELOPER_VARIABLE_TYPE)}{${flagPoolBit(family, spriteOwnBit(name))}}`;
 export const objectGravitySpeedVarName = (name) => `${name}GravitySpeed`;
 export const OBJECT_GRAVITY_FIELDS = ['pull', 'max', 'keep', 'angle'];
 // One byte for each object: the eighths of a pixel of the fall speed (bits 0 to 2) and the eighths of a pixel of position not moved yet (bits 3 to 5).
@@ -2380,6 +2385,8 @@ const buildFinePositionStepAsm = (posVar, intVar, fracVar, posFracVar) => [
 export const reserveGravityDevVars = (Blockly, reserveDevVar, reserveDevVarRW, usedFor) => {
   if (!usedFor || !usedFor.size) return;
   reserveDevVar(objectGravityFlagsVarName(), undefined, 'shared active-bit byte for objects with gravity');
+  reserveDevVar(flagPoolVar(OBJECT_GRAVITY_RAN_FAMILY), undefined, 'a Start gravity block ran for the object in this frame (a bit for each object)');
+  reserveDevVar(flagPoolVar(OBJECT_GRAVITY_RAN_LAST_FAMILY), undefined, 'a Start gravity block ran for the object in the last frame (a bit for each object)');
   usedFor.forEach((name) => {
     reserveDevVarRW(objectGravitySpeedVarName(name), 'fall speed of this object with gravity (signed, whole pixels a frame)');
     reserveDevVarRW(objectGravityFineVarName(name), 'gravity of this object: the eighths of a pixel of its fall speed (bits 0-2) and of its position (bits 3-5)');
@@ -2464,6 +2471,12 @@ export const generateGravityChecks = (Blockly) => {
   // (The quarter turn table of a direction other than down: the Accelerate code writes it when that has an any direction too.)
   const anyAngle = [...used].some((name) => objectGravityConstant(Blockly, name, 'angle') !== 128);
   const lines = anyAngle && !(Blockly.BBasic.inertiaAccelAnyUsedFor || new Set()).size ? [...inertiaSineTable()] : [];
+  // (What the Start blocks ran for in this frame becomes what they ran for in the last one.)
+  used.forEach((name) => {
+    const ran = gravityRanRef(Blockly, OBJECT_GRAVITY_RAN_FAMILY, name);
+    const last = gravityRanRef(Blockly, OBJECT_GRAVITY_RAN_LAST_FAMILY, name);
+    lines.push(` ${last} = 0`, ` if ${ran} then ${last} = 1`, ` ${ran} = 0`);
+  });
   used.forEach((name) => {
     const speed = Blockly.BBasic.superchipRwPairs[objectGravitySpeedVarName(name)];
     const fine = Blockly.BBasic.superchipRwPairs[objectGravityFineVarName(name)];
@@ -3583,8 +3596,14 @@ ${originLines}`;
       `${flagsVar}{${activeBit}} = 1\n`;
   };
 
-  // Gravity: Start sets the numbers the Gravity blocks of the object do not all give alike (in bytes), sets the fall speed to 0 and turns it on; Stop turns it off and
-  // sets the fall speed to 0 (the object stops falling at once).
+  // Gravity: Start sets the numbers the Gravity blocks of the object do not all give alike (in bytes) and turns the gravity on, in the first frame it runs: a Start
+  // that runs again every frame sets nothing to 0 and turns nothing on again (see OBJECT_GRAVITY_RAN_FAMILY). Stop turns the gravity off and sets the fall speed
+  // to 0 (the object stops falling at once), and it stays off until a Start runs again after a frame it did not.
+  const gravityStartLines = (name) => {
+    const label = `_gravstart_${Blockly.BBasic.blockNumbers.next('gravstart')}_on`;
+    const flagsVar = Blockly.BBasic.nameDB_.getName(objectGravityFlagsVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+    return `${gravityRanRef(Blockly, OBJECT_GRAVITY_RAN_FAMILY, name)} = 1\nif ${gravityRanRef(Blockly, OBJECT_GRAVITY_RAN_LAST_FAMILY, name)} then goto ${label}\n${flagsVar}{${objectGravityBit(name)}} = 1\n@ ${label}\n`;
+  };
   Blockly.BBasic['object_gravity'] = function(block) {
     const name = block.getFieldValue('OBJECT');
     const flagsVar = Blockly.BBasic.nameDB_.getName(objectGravityFlagsVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
@@ -3609,20 +3628,19 @@ ${fine.write} = 0
     setField('max', Blockly.BBasic.valueToCode(block, 'MAXFALL', Blockly.BBasic.ORDER_ASSIGNMENT) || '4');
     setField('keep', `${Number(block.getFieldValue('BOUNCE')) || 0}`);
     setField('angle', `(${Blockly.BBasic.valueToCode(block, 'ANGLE', Blockly.BBasic.ORDER_ASSIGNMENT) || '128'}) & 255`);
-    return lines.map((line) => line + String.fromCharCode(10)).join('') + `${speed.write} = 0
-${fine.write} = 0
-${flagsVar}{${bit}} = 1
-`;
+    return lines.map((line) => line + String.fromCharCode(10)).join('') + gravityStartLines(name);
   };
 
   // Gravity start and stop without the numbers: Start turns the object's gravity on (the fall speed 0), Stop turns it off; nothing for an object no Gravity block uses.
   Blockly.BBasic['object_gravity_control'] = function(block) {
-    const name = block.getFieldValue('OBJECT');
+    // "Colliding sprite": the sprite whose collision started, in the blocks of a When ... collide block (made for each sprite when it says Any sprite).
+    const name = block.getFieldValue('OBJECT') === 'colliding' ? Blockly.BBasic.collidingSprite : block.getFieldValue('OBJECT');
+    if (!name) return '';
     if (!Blockly.BBasic.objectGravityUsedFor || !Blockly.BBasic.objectGravityUsedFor.has(name)) return '';
     const flagsVar = Blockly.BBasic.nameDB_.getName(objectGravityFlagsVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
     const speed = Blockly.BBasic.superchipRwPairs[objectGravitySpeedVarName(name)];
-    const on = block.getFieldValue('ACTION') === 'stop' ? 0 : 1;
-    return `${speed.write} = 0\n${Blockly.BBasic.superchipRwPairs[objectGravityFineVarName(name)].write} = 0\n${flagsVar}{${objectGravityBit(name)}} = ${on}\n`;
+    if (block.getFieldValue('ACTION') !== 'stop') return gravityStartLines(name);
+    return `${speed.write} = 0\n${Blockly.BBasic.superchipRwPairs[objectGravityFineVarName(name)].write} = 0\n${flagsVar}{${objectGravityBit(name)}} = 0\n`;
   };
 
   // Reflects whichever movement system(s) the chosen object actually uses

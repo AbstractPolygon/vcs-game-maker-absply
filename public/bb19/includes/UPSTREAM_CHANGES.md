@@ -253,3 +253,20 @@ change to it); the files define that routine, and are inlined in the kernel's ba
 set the background color of the score row (`sta WSYNC`, `lda backgroundrealcolor` or the chosen color, `sta COLUBK`) are put after the `minikernel` label, because the files
 do not set it, and the project's `minikernel` routine for the score row color is not written (the label would be defined twice). The files keep working with the
 standard kernel only (DPC+ and PXE draw the score another way, so the setting is off there). `includes-manifest.json` is not affected: no file of `includes/` changed.
+
+## Several score layouts and the one score layout in the minikernels (no file of `includes/` changed)
+
+With more than one score layout in a project (a Set score layout block) the build gives each fetched minikernel file its labels with the layout's name added and puts a
+dispatcher named `minikernel` in front of them (`withScoreLayoutLabels`, `scoreLayoutDispatcherAsm` in `src/generators/bbasic/score-layout.js`; `addScoreLayoutFiles` in
+`src/hooks/rom.js`). The one score layout is made from `std_kernel.asm` in memory: the lines between `ifnconst noscore` and its `endif`, as a routine named
+`minikernel` that ends with `rts` (`scoreNormalMinikernelFrom`). No kernel file is edited.
+
+## `custom/armprog.c`: the Generate terrain function (113) and the set k
+
+`public/bb19/includes/custom/armprog.c` has a new function for the DPC+ coprocessor, number 113, the Generate terrain block drawn in one call (`terrain`, `tplot` and
+`tslope`, under `#ifndef NOTERRAIN`). It is the 6502 engine's terrain (`generators/bbasic/pf-draw.js`) written in C step for step, with the engine's names, and makes
+the same pixels (checked on the twelve DPC+ terrain projects of `tests/projects/mkterrain.cjs`: the pictures are the same from the frame the 6502 engine is done).
+`tools/armprog/build.sh` has a new letter, k, for the set (`-DNOTERRAIN` when it is left out) and a `FROM` setting; the programs with k (`public/bb19/includes/custom/prog`,
+512 new files: k, kg, ok, ... ) were built with it (`FROM=512 sh tools/armprog/build.sh`), and the 510 programs without k are the same bytes as before (a build of
+them with `-DNOTERRAIN` is identical to the files that were there). `src/generators/bbasic/offset-arm.js` knows the letter (`armProgramKey`, `ensureArmProgram`) and builds the
+call (`buildTerrainArmCall`). `includes-manifest.json` is not affected: `armprog.c` and the programs are not in it.

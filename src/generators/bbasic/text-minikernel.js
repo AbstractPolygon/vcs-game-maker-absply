@@ -8,7 +8,7 @@ import {colorByteToBuildBBasic} from '../../utils/palette';
 import {fixedFreeVariable} from '../../utils/fixed-vars';
 import {resolveBlinkMask} from '../../utils/text-font';
 import {flagPoolVar, flagPoolBit} from './flag-pool';
-import {SCORE_LAYOUTS, SCORE_LAYOUT_FLAGS_FAMILY, scoreLayoutDispatcherAsm} from './score-layout';
+import {SCORE_LAYOUT_FLAGS_FAMILY, scoreLayoutDispatcherAsm, scoreLayoutFileOf} from './score-layout';
 import {TEXT_MESSAGE_LENGTH, CHAR_TO_GLYPH, listTextStringsForBuild,
   resolveTextMaxDisplayWidth} from '../../blocks/text-strings';
 import {functionCallDiscardVarName} from '../../blocks/function';
@@ -1424,7 +1424,7 @@ ${body}
     if (!this.isTextMinikernelActive()) {
       const keys = this.scoreLayoutKeys();
       if (!keys.length) return '';
-      const inlines = keys.map((key) => ` inline ${SCORE_LAYOUTS[key].file}`);
+      const inlines = keys.map((key) => ` inline ${scoreLayoutFileOf(key)}`);
       if (keys.length === 1) return this.wrapInKernelBank(inlines[0]);
       // Several layouts: the kernel calls minikernel, which jumps to the routine of the layout showing.
       const flags = this.nameDB_.getName(flagPoolVar(SCORE_LAYOUT_FLAGS_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE);

@@ -10,7 +10,7 @@ import {dpcPlusPfresOf, effectiveBackgroundRows} from '../../blocks/background';
 import {scoreBarUnitsVarName, scoreLineHueVarName, scoreSideValueVarName} from '../../blocks/score';
 import {isInsideFunctionBody} from '../../utils/function-body';
 import {dpcPlusScoreFillAsm} from '../../utils/dpc-score-colors';
-import {scoreLayoutFile, scoreLayoutKeysOf, scoreLayoutLeftUnit, SCORE_LAYOUT_FLAGS_FAMILY} from './score-layout';
+import {scoreLayoutKeysOf, scoreLayoutLeftUnit, SCORE_LAYOUT_FLAGS_FAMILY} from './score-layout';
 import {flagPoolVar, flagPoolBit} from './flag-pool';
 
 // The literal bB identifier itself (not an internal "_xyz" bookkeeping
@@ -290,7 +290,9 @@ export default (Blockly) => {
     return keys;
   };
   // The code of a block for each layout in the ROM: with one layout the code itself, with several a test of the layout showing before each.
-  const forEachScoreLayout = (keys, lines) => {
+  // The one score layout (normal) has no left and right score: its branch is whenNormal (nothing for the set and change blocks, 0 for the value blocks).
+  const forEachScoreLayout = (keys, layoutLines, whenNormal = '') => {
+    const lines = (key) => (key === 'normal' ? whenNormal : layoutLines(key));
     if (keys.length === 1) return lines(keys[0]);
     const flags = Blockly.BBasic.nameDB_.getName(flagPoolVar(SCORE_LAYOUT_FLAGS_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
     const id = Blockly.BBasic.blockNumbers.next('scorelayout');
@@ -384,7 +386,7 @@ export default (Blockly) => {
           `@ _scorevalue_${id}_done`,
         ].join('\n');
       };
-      return [forEachScoreLayout(keys, lines) + '\n' + value.read, Blockly.BBasic.ORDER_ATOMIC];
+      return [forEachScoreLayout(keys, lines, `${value.write} = 0`) + '\n' + value.read, Blockly.BBasic.ORDER_ATOMIC];
     };
   });
 
@@ -393,7 +395,7 @@ export default (Blockly) => {
   Blockly.BBasic['score_layout_set'] = function(block) {
     const keys = Blockly.BBasic.scoreLayoutKeys();
     if (!keys.length) {
-      appendCompileLog('The Set score layout block needs a two score layout on the Score tab (standard kernel); it does nothing now.', 'info');
+      appendCompileLog('The Set score layout block needs another layout than the one on the Score tab to switch to, and the standard kernel with the score showing; it does nothing now.', 'info');
       return '';
     }
     const at = keys.indexOf(block.getFieldValue('LAYOUT'));
@@ -659,7 +661,7 @@ export default (Blockly) => {
     const configurationStorage = useConfigurationStorage();
     const config = (configurationStorage && configurationStorage.value) || {};
     // A two score layout has its minikernel (see scoreLayoutBkColorLines): this one would define the label twice.
-    if (scoreLayoutFile(config)) return '';
+    if (this.scoreLayoutKeys().length) return '';
     // With the score hidden there is no score row to color (the kernel still calls the routine, which would only cost a line).
     if (!(config.showScore ?? true)) return '';
     // The DPC+ kernel draws its score without a minikernel (its colors come from "scorecolors:"), and the

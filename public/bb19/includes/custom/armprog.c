@@ -19,7 +19,7 @@ static u load(volatile b8 *p,u r)
   return conv((p[r]<<24)|(p[256+r]<<16)|(p[512+r]<<8)|p[768+r]);
 }
 
-// Built in a program for each set of functions a project needs (see offset-arm.js and the files of the prog folder): with and without -DGROUPS, and with any of the six sets of functions left out: -DNOOFFSET (the Playfield offset block), -DNOBOX (the playfield box test), -DNOCIRCLE (the circle block), -DNOPIX (the pixel finding and the bounce of the ball and the missiles), -DNOFIRE (the movement of an object a Fire block launched with the playfield check on), -DNOAUDIO (the DPC+ sound engine's waveform rebuild and volume mix), -DNOTILES (the playfield tilemap), -DNONARROW (its 4-pixel tiles) and -DNORUNS (the backgrounds kept as runs)
+// Built in a program for each set of functions a project needs (see offset-arm.js and the files of the prog folder): with and without -DGROUPS, and with any of the sets of functions left out: -DNOTERRAIN (the Generate terrain block, function 113), -DNOOFFSET (the Playfield offset block), -DNOBOX (the playfield box test), -DNOCIRCLE (the circle block), -DNOPIX (the pixel finding and the bounce of the ball and the missiles), -DNOFIRE (the movement of an object a Fire block launched with the playfield check on), -DNOAUDIO (the DPC+ sound engine's waveform rebuild and volume mix), -DNOTILES (the playfield tilemap), -DNONARROW (its 4-pixel tiles) and -DNORUNS (the backgrounds kept as runs)
 // too) for a project with groups of columns that have separate rows, which is a good deal bigger.
 // The numbers of the project's rows, put in by the generator in place of these: rows of a line = line * K[0] / 256, the last row K[1],
 // whether a line is held to 191 first K[2], whether the groups of columns have separate rows K[3]. Then each group (column byte) has its
@@ -275,6 +275,201 @@ static void circle(volatile b8 *p)
       else if (op==1) p[bi*256+y]&=~m;
       else p[bi*256+y]^=m;
     }
+  }
+}
+
+#endif
+
+#ifndef NOTERRAIN
+// "Generate terrain" (function 113): the ground along one edge of the playfield, drawn in one call, the same as the steps of the 6502 engine
+// (generators/bbasic/pf-draw.js, the terrain kind) make it a pixel at a time. C_function[1..8]: the side (0 bottom, 1 top, 2 left, 3 right), the least and the
+// most height, the roughness, the overhangs + caves * 16 + 128 for tile, the random number the terrain starts from, the last row and the last column. The names
+// are the ones of the engine: pos (the position along the edge), depth (the height there), pixel (the pixel of the line being drawn), params (roughness * 8 +
+// overhangs, bit 7 a cave), over and ledge (the overhang or cave being made), caves (the caves in bits 0-2, tile in bit 3, the slope in the high bits), and the
+// labels follow the engine's (k: the start of a position, f: a turn, mv: a move). Every sum is a byte, as the 6502 makes it.
+#define B(v) ((v)&255)
+static void tplot(volatile b8 *p,u c,u y)
+{
+  p[((c>>3)<<8)+y]|=1<<((c^(((c>>3)&1)?0:7))&7);
+}
+static u tslope(u caves,u least,u most,u seed)
+{
+  u t1=B(most-least)>>3,t2=(seed>>3)&3;
+  if (t2==0) t1>>=1;
+  if (t2==3) t1=B(t1+t1);
+  if (t1==0) t1=1;
+  if (t1>15) t1=15;
+  return B((caves&15)+B(t1*16));
+}
+static void terrain(volatile b8 *p)
+{
+  u side=CF[1],least=CF[2],most=CF[3],rough=CF[4],packed=CF[5],seed=CF[6],maxRow=CF[7],maxCol=CF[8];
+  u horiz=(side>>1)&1,first=side&1,deeper=0,last=horiz?maxRow:maxCol;
+  u pos=0,depth,pixel=0,params,over=0,caves,ledge=0;
+  u t1,t2,t3,t4,t5=0,t6=0,x,y;
+  caves=(packed&127)>>4;
+  if (caves>4) caves=4;
+  if (packed>127) caves+=8;
+  t5=packed&15;
+  if (rough>8) rough=8;
+  if (t5>4) t5=4;
+  params=rough*8+t5;
+  if (least>most) { t1=least; least=most; most=t1; }
+  if (horiz) { if (most>maxCol+1) most=maxCol+1; }
+  else { if (most>maxRow+1) most=maxRow+1; }
+  if (least>most) least=most;
+  if (most==0) return;
+  depth=B(least+most)>>1;
+  if (seed==0) seed=1;
+  if (seed&1) deeper=1;
+  caves=tslope(caves,least,most,seed);
+  for (;;)
+  {
+    // The line of this position.
+    for (;;)
+    {
+      if (pixel>=depth)
+      {
+        if (params&128) break;
+        t1=ledge;
+        if (t1==0||pixel>=t1) break;
+        t2=B(B((ledge>>4)+1)+(over&15));
+        t2=B(t1-t2);
+        if (t2>t1) t2=0;
+        if (pixel<t2) pixel=t2;
+      }
+      if (!horiz) { x=pos; y=first?pixel:B(maxRow-pixel); }
+      else { y=pos; x=first?B(maxCol-pixel):pixel; }
+      tplot(p,x,y);
+      pixel=B(pixel+1);
+      if (params&128)
+      {
+        t1=over>>4;
+        t3=B(B(ledge-t1)>>1);
+        t3=B((depth>>1)+t3);
+        if (pixel==t3) pixel=B(pixel+t1);
+      }
+    }
+    // The next position.
+    pos=B(pos+1);
+    if (pos>last) return;
+    t5=B(seed*2); seed^=t5;
+    t5=seed>>1; seed^=t5;
+    t5=B(seed*4); seed^=t5;
+    if (caves&8)
+    {
+      t1=B(last-pos);
+      t3=caves>>4;
+      if (t3>=2) t1=B(t1+t1);
+      if (t3>=4) t1=B(t1+t1);
+      if (t3>=8) t1=B(t1+t1);
+      t4=B(least+most)>>1;
+      t5=depth>t4?B(depth-t4):B(t4-depth);
+      if (t5>t1)
+      {
+        t5=B(t5-t1);
+        if (depth>t4) { depth=B(depth-t5); deeper=0; }
+        else { depth=B(depth+t5); deeper=1; }
+        goto k;
+      }
+    }
+    t5=seed>>5;
+    t6=B(((params&127)>>3)*2);
+    if (t5==0) goto f;
+    if (t6>=6)
+    {
+      t1=seed&7;
+      t2=B((t6>>1)-2);
+      if (t1<t2) goto f;
+    }
+  q2:
+    if (t5>t6) goto k;
+  mv:
+    t1=caves>>4;
+    if (t1==0) t1=1;
+    t2=(seed>>2)&3;
+    if (t2==1) t1>>=1;
+    if (t2==0) t1=1;
+    if (t1==0) t1=1;
+    if (deeper) goto d;
+    if (depth<=least) goto t;
+    t2=B(depth-least);
+    if (t2<t1) t1=t2;
+    depth=B(depth-t1);
+    goto k;
+  t:
+    if (least>=most) goto k;
+    deeper=1;
+    caves=tslope(caves,least,most,seed);
+    goto mv;
+  d:
+    if (depth>=most) goto b;
+    t2=B(most-depth);
+    if (t2<t1) t1=t2;
+    depth=B(depth+t1);
+    goto k;
+  b:
+    if (least>=most) goto k;
+    deeper=0;
+    caves=tslope(caves,least,most,seed);
+    goto mv;
+  f:
+    t1=B((caves>>4)*2);
+    if (deeper) t2=B(depth-least); else t2=B(most-depth);
+    if (t2<t1)
+    {
+      if (t5==0) goto k;
+      goto q2;
+    }
+    deeper^=1;
+    caves=tslope(caves,least,most,seed);
+  k:
+    pixel=0;
+    if (over!=0) goto r;
+    t1=params&7;
+    if (t1==0) goto v;
+    if (depth<=3) continue;
+    t1=B(t1*3);
+    t2=seed&15;
+    if (t2>=t1) goto v;
+    if (deeper) goto v;
+    ledge=depth;
+    t4=B(((seed>>2)&3)+3);
+    over=B(t4+16);
+    goto r;
+  v:
+    t1=caves&7;
+    if (t1==0) continue;
+    if (depth<8) continue;
+    t1=B(t1*4);
+    t2=seed>>4;
+    if (t2>=t1) continue;
+    params|=128;
+    t3=B((depth>>2)+((seed>>4)&1));
+    if (t3>15) t3=15;
+    if (t3==0) t3=1;
+    ledge=t3;
+    t4=B(((seed>>2)&3)+2);
+    over=t4;
+  r:
+    if ((over&15)==0)
+    {
+      over=0;
+      ledge=0;
+      params&=127;
+      continue;
+    }
+    over=B(over-1);
+    if (!(params&128)) continue;
+    t1=over&15;
+    t2=ledge;
+    t3=over>>4;
+    if (t3==0||t1==0)
+    {
+      t2>>=1;
+      if (t2==0) t2=1;
+    }
+    over=B(t1+B(t2*16));
   }
 }
 
@@ -753,6 +948,9 @@ void __attribute__((section(".text.entry"))) run(void)
   }
 #ifndef NOCIRCLE
   else if (op>=96&&op<=98) circle(p);
+#endif
+#ifndef NOTERRAIN
+  else if (op==113) terrain(p);
 #endif
 #ifndef NOPIX
   else if (op==99) findpixel(p);

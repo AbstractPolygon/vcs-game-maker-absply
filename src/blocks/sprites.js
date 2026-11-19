@@ -1711,7 +1711,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync', 'object_gravity_defaults'],
-    'tooltip': 'Start: the fall speed grows every frame by this many eighths of a pixel (1 to 16, the same as the gravity of the Platform block: a smooth fall, not a jump of a whole pixel) up to "max fall speed" (pixels a frame), on top of Fire movement, so a fired object follows a curve. Start sets the fall speed to 0, so run it when the object is fired. "Bounce keeps": when a Bounce block turns the object back from above or below, the fall speed turns round and keeps this much of its size (100% never settles). Gravity does not look at the playfield: use a Bounce block when it hits something. Stop: gravity off, fall speed 0. The direction is a full turn of 256 (128 down, 0 up, 64 right, 192 left): the object is pulled that way, at most 7 pixels a frame.',
+    'tooltip': 'Start: the fall speed grows every frame by this many eighths of a pixel (1 to 16, the same as the gravity of the Platform block: a smooth fall, not a jump of a whole pixel) up to "max fall speed" (pixels a frame), on top of Fire movement, so a fired object follows a curve. Start turns the gravity on in the first frame it runs and sets nothing to 0: a Start in code that runs every frame does not start it again (and does not undo a Stop), until a frame goes by in which it did not run. "Bounce keeps": when a Bounce block turns the object back from above or below, the fall speed turns round and keeps this much of its size (100% never settles). Gravity does not look at the playfield: use a Bounce block when it hits something. Stop: gravity off, fall speed 0. The direction is a full turn of 256 (128 down, 0 up, 64 right, 192 left): the object is pulled that way, at most 7 pixels a frame.',
   },
   // Starts or stops the gravity of an object, with the numbers a Gravity block gave it (the Start and Stop of the Gravity block, without its numbers).
   {
@@ -1726,14 +1726,15 @@ Blockly.defineBlocksWithJsonArray([
       {
         'type': 'field_dropdown',
         'name': 'OBJECT',
-        'options': SEEK_OBJECT_DROPDOWN_OPTIONS,
+        // eslint-disable-next-line new-cap
+        'options': () => [[PLAYER_ICON + ' Colliding sprite', 'colliding'], ...SEEK_OBJECT_DROPDOWN_OPTIONS()],
       },
     ],
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync'],
-    'tooltip': 'Start: turns the gravity of the object on again, with the speed up, max fall speed, bounce and direction a "Gravity" block with its numbers gave it (it starts falling from 0). Stop: the object stops falling at once (its fall speed is set to 0); Fire movement and other Inertia are not touched. No effect on an object no "Gravity" block uses.',
+    'tooltip': 'Colliding sprite: inside a "When ... collide" block, the sprite whose collision started (with Any sprite, whichever one it was); nothing anywhere else. Start: turns the gravity of the object on again, with the speed up, max fall speed, bounce and direction a "Gravity" block with its numbers gave it (it starts falling from 0; in code that runs every frame it starts the gravity in the first frame only). Stop: the object stops falling at once (its fall speed is set to 0); Fire movement and other Inertia are not touched. No effect on an object no "Gravity" block uses.',
   },
   // One block, OBJECT dropdown covers all 5 names (same shape as
   // object_seek_to/the Inertia blocks above) - replaces the old, separate

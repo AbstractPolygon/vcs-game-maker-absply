@@ -93,7 +93,7 @@ import {processPlayerAnimationsStorageDefaults, generateRomNoiseChecks, generate
   generateRainbowColorGraphics, rainbowColorNeedsPlayerColors, rainbowColorNeedsPlayer1Colors,
   reserveRomNoiseDevVars, reserveRainbowColorDevVars, reserveBackgroundRainbowDevVars,
   ROM_NOISE_FLAGS_FAMILY, MISSILE_FIRE_FLAGS_FAMILY, FIRE_OFFSCREEN_FLAGS_FAMILY, fireOffscreenFlagsVarName, SEEK_FLAGS_FAMILY, SEEK_AXIS_FAMILY, SEEK_ARRIVED_FLAGS_FAMILY,
-  SPRITE_SCROLL_FLAGS_FAMILY, SPRITE_HIDDEN_FLAGS_FAMILY, hasHiddenFlag, hiddenFlagRef, INERTIA_ACCEL_FLAGS_FAMILY, INERTIA_DECEL_FLAGS_FAMILY, OBJECT_GRAVITY_FLAGS_FAMILY,
+  SPRITE_SCROLL_FLAGS_FAMILY, SPRITE_HIDDEN_FLAGS_FAMILY, hasHiddenFlag, hiddenFlagRef, INERTIA_ACCEL_FLAGS_FAMILY, INERTIA_DECEL_FLAGS_FAMILY, OBJECT_GRAVITY_FLAGS_FAMILY, OBJECT_GRAVITY_RAN_FAMILY, OBJECT_GRAVITY_RAN_LAST_FAMILY,
   romNoiseOwnBit, rainbowColorOwnBit, BACKGROUND_RAINBOW_OWN_BIT, BACKGROUND_RAINBOW_LOADED_BIT, backgroundRainbowLoadedBit, romNoiseFlagsVarName, RAINBOW_EXTRA_FAMILY, missileFireOwnBit, spriteOwnBit,
   backgroundColorTableLoVarName, backgroundColorTableHiVarName, BACKGROUND_RAINBOW_RESTORE_NAME,
   missileFireDirVarName, generateMissileFireChecks, generateBounceStageChecks, reserveMissileFireDevVars, reserveMissileBounceDevVars,
@@ -107,9 +107,11 @@ import spriteLock, {reserveLockDevVars, generateLockChecks} from './bbasic/sprit
 import {reservePfBoxDevVars, pfBoxSharingOf, generatePfHitChecks, boxModeLines} from './bbasic/pf-box-sub';
 import {reserveBoxDevVars, generateBoxChecks, pairKey, isPlayerName, boxHitFamilies} from './bbasic/sprite-box-width';
 import {planFlagPool, flagPoolVar, flagPoolBit, flagPoolPhaseMasks, flagPoolPhaseConflict, setFlagPhaseSource} from './bbasic/flag-pool';
-import {scoreLayoutFile, SCORE_LAYOUTS, SCORE_LAYOUT_FLAGS_FAMILY} from './bbasic/score-layout';
+import {SCORE_LAYOUTS, SCORE_LAYOUT_FLAGS_FAMILY} from './bbasic/score-layout';
 import {rainbowRangeIsConstant, rainbowRangeOf, rainbowTableItems, sameRainbowRange, RAINBOW_PLAYFIELD_ROWS} from './bbasic/rainbow-range';
 import {placeKernelTables} from '../utils/bank-tables';
+import {collisionWhenFamilies, reserveCollisionWhenDevVars} from './bbasic/collision-when';
+import {ANY_SPRITE_NAMES} from './bbasic/collision-names';
 import {overlapTargetsOf, overlapPairsOf, overlapFamilies, overlapSpriteFlagBits, reserveOverlapDevVars, generateOverlapChecks} from './bbasic/sprite-overlap';
 import {prepareTriggers, triggerFamilies, reserveTriggerDevVars} from './bbasic/triggers';
 import {resolveProjectMusic, MUSIC_PLAY_RESET_NAME, MUSIC_PLAY_BY_ID_NAME,
@@ -341,6 +343,13 @@ const RUN_ONCE_EDGE_RESET_NAME = '_run_once_edge_reset';
 // ordinary subroutine the same way, so a project that does not fit in bank 1 can move them out of it.
 // How many digits the score has: the Score tab's choice, except that the cycle score (the remaining CPU cycles shown as the score)
 // always has all six.
+// The Collided block and the one that runs its blocks when a collision starts are told by the same test (see generators/bbasic/collision-when.js).
+const isCollisionBlock = (block) => block.type === 'collision_get' || block.type === 'collision_when';
+// The pairs of objects a collision block tests: its two objects, or with "Any sprite" as the first one every sprite (see ANY_SPRITE_NAMES in
+// generators/bbasic/collision.js) but the second object itself, with the second.
+const collisionNamePairs = (block) => (block.getFieldValue('VAR0') === 'any' ?
+  ANY_SPRITE_NAMES.filter((name) => name !== block.getFieldValue('VAR1')).map((name) => [name, block.getFieldValue('VAR1')]) :
+  [[block.getFieldValue('VAR0'), block.getFieldValue('VAR1')]]);
 const scoreDigitsOf = (config) => cycleScoreOn(config) ? 6 : config.scoreDigits;
 // The font the score's digits are drawn with: the Score tab's, or the default one for the debug scores (the remaining cycles, the scanlines).
 const primaryScoreFontOf = (config) => (cycleScoreOn(config) || config.enableScanlinesDebug ? null : config.scoreFont);
@@ -1144,13 +1153,14 @@ Blockly.BBasic.init = function(workspace) {
       const player = `player${block.getFieldValue('PLAYER')}`;
       this.pfBoxPlayers.add(player);
       if (EXTRA_PLAYER_NAME.test(player)) this.pfHitExtras.add(player);
-    } else if (block.type === 'collision_get') {
-      const names = [block.getFieldValue('VAR0'), block.getFieldValue('VAR1')];
-      if (names.includes('playfield')) {
-        const feet = block.getFieldValue('BOX') === 'TRUE' ? boxModeLines(block.getFieldValue('BOXMODE')) : 0;
-        names.filter((name) => (block.getFieldValue('BOX') === 'TRUE' ? /^player([0-9]|1[0-6])$/ : EXTRA_PLAYER_NAME).test(name))
-            .forEach((name) => (feet ? addFeetHit(feet, name) : this.pfHitExtras.add(name)));
-      }
+    } else if (isCollisionBlock(block)) {
+      collisionNamePairs(block).forEach((names) => {
+        if (names.includes('playfield')) {
+          const feet = block.getFieldValue('BOX') === 'TRUE' ? boxModeLines(block.getFieldValue('BOXMODE')) : 0;
+          names.filter((name) => (block.getFieldValue('BOX') === 'TRUE' ? /^player([0-9]|1[0-6])$/ : EXTRA_PLAYER_NAME).test(name))
+              .forEach((name) => (feet ? addFeetHit(feet, name) : this.pfHitExtras.add(name)));
+        }
+      });
     }
   });
   this.pfHitExtras.forEach((player) => this.pfBoxPlayers.add(player));
@@ -1257,7 +1267,7 @@ Blockly.BBasic.init = function(workspace) {
       this.inertiaDecelUsedFor.add(name);
       if (block.getFieldValue('FINE') === 'TRUE') this.inertiaFineUsedFor.add(name);
     }
-    if (block.type === 'score_layout_set' && SCORE_LAYOUTS[block.getFieldValue('LAYOUT')] && block.getFieldValue('LAYOUT') !== 'normal') {
+    if (block.type === 'score_layout_set' && SCORE_LAYOUTS[block.getFieldValue('LAYOUT')]) {
       this.scoreLayoutsUsed.add(block.getFieldValue('LAYOUT'));
     }
     // The Gravity block: its numbers are constants when the Gravity blocks of an object all have the same number block for them.
@@ -1821,7 +1831,7 @@ Blockly.BBasic.init = function(workspace) {
       }
       // Collided ... and ... picks its two objects by name as well.
       ['VAR0', 'VAR1'].forEach((fieldName) => {
-        const collided = block.type === 'collision_get' && /^player([2-9]|1[0-6])$/.exec(block.getFieldValue(fieldName));
+        const collided = isCollisionBlock(block) && /^player([2-9]|1[0-6])$/.exec(block.getFieldValue(fieldName));
         if (collided) extra.add(Number(collided[1]));
       });
     });
@@ -1841,12 +1851,13 @@ Blockly.BBasic.init = function(workspace) {
   this.player1Shared = (useConfigurationStorage().value || {}).kernel === 'dpcplus' && this.dpcPlusExtraPlayers.length > 0;
   if (this.player1Shared) {
     workspace.getAllBlocks(false).forEach((block) => {
-      if (block.type !== 'collision_get') return;
-      const names = [block.getFieldValue('VAR0'), block.getFieldValue('VAR1')];
-      if (names.includes('player1') && names.includes('playfield')) {
-        this.pfHitExtras.add('player1');
-        this.pfBoxPlayers.add('player1');
-      }
+      if (!isCollisionBlock(block)) return;
+      collisionNamePairs(block).forEach((names) => {
+        if (names.includes('player1') && names.includes('playfield')) {
+          this.pfHitExtras.add('player1');
+          this.pfBoxPlayers.add('player1');
+        }
+      });
     });
   }
   // The virtual sprites the Options tab turns on (dpcPlusSpriteMax) stay on even when no block uses them.
@@ -2698,18 +2709,21 @@ Blockly.BBasic.init = function(workspace) {
   // The pairs of sprites a "Collided" block compares by their boxes (see generators/bbasic/sprite-box-width.js), in a fixed order: each is a bit.
   const boxPairKeys = new Set();
   workspace.getAllBlocks(false).forEach((block) => {
-    if (!block.isEnabled() || block.type !== 'collision_get') return;
-    const names = [block.getFieldValue('VAR0'), block.getFieldValue('VAR1')];
-    if (names.includes('playfield')) return;
-    if (names[0] !== names[1] && names.some((name) => this.widePartners[name] || EXTRA_PLAYER_NAME.test(name) || (this.player1Shared && name === 'player1'))) {
-      boxPairKeys.add(pairKey(names[0], names[1]));
-    }
+    if (!block.isEnabled() || !isCollisionBlock(block)) return;
+    collisionNamePairs(block).forEach((names) => {
+      if (names.includes('playfield')) return;
+      if (names[0] !== names[1] && names.some((name) => this.widePartners[name] || EXTRA_PLAYER_NAME.test(name) || (this.player1Shared && name === 'player1'))) {
+        boxPairKeys.add(pairKey(names[0], names[1]));
+      }
+    });
   });
   // The "Sprite overlap starts / stops" blocks compare the boxes of their two sprites as well.
   this.overlapBlocks = workspace.getAllBlocks(false).filter((block) =>
     block.isEnabled() && block.type === 'sprite_overlap_event' && overlapTargetsOf(block).length > 0);
   overlapPairsOf(this.overlapBlocks).pairs.forEach((key) => boxPairKeys.add(key));
   this.spriteFlagBits.push(...overlapSpriteFlagBits(this.overlapBlocks));
+  // The "When ... collide" blocks keep a bit each (see generators/bbasic/collision-when.js).
+  this.collisionWhenBlocks = workspace.getAllBlocks(false).filter((block) => block.isEnabled() && block.type === 'collision_when');
   // The triggers of the scenes (see generators/bbasic/triggers.js): their sprites' boxes are worked out each frame too.
   this.triggerPlayers = prepareTriggers(Blockly, workspace);
   this.boxPairOrder = [...boxPairKeys].sort();
@@ -2768,6 +2782,8 @@ Blockly.BBasic.init = function(workspace) {
     {family: INERTIA_ACCEL_FLAGS_FAMILY, bits: ownBits(this.inertiaAccelUsedFor, spriteOwnBit, INERTIA_ACCEL_FLAGS_FAMILY, 'this.inertiaAccelUsedFor'), phase: 'game'},
     {family: INERTIA_DECEL_FLAGS_FAMILY, bits: ownBits(this.inertiaDecelUsedFor, spriteOwnBit, INERTIA_DECEL_FLAGS_FAMILY, 'this.inertiaDecelUsedFor'), phase: 'game'},
     {family: OBJECT_GRAVITY_FLAGS_FAMILY, bits: ownBits(this.objectGravityUsedFor, spriteOwnBit, OBJECT_GRAVITY_FLAGS_FAMILY, 'this.objectGravityUsedFor'), phase: 'game'},
+    {family: OBJECT_GRAVITY_RAN_FAMILY, bits: ownBits(this.objectGravityUsedFor, spriteOwnBit, OBJECT_GRAVITY_RAN_FAMILY, 'this.objectGravityUsedFor'), phase: 'game'},
+    {family: OBJECT_GRAVITY_RAN_LAST_FAMILY, bits: ownBits(this.objectGravityUsedFor, spriteOwnBit, OBJECT_GRAVITY_RAN_LAST_FAMILY, 'this.objectGravityUsedFor'), phase: 'game'},
     {family: SCORE_LAYOUT_FLAGS_FAMILY, bits: this.scoreLayoutKeys().slice(1).map((_, i) => i)},
     {family: TITLE_TEXT_FLAG_FAMILY, bits: this.isTitleTextUsed() ? [0] : [], first: true},
     {family: TEXT_BLINK_DONE_FAMILY, bits: this.textBlinkDoneUsed ? [0] : []},
@@ -2785,6 +2801,7 @@ Blockly.BBasic.init = function(workspace) {
     {family: JOY_TAP_FAMILY, bits: joyTapOwnBits(this.joyTapOnlyFor)},
     ...boxHitFamilies(this.boxPairOrder),
     ...overlapFamilies(this.overlapBlocks),
+    ...collisionWhenFamilies(this.collisionWhenBlocks),
     ...triggerFamilies(Blockly),
     ...colorSetFamilies(this.colorOverridePlayers),
     ...maskFamilies(this.maskPlayers),
@@ -2898,21 +2915,23 @@ Blockly.BBasic.init = function(workspace) {
   overlapSprites.pairs.forEach((key) => this.boxPairs.add(key));
   [...overlapSprites.names].filter(isPlayerName).forEach((name) => this.boxWidthPlayers.add(name));
   reserveOverlapDevVars(reserveDevVar, this.overlapBlocks);
+  reserveCollisionWhenDevVars(reserveDevVar, this.collisionWhenBlocks);
   this.triggerPlayers.forEach((name) => this.boxWidthPlayers.add(name));
   reserveTriggerDevVars(reserveDevVar, Blockly);
   workspace.getAllBlocks(false).forEach((block) => {
     if (!block.isEnabled()) return;
     if (block.type === 'collision_check_position') {
       addPartnerOf(`player${block.getFieldValue('PLAYER')}`);
-    } else if (block.type === 'collision_get') {
-      const names = [block.getFieldValue('VAR0'), block.getFieldValue('VAR1')];
-      if (names.includes('playfield')) {
-        const feet = block.getFieldValue('BOX') === 'TRUE' ? boxModeLines(block.getFieldValue('BOXMODE')) : 0;
-        names.forEach((name) => addPartnerOf(name, feet));
-      } else if (names[0] !== names[1] && names.some((name) => this.widePartners[name] || EXTRA_PLAYER_NAME.test(name) || (this.player1Shared && name === 'player1'))) {
-        names.filter(isPlayerName).forEach((name) => this.boxWidthPlayers.add(name));
-        this.boxPairs.add(pairKey(names[0], names[1]));
-      }
+    } else if (isCollisionBlock(block)) {
+      collisionNamePairs(block).forEach((names) => {
+        if (names.includes('playfield')) {
+          const feet = block.getFieldValue('BOX') === 'TRUE' ? boxModeLines(block.getFieldValue('BOXMODE')) : 0;
+          names.forEach((name) => addPartnerOf(name, feet));
+        } else if (names[0] !== names[1] && names.some((name) => this.widePartners[name] || EXTRA_PLAYER_NAME.test(name) || (this.player1Shared && name === 'player1'))) {
+          names.filter(isPlayerName).forEach((name) => this.boxWidthPlayers.add(name));
+          this.boxPairs.add(pairKey(names[0], names[1]));
+        }
+      });
     }
   });
   this.pfBoxSweep = this.platformerJumpPlayers.size > 0;
@@ -5090,8 +5109,6 @@ Blockly.BBasic.finish = function(code) {
   // fades and text scrolling. The second half only prepares the regular screen for drawscreen,
   // which the Titlescreen Kernel replaces, so the loop marks itself with a flag bit of its own (see titleKernelLoopFlag) and the subroutine
   // returns before that half while the bit is set.
-  const generatedTitleKernelSkip = this.titleScreenDrawUsed ?
-    ` if !${titleKernelLoopFlag()} then goto commongamelogicdraw\n${this.commonGameLogicReturn()}\ncommongamelogicdraw\n` : '';
   const generatedRainbowColorGraphics = generateRainbowColorGraphics(Blockly);
   const generatedRainbowColorChecks = generateRainbowColorChecks(Blockly);
   let generatedMissileFireChecks = wrapChecks(this, 'fire', () => generateMissileFireChecks(Blockly) + generateBounceStageChecks(Blockly));
@@ -5117,6 +5134,10 @@ Blockly.BBasic.finish = function(code) {
         ['box', generatedBoxChecksCall]]);
   const generatedShakeScreenChecks = generateShakeScreenChecks(Blockly);
   const generatedPfDrawStep = generatePfDrawStep(Blockly);
+  // (The steps of the Draw blocks (terrain, lines, fill) are in the second half of commongamelogic: the Title Screen loop returns before it, so they run before that return
+  // there, with the label of their idle jump renamed: without them a Draw block makes nothing while the Titlescreen Kernel is on.)
+  const generatedTitleKernelSkip = this.titleScreenDrawUsed ?
+    ` if !${titleKernelLoopFlag()} then goto commongamelogicdraw\n${generatedPfDrawStep.split('_pfd_idle').join('_pfd_idle_title')}\n${this.commonGameLogicReturn()}\ncommongamelogicdraw\n` : '';
   const generatedScoreFlashChecks = Blockly.BBasic.generateScoreFlashChecks();
   const generatedSpeechChecks = generateSpeechChecks(Blockly);
   // The steps of the fractional data fetchers (DFxFRACINC) stay as they were written: the kernel writes only DF5 and DF7, the coprocessor none. When they are
@@ -7103,7 +7124,7 @@ Blockly.BBasic.generateConfiguration = function() {
   // (The bars keep one color unless the Score tab's "Score bars use the line colors" is ticked, and a Score bars set color block gives them one in any case.)
   const scoreBarFlatCode = (this.scoreBarColorFlat || !config.dpcPlusScoreBarColors) && config.kernel === 'dpcplus' ? 'const scorebarflat = 1' : '';
   // A two score layout (see generators/bbasic/score-layout.js): its minikernel draws the score, so the kernel's digits are left out (the text minikernel wins).
-  const scoreLayoutCode = !this.isTextMinikernelActive() && scoreLayoutFile(config) ? 'const noscore = 1' : '';
+  const scoreLayoutCode = !this.isTextMinikernelActive() && this.scoreLayoutKeys().length ? 'const noscore = 1' : '';
   const scoreConfigurationCode = scoreBarFlatCode + (scoreBarFlatCode && !(showScore ?? true) ? '\n ' : '') + ((showScore ?? true) ? '' : dpcPlusHiddenTextScore ? 'const dpchidescore = 1' :
     `const ${this.isTextMinikernelActive() ? 'noscoretxt' : 'noscore'} = 1`) +
     (scoreLayoutCode ? (scoreBarFlatCode ? '\n ' : '') + scoreLayoutCode : '');
@@ -7127,7 +7148,7 @@ Blockly.BBasic.generateConfiguration = function() {
   // the actual configured value visible in the generated source.
   const scorePaddingConfigurationCode = `const scorepaddinglines = ${config.scorePaddingLines || 0}` +
     // The Score tab's 5 digits option: the standard and DPC+ kernels leave the leftmost digit of the score blank.
-    (scoreDigitsOf(config) === 5 && !scoreLayoutFile(config) ? '\n const score5digits = 1' : '');
+    (scoreDigitsOf(config) === 5 ? '\n const score5digits = 1' : '');
   // The bundled compiler ignores this and gets its digits swapped in directly
   // instead, but it keeps the generated source correct for real batari Basic.
   // Custom digits live in the compiler's include, so there is no directive that
@@ -10049,7 +10070,7 @@ Blockly.BBasic.workspaceToCodeOnce = function(workspace) {
   const unused = code.includes(SYSTEM_DEFAULT_MARKER) ? findUnusedSystemVars(code) : new Set();
   // The Text Minikernel's score row (and a two score layout's, see scoreLayoutBkColorLines in score.js) follows the background color through the very byte
   // this variable lives in.
-  if ((this.isTextMinikernelActive() || scoreLayoutFile(useConfigurationStorage().value || {})) && this.scoreBkColorIsBackground((useConfigurationStorage().value || {}).scoreBkColor)) {
+  if ((this.isTextMinikernelActive() || this.scoreLayoutKeys().length) && this.scoreBkColorIsBackground((useConfigurationStorage().value || {}).scoreBkColor)) {
     unused.delete('backgroundrealcolor');
   }
   if (unused.size || (hints && hints.names.size)) {

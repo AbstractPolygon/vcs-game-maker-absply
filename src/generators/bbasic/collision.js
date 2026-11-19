@@ -6,6 +6,8 @@ import {PF_BOX_X, PF_BOX_Y, PF_BOX_HIT, PF_BOX_EXT, pfHitVarName, callPfBox, cal
 import {useConfigurationStorage} from '../../hooks/project';
 import {EXTRA_PLAYER_NAME} from '../../utils/pxe';
 import {pairKey, boxHitRef, isPlayerName} from './sprite-box-width';
+import {collisionWhenCode, collisionWhenNames} from './collision-when';
+import {ANY_SPRITE_NAMES} from './collision-names';
 
 // Names of the hidden bytes each player's collision-check block backs up its
 // pre-move position into (see bbasic.js's pre-scan, which pushes these
@@ -153,6 +155,15 @@ export default (Blockly) => {
     Blockly.BBasic.nameDB_.getName(pfHitVarName(player, feet), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
 
   Blockly.BBasic[`collision_get`] = function(block) {
+    // "Any sprite" as the first object: true when any sprite (but the second object) collides with the second, each pair told as the block tells it.
+    if (block.getFieldValue('VAR0') === 'any') {
+      const second = block.getFieldValue('VAR1');
+      const tests = ANY_SPRITE_NAMES.filter((name) => name !== second).map((name) => {
+        const pair = {getFieldValue: (field) => (field === 'VAR0' ? name : block.getFieldValue(field))};
+        return Blockly.BBasic.collision_get(pair)[0];
+      });
+      return [tests.length === 1 ? tests[0] : tests.join(' || '), tests.length === 1 ? Blockly.BBasic.ORDER_ATOMIC : Blockly.BBasic.ORDER_LOGICAL_OR];
+    }
     const var0 = Blockly.BBasic.nameDB_.getName(block.getFieldValue('VAR0'),
         Blockly.VARIABLE_CATEGORY_NAME);
     const var1 = Blockly.BBasic.nameDB_.getName(block.getFieldValue('VAR1'),
@@ -194,6 +205,22 @@ export default (Blockly) => {
       `collision(${var0}, ${var1})`;
 
     return [code, Blockly.BBasic.ORDER_ATOMIC];
+  };
+
+  // When ... collide: the blocks inside run once, in the frame in which the collision starts (see collision-when.js); the collision itself is told as
+  // "Collided" tells it.
+  // With "Any sprite" the code is made for each sprite, and a block inside can name the Colliding sprite (Blockly.BBasic.collidingSprite, see the Start / Stop
+  // gravity block).
+  Blockly.BBasic['collision_when'] = function(block) {
+    const outer = Blockly.BBasic.collidingSprite;
+    const code = collisionWhenNames(block).map((name, part) => {
+      const [collided] = Blockly.BBasic.collision_get({getFieldValue: (field) => (field === 'VAR0' ? name : block.getFieldValue(field))});
+      Blockly.BBasic.collidingSprite = name;
+      const body = Blockly.BBasic.statementToCode(block, 'DO').trim();
+      return collisionWhenCode(Blockly, block, part, collided, body);
+    }).join(String.fromCharCode(10));
+    Blockly.BBasic.collidingSprite = outer;
+    return code;
   };
 
   // The Jump block: it goes inside an if block, and each time it runs it sets the numbers the jump and gravity use (a number that is a

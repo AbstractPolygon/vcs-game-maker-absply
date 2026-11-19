@@ -1,7 +1,7 @@
 'use strict';
 
 import {pfMaxColumn} from '../../utils/playfield-coords';
-import {buildCircleArmCall, ensureArmProgram} from './offset-arm';
+import {buildCircleArmCall, buildTerrainArmCall, ensureArmProgram} from './offset-arm';
 import {flagPoolVar, flagPoolBit} from './flag-pool';
 
 // Terrain done: one bit of the flag pool for each side (0 bottom, 1 top, 2 left, 3 right) and one (4) for every terrain finished. Set when a terrain
@@ -96,10 +96,13 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
   }
   const displayRam = isDpcPlus(config);
   const armCircle = displayRam;
+  // The Generate terrain block is drawn by the coprocessor on DPC+ too, in one call (function 113 of armprog.c) as the block runs: no work bytes, no steps, and it
+  // does not wait for the time left at the end of the frame (the call takes less than a step of the circle's).
+  const armTerrain = displayRam;
   // A circle block with "over several frames" ticked on DPC+ is drawn by the steps, row by row from the center, as on the other kernels (flag bit 0 of its header).
   const circleSpread = armCircle && blocks.some((block) => block.type === 'background_fill_circle' && block.getFieldValue('SPREAD') === 'TRUE');
   const seeds = kinds.has('fill') && !displayRam ? seedSlotsFor(config, superchip) : 0;
-  const workBytes = Math.max(kinds.has('fill') ? FILL_KEEPS + 2 * seeds : 0, ...[...kinds].map((kind) => (kind === 'circle' && armCircle && !circleSpread ? 0 : WORK_BYTES[kind])));
+  const workBytes = Math.max(kinds.has('fill') ? FILL_KEEPS + 2 * seeds : 0, ...[...kinds].map((kind) => ((kind === 'circle' && armCircle && !circleSpread) || (kind === 'terrain' && armTerrain) ? 0 : WORK_BYTES[kind])));
   const recordBytes = 1 + Math.max(...[...kinds].map((kind) => RECORD_NUMBERS[kind]));
   const records = queueRecordsFor(config, superchip, displayRam);
   const state = reserveDevVarRW('pfdState', 'playfield drawing: the kind of work being drawn, its operation and its steps');
@@ -110,7 +113,7 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
   const queue = displayRam ? null : Array.from({length: records}, (_, r) => Array.from({length: recordBytes}, (_, i) =>
     reserveDevVarRW(`pfdQueue${r}_${i}`, 'playfield drawing: a waiting Draw block\'s record')));
   const seedBytes = Array.from({length: seeds}, (_, s) => [work[FILL_KEEPS + 2 * s], work[FILL_KEEPS + 2 * s + 1]]);
-  Blockly.BBasic.pfDraw = {kinds, state, terrainDone, work, queue, records, recordBytes, seeds: seedBytes, displayRam, armCircle, circleSpread, config, superchip};
+  Blockly.BBasic.pfDraw = {kinds, state, terrainDone, work, queue, records, recordBytes, seeds: seedBytes, displayRam, armCircle, armTerrain, circleSpread, config, superchip};
   // (The operations the blocks use: the plotting routine and the circle's calls have only those.)
   const drawBlocks = blocks.filter((block) => pfDrawKindOf(block));
   Blockly.BBasic.pfDrawOperations = new Set(drawBlocks.map((block) => block.getFieldValue('OPERATION') || 'on'));
@@ -158,7 +161,7 @@ const recordStore = (pfDraw) => {
 // The engine, one subroutine with its entries (see the comment at the top).
 const buildEngine = (Blockly) => {
   const pfDraw = Blockly.BBasic.pfDraw;
-  const {kinds, state: S, work: W, records, seeds: P, displayRam, armCircle, circleSpread, config} = pfDraw;
+  const {kinds, state: S, work: W, records, seeds: P, displayRam, armCircle, armTerrain, circleSpread, config} = pfDraw;
   const store = recordStore(pfDraw);
   const maxRow = Blockly.BBasic.maxRowText(config);
   const maxColumn = pfMaxColumn(config);
@@ -317,7 +320,34 @@ const buildEngine = (Blockly) => {
   // ground when that falls away, so the top of a hill leans out over a void; a cave has a gap in the middle of the line (a quarter of the height, up to 15
   // pixels), under the surface. A run starts at a position with a chance of 3 times the overhangs (or 4 times the caves) in 16, where the ground is more than 3 high (8
   // or more for a cave). The overhangs and the caves are packed in the fifth number of the record: overhangs + caves * 16. The ledge is the tenth work byte.
-  if (has('terrain')) {
+  // The part of a finished terrain that makes Terrain done true (the side that finished sets its bit, and bit 16 is for every terrain finished, when no other terrain waits).
+  const terrainDoneLines = () => [label('tzdone'),
+    // The side that finished sets its bit (1 bottom, 2 top, 4 left, 8 right); bit 16 is for every terrain finished.
+    `temp1 = ${S.read} & 3`, `temp2 = ${terrainDoneMask(0)}`, `if temp1 = 1 then temp2 = ${terrainDoneMask(1)}`, `if temp1 = 2 then temp2 = ${terrainDoneMask(2)}`,
+    `if temp1 = 3 then temp2 = ${terrainDoneMask(3)}`,
+    `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | temp2`,
+    ...Array.from({length: pfDraw.records}, (_, i) => [...header(i), 'temp1 = temp1 / 32', `if temp1 = ${KIND_NUMBER.terrain} then return thisbank`]).flat(),
+    `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | ${terrainDoneMask(4)}`, 'return thisbank'];
+  // Terrain on DPC+: the coprocessor draws it all in one call as the record starts (the side is the state's low bits, the numbers of the record are in temp2 to temp6),
+  // then the record leaves the queue and the state stays the terrain's: the next step (at the start of the next frame, as it is for the other kinds) tells Terrain done and the
+  // next record waiting starts, so that Terrain done is true in the frame after the terrain, not at once while the frame's blocks may have gone by (the pulse is cleared at the start of the frame after).
+  if (has('terrain') && armTerrain) {
+    ensureArmProgram(Blockly, undefined, 'k');
+    Blockly.BBasic.pfBoxArm = true;
+    add(label('a3'),
+        buildTerrainArmCall({side: `${S.read}
+and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: 'temp6', lastRow: maxRow, lastColumn: maxColumn}),
+        ...store.remove(0),
+        'return',
+        label('u3'),
+        ...(pfDraw.terrainDone ? ['gosub _pfd_tzdone'] : []),
+        set(S, 0),
+        ...header(0),
+        `if temp1 <> 0 then ${S.write} = 2`,
+        'return',
+        ...(pfDraw.terrainDone ? terrainDoneLines() : []));
+  }
+  if (has('terrain') && !armTerrain) {
     const [pos, depth, least, most, pixel, seed, params, over, caves, ledge] = W;
     add(label('a3'), set(pos, 0), set(pixel, 0), set(least, 'temp2'), set(most, 'temp3'), set(over, 0), set(ledge, 0),
         // The fifth number of the record is the overhangs, the caves and tile packed: overhangs + caves * 16 + 128 for tile. The caves byte keeps the caves in bits 0-2,
@@ -360,13 +390,7 @@ const buildEngine = (Blockly) => {
         label('a3z'),
         ...(pfDraw.terrainDone ? ['gosub _pfd_tzdone'] : []),
         'goto _pfd_anone',
-        ...(pfDraw.terrainDone ? [label('tzdone'),
-          // The side that finished sets its bit (1 bottom, 2 top, 4 left, 8 right); bit 16 is for every terrain finished.
-          `temp1 = ${S.read} & 3`, `temp2 = ${terrainDoneMask(0)}`, `if temp1 = 1 then temp2 = ${terrainDoneMask(1)}`, `if temp1 = 2 then temp2 = ${terrainDoneMask(2)}`,
-          `if temp1 = 3 then temp2 = ${terrainDoneMask(3)}`,
-          `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | temp2`,
-          ...Array.from({length: pfDraw.records}, (_, i) => [...header(i), 'temp1 = temp1 / 32', `if temp1 = ${KIND_NUMBER.terrain} then return thisbank`]).flat(),
-          `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | ${terrainDoneMask(4)}`, 'return thisbank'] : []),
+        ...(pfDraw.terrainDone ? terrainDoneLines() : []),
         // The slope of the ground until the next turn, in the high bits of the caves byte: an eighth of the range, half of it a quarter of the time, double it
         // another quarter (the hills are not all the same), 1 at the least and 15 at the most.
         label('u3sl'),

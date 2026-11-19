@@ -26,7 +26,7 @@ import {patchArmProgramAddress, fillArmProgram} from '../generators/bbasic/offse
 import {getDpcPlusNoScoreSiblingFiles} from '../utils/dpc-noscore';
 import {getDpcPlusSquishSiblingFiles} from '../utils/dpc-squish';
 import {getDpcPlusAudioSiblingFiles} from '../generators/bbasic/dpcplus-audio';
-import {SCORE_LAYOUTS, withScoreLayoutBkColor, withScoreLayoutLabels} from '../generators/bbasic/score-layout';
+import {scoreLayoutFileOf, scoreNormalMinikernelFrom, withScoreLayoutBkColor, withScoreLayoutLabels} from '../generators/bbasic/score-layout';
 import {getExtendedScoreGraphics, getTextMinikernelSiblingFiles, getDpcPlusTextMinikernelSiblingFiles, textLineColorsOf, withTextLineColors12b,
   dpcPlusTextScreenLines} from '../generators/bbasic/text-minikernel-files';
 import {getTitleScreenSiblingFiles} from '../generators/bbasic/titlescreen-files';
@@ -1772,8 +1772,10 @@ let lastBuildFailedForFit = false;
 const addScoreLayoutFiles = async (siblingFiles, generator) => {
   const keys = generator.scoreLayoutKeys();
   for (const key of keys) {
-    const file = SCORE_LAYOUTS[key].file;
-    let text = await fetch(`bb19/score-minikernel/${file}`).then((response) => response.text());
+    const file = scoreLayoutFileOf(key);
+    let text = key === 'normal' ?
+      scoreNormalMinikernelFrom(await fetch('bb19/includes/std_kernel.asm').then((response) => response.text())) :
+      await fetch(`bb19/score-minikernel/${file}`).then((response) => response.text());
     if (keys.length > 1) text = withScoreLayoutLabels(text, key);
     siblingFiles[file] = withScoreLayoutBkColor(text, generator);
   }

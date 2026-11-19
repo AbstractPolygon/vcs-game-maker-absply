@@ -124,7 +124,8 @@
             </value>
         </block>
         <category name="Collision" colour="green">
-            <block type="collision_get"></block>
+            <block type="collision_get"><field name="VAR0">player0</field></block>
+            <block type="collision_when"><field name="VAR0">player0</field></block>
             <block type="sprite_overlap_event"></block>
             <block type="collision_check_position"></block>
         </category>
@@ -586,7 +587,7 @@
                         </shadow>
                     </value>
                 </block>
-                <block type="object_gravity_control"></block>
+                <block type="object_gravity_control"><field name="OBJECT">player0</field></block>
             </category>
             <category name="Lock" colour="rgb(33, 150, 243)">
                 <block type="sprite_lock">

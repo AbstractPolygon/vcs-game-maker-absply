@@ -47,11 +47,11 @@ Blockly.defineBlocksWithJsonArray([
   {
     'type': 'score_layout_set',
     'message0': `${SCORE_ICON} Set score layout to %1`,
-    'args0': [{'type': 'field_dropdown', 'name': 'LAYOUT', 'options': [['3 + 3 digits', '3+3'], ['4 + 2 digits', '4+2'], ['5 + 1 digits', '5+1']]}],
+    'args0': [{'type': 'field_dropdown', 'name': 'LAYOUT', 'options': [['one score', 'normal'], ['3 + 3 digits', '3+3'], ['4 + 2 digits', '4+2'], ['5 + 1 digits', '5+1']]}],
     'previousStatement': null,
     'nextStatement': null,
     'colour': SCORE_COLOR,
-    'tooltip': 'Shows the score as two scores of 3 + 3, 4 + 2 or 5 + 1 digits (it is still one number, so a score of 123456 shows as 123 456, 1234 56 or 12345 6). Only the layouts the Score tab and these blocks name are put in the ROM. Needs a two score layout on the Score tab (standard kernel); the Score left and Score right blocks then follow the layout showing.',
+    'tooltip': 'Shows the score as one score of 6 digits or as two scores of 3 + 3, 4 + 2 or 5 + 1 digits (it is still one number, so a score of 123456 shows as 123 456, 1234 56 or 12345 6). The layout of the Score tab shows first, and only the layouts the Score tab and these blocks name are put in the ROM. Standard kernel only. The Score left and Score right blocks follow the layout showing (with one score they do nothing and read 0).',
   },
   // Two score layout (Score tab): the left and right scores as numbers.
   {
