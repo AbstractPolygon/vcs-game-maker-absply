@@ -86,3 +86,39 @@ Object.entries({
   doc['blockly-workspace'] = `<xml xmlns="https://developers.google.com/blockly/xml"><block type="event_block" id="ev0" x="20" y="20"><field name="EVENT">gameplay_start</field><statement name="DO">${chain(parts.game)}</statement></block>${fnDefine(chain(parts.fn))}</xml>`;
   save(`score_value_${key}`, doc);
 });
+
+// score_bars_<normal|33|42|51>: score bars with each layout. Bar 1 health 5 (a solid block 5 wide), bar 2 lives 3 (three dots), score 123456 set at the start: the bars have to show on both sides
+// of the score as they do with the normal score.
+const barHealth = (value) => `<block type="score_bar_set_health"><field name="VAR">pfscore1</field><value name="VALUE">${num(value)}</value></block>`;
+const barLives = (value) => `<block type="score_bar_set_lives"><field name="VAR">pfscore2</field><value name="VALUE">${num(value)}</value></block>`;
+Object.entries(layouts).forEach(([key, layout]) => {
+  const doc = load();
+  doc.configuration.scoreLayout = layout;
+  doc.configuration.projectTitle = `Score bars ${layout}`;
+  doc['blockly-workspace'] = `<xml xmlns="https://developers.google.com/blockly/xml"><block type="event_block" id="ev0" x="20" y="20"><field name="EVENT">gameplay_start</field><statement name="DO">${chain([barHealth(5), barLives(3)])}</statement></block></xml>`;
+  save(`score_bars_${key}`, doc);
+});
+
+// score_one_<a|b|c|d>: the one score layout in a project that switches layouts. a: Score tab one score, Set score layout 3+3 (123 456); b: Score tab 3+3, Set score layout one score
+// (123456); c: Score tab one score, 3+3, then back to one score (123456); d: Score tab 3+3, the bars set, Set score layout one score (123456 and the bars, the score code of the kernel draws them).
+Object.entries({
+  a: ['normal', [layoutBlock('3+3')]], b: ['3+3', [layoutBlock('normal')]], c: ['normal', [layoutBlock('3+3'), layoutBlock('normal')]],
+  d: ['3+3', [barHealth(5), barLives(3), layoutBlock('normal')]],
+}).forEach(([key, [tab, blocks]]) => {
+  const doc = load();
+  doc.configuration.scoreLayout = tab;
+  doc.configuration.projectTitle = `Score one ${key}`;
+  doc['blockly-workspace'] = `<xml xmlns="https://developers.google.com/blockly/xml"><block type="event_block" id="ev0" x="20" y="20"><field name="EVENT">gameplay_start</field><statement name="DO">${chain(blocks)}</statement></block></xml>`;
+  save(`score_one_${key}`, doc);
+});
+
+// score_five_<a|b|c>: the Score tab's 5 digit switch (scoreDigits 5) with the one score layout. a: no layout blocks (the kernel draws the score); b: Score tab one score, 3+3 and back to one score
+// (a minikernel made from the score code of the kernel draws it); c: Score tab 3+3 with a switch to one score. The pictures of a, b and c have to be the same (digits centered the same way).
+Object.entries({a: ['normal', []], b: ['normal', [layoutBlock('3+3'), layoutBlock('normal')]], c: ['3+3', [layoutBlock('normal')]]}).forEach(([key, [tab, blocks]]) => {
+  const doc = load();
+  doc.configuration.scoreLayout = tab;
+  doc.configuration.scoreDigits = 5;
+  doc.configuration.projectTitle = `Score five ${key}`;
+  doc['blockly-workspace'] = `<xml xmlns="https://developers.google.com/blockly/xml"><block type="event_block" id="ev0" x="20" y="20"><field name="EVENT">gameplay_start</field><statement name="DO">${chain(blocks)}</statement></block></xml>`;
+  save(`score_five_${key}`, doc);
+});
