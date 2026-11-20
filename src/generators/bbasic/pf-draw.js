@@ -253,11 +253,16 @@ const buildEngine = (Blockly) => {
         'goto _pfd_subd',
         label(`sub${r + 1}`));
   }
+  // (A circle or a terrain on DPC+, which the coprocessor draws as it starts, waits for the steps at the end of the frame (a terrain started at once by a block in Title screen start was not on the screen).)
+  const deferCircle = armCircle && has('circle');
+  const deferTerrain = armTerrain && has('terrain');
   add(label('subd'),
       `if ${S.read} >= 32 then return`,
       `if ${S.read} = 1 then goto _pfd_flush`,
-      ...(armCircle && has('circle') ? [...header(0), ...(circleSpread ? ['temp2 = temp1'] : []), 'temp1 = temp1 / 32', `if temp1 <> ${KIND_NUMBER.circle} then goto _pfd_deq`,
-        ...(circleSpread ? ['if temp2{0} then goto _pfd_deq'] : []), set(S, 2), 'return'] : []),
+      ...(deferCircle || deferTerrain ? [...header(0), ...(deferCircle && circleSpread ? ['temp2 = temp1'] : []), 'temp1 = temp1 / 32',
+        ...(deferCircle && deferTerrain ? [`if temp1 = ${KIND_NUMBER.terrain} then goto _pfd_subw`] : []),
+        `if temp1 <> ${deferCircle ? KIND_NUMBER.circle : KIND_NUMBER.terrain} then goto _pfd_deq`,
+        ...(deferCircle && circleSpread ? ['if temp2{0} then goto _pfd_deq'] : []), label('subw'), set(S, 2), 'return'] : []),
       'goto _pfd_deq');
   // A step of the work being drawn; with none, the first record waiting starts.
   const unitTargets = KINDS_BY_NUMBER.map((kind, n) => (n && used(n) && kind !== 'pixel' && !(kind === 'circle' && armCircle && !circleSpread) ? `_pfd_u${n}` : '_pfd_unone'));
@@ -579,10 +584,22 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         'if temp2 >= temp1 then goto _pfd_u3v',
         // An overhang starts where the ground is getting shallower, at the height it has: the ledge over what the ground drops to.
         `if ${S.read}{2} then goto _pfd_u3v`,
-        set(ledge, depth.read),
         'temp4 = ' + seed.read + ' / 4',
         'temp4 = temp4 & 3',
         'temp4 = temp4 + 3',
+        // The ground drops under the ledge by more than the ledge is thick (its thickness at the start, plus a quarter of the height less a little, held inside the range), so a
+        // void shows under it; where the range has no room for that there is no overhang.
+        `if ${depth.read} <= ${least.read} then goto _pfd_u3v`,
+        `temp1 = ${depth.read} / 16`,
+        'temp1 = temp1 + temp4',
+        `temp2 = ${depth.read} / 8`,
+        'temp2 = temp2 + temp1',
+        'temp2 = temp2 + 2',
+        `temp3 = ${depth.read} - ${least.read}`,
+        'if temp2 > temp3 then temp2 = temp3',
+        'if temp2 <= temp1 then goto _pfd_u3v',
+        set(ledge, depth.read),
+        set(depth, `${depth.read} - temp2`),
         set(over, 'temp4 + 16'),
         'goto _pfd_u3r',
         // A cave starts instead, with the same chance from the caves value, where the ground is 8 or more high: the gap is in the middle of the line.

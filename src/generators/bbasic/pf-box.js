@@ -51,7 +51,7 @@ const DEFAULT_PF_X_OFFSET = 17;
 // partnerFrameVar: for a 16 pixel wide player, the frame byte of the sprite that shows its right half (255 while it is not shown);
 // the box is twice as wide while it is shown. partnerHiddenVar: a bit that also hides it.
 export const buildPlayfieldBoxLines = ({label, xVar, yVar, sizeVar, heightVar: baseHeightVar, resultVar, maxRow, rowDivisor, dpcPlusRows, dpcPlusRowSets, rowFracVar, maxRowVar,
-  blankLines = true, pfXOffset = DEFAULT_PF_X_OFFSET, partnerFrameVar, partnerHiddenVar, directRead = false, objectWidth, yShift = 0, extraHeight = 0, extVar, dpcPlusScan = false, pxeRead = false, armRows = false, quickLastXVar, armBox = false, armGroups = false, feetOf, noCopies = false, fixedWidthCode = null}) => {
+  blankLines = true, pfXOffset = DEFAULT_PF_X_OFFSET, partnerFrameVar, partnerHiddenVar, directRead = false, objectWidth, yShift = 0, extraHeight = 0, extVar, dpcPlusScan = false, pxeRead = false, armRows = false, quickLastXVar, armBox = false, armGroups = false, feetOf, noCopies = false, fixedWidthCode = null, spriteBox = null}) => {
   const heightVar = extraHeight ? `(${baseHeightVar} ${extraHeight < 0 ? '-' : '+'} ${Math.abs(extraHeight)})` : baseHeightVar;
   const lab = (name) => `${label}_${name}`;
   const at = (name) => `@ ${lab(name)}`;
@@ -643,17 +643,18 @@ export const buildPlayfieldBoxLines = ({label, xVar, yVar, sizeVar, heightVar: b
       'asm',
       `lda ${sizeVar}`,
       'and #7',
-      'ldx #7',
-      `ldy #${pfXOffset}`,
+      // (spriteBox: the first and the last lit column of the sprite's pictures, 0 to 7: the box is those columns, at double and quad width stretched with them.)
+      `ldx #${spriteBox ? spriteBox.right - spriteBox.left : 7}`,
+      `ldy #${pfXOffset - (spriteBox ? spriteBox.left : 0)}`,
       'cmp #5',
       `bne ${lab('nodbl')}`,
-      'ldx #15',
-      `ldy #${pfXOffset - 1}`,
+      `ldx #${spriteBox ? 2 * (spriteBox.right - spriteBox.left) + 1 : 15}`,
+      `ldy #${pfXOffset - 1 - (spriteBox ? 2 * spriteBox.left : 0)}`,
       `@${lab('nodbl')}`,
       'cmp #7',
       `bne ${lab('noquad')}`,
-      'ldx #31',
-      `ldy #${pfXOffset - 1}`,
+      `ldx #${spriteBox ? 4 * (spriteBox.right - spriteBox.left) + 3 : 31}`,
+      `ldy #${pfXOffset - 1 - (spriteBox ? 4 * spriteBox.left : 0)}`,
       `@${lab('noquad')}`,
       'stx temp5',
       'sty temp6',

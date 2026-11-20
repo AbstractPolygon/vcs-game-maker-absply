@@ -41,7 +41,7 @@ export const pfBoxSharingOf = (generator, boxPlayers, undoPlayers = new Set()) =
   return players.length > 1 ? {quick: players.some((player) => undoPlayers.has(player.slice(6)))} : null;
 };
 
-export const pfBoxSubroutineName = (player, feet = false) => `_pfbox_${player}${feet ? ((feet === true || feet === 8) ? '_feet' : `_feet${feet}`) : ''}`;
+export const pfBoxSubroutineName = (player, feet = false, narrow = false) => `_pfbox_${player}${feet ? ((feet === true || feet === 8) ? '_feet' : `_feet${feet}`) : ''}${narrow ? '_sw' : ''}`;
 
 // The bytes the blocks of this project need: the three above when any block tries a position, and the hit byte of each
 // extra player (2 to 9) a block asks about.
@@ -99,10 +99,13 @@ const undoQuickLastX = (Blockly, player) => {
 
 // The subroutine of a player, made the first time a block asks for it. Returns the lines that call it (the caller sets
 // pfboxx and pfboxy first).
-export const callPfBox = (Blockly, player, feet = false, quick = false) => {
-  const sharing = Blockly.BBasic.pfBoxSharing && sharesBoxTest(Blockly.BBasic, player) ? Blockly.BBasic.pfBoxSharing : null;
+// narrow: the box is the lit columns of the player's pictures instead of 8 pixels (Blockly.BBasic.playerVisibleColumns): a separate subroutine, tested by the 6502 code
+// (the coprocessor's box test has the 8 pixels in it).
+export const callPfBox = (Blockly, player, feet = false, quick = false, narrow = false) => {
+  const spriteBox = narrow && Blockly.BBasic.playerVisibleColumns ? Blockly.BBasic.playerVisibleColumns(player) : null;
+  const sharing = !spriteBox && Blockly.BBasic.pfBoxSharing && sharesBoxTest(Blockly.BBasic, player) ? Blockly.BBasic.pfBoxSharing : null;
   const titleSized = /^player[01]$/.test(player) && !!Blockly.BBasic.titleScreenDrawUsed;
-  const name = sharing ? pfBoxSubroutineName('p', feet) : pfBoxSubroutineName(player, feet);
+  const name = sharing ? pfBoxSubroutineName('p', feet) : pfBoxSubroutineName(player, feet, !!spriteBox);
   const rwPair = (canonicalName) => Blockly.BBasic.superchipRwPairs[canonicalName];
   if (!Blockly.BBasic.subroutines[name]) {
     const config = (useConfigurationStorage() || {}).value || {};
@@ -148,7 +151,7 @@ export const callPfBox = (Blockly, player, feet = false, quick = false) => {
     // (With groups of columns that have separate rows it is the coprocessor that knows the rows of each group, from the table the load of a
     // background puts in the display memory, see buildGroupRowsLoad in offset-arm.js; a missile, the ball or a wide player's partner are not.)
     const groupRows = dpcPlus && !pxe && !!Blockly.BBasic.dpcPlusGroupFracVars;
-    const armPlayer = dpcPlus && !pxe && (!varying || groupRows) && (groupRows ? (!!objectBox || /^player\d+$/.test(player)) :
+    const armPlayer = !spriteBox && dpcPlus && !pxe && (!varying || groupRows) && (groupRows ? (!!objectBox || /^player\d+$/.test(player)) :
       !objectBox && /^player\d+$/.test(player) && !(Blockly.BBasic.widePartners || {})[player]);
     const frac = geometry.dpcPlusRows ? geometry.dpcPlusRows.frac : 0;
     const shiftRows = frac > 0 && Number.isInteger(256 / frac) && ((256 / frac) & (256 / frac - 1)) === 0;
@@ -171,7 +174,7 @@ export const callPfBox = (Blockly, player, feet = false, quick = false) => {
       partnerHiddenVar: (Blockly.BBasic.sharedPartnerVars || {})[(Blockly.BBasic.widePartners || {})[player]] ?
         `${Blockly.BBasic.widePartners[player]}size{6}` : undefined,
       directRead: !dpcPlus,
-      quickLastXVar: sharing ? (sharing.quick ? rwPair(PF_BOX_LAST_X).read : undefined) : undoQuickLastX(Blockly, player),
+      quickLastXVar: spriteBox ? undefined : sharing ? (sharing.quick ? rwPair(PF_BOX_LAST_X).read : undefined) : undoQuickLastX(Blockly, player),
       armBox,
       armGroups: armBox && groupRows,
       // (Players 0 and 1 of a project with a title screen keep the copies and the width read from the size byte: the Title Screen can give them a size.)
@@ -181,11 +184,12 @@ export const callPfBox = (Blockly, player, feet = false, quick = false) => {
       pxeRead: pxe,
       armRows: dpcPlus && varying,
       extVar: Blockly.BBasic.pfBoxSweep && !feet ? resolveVar(PF_BOX_EXT) : undefined,
+      spriteBox,
       blankLines: Blockly.BBasic.effectiveShowBlankLines ? !!Blockly.BBasic.effectiveShowBlankLines() : true,
       ...geometry,
     }).join('\n');
   }
-  const entry = quick && undoQuickLastX(Blockly, player) ? `${name}_chk` : name;
+  const entry = quick && !spriteBox && undoQuickLastX(Blockly, player) ? `${name}_chk` : name;
   const gosub = `gosub ${entry}${Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(name))}`;
   if (!sharing) return gosub;
   return [`${rwPair(PF_BOX_SIZE).write} = ${player}size`, `${rwPair(PF_BOX_HEIGHT).write} = ${player}height`,

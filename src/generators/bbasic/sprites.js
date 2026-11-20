@@ -34,6 +34,7 @@ const rawAsmLines = (lines) => {
 
 const pfRowDivisorFor = (config) => Math.max(1, Math.round(exactRowDivisorFor(config)));
 import {flagPoolVar, flagPoolBit} from './flag-pool';
+import {PF_BOX_X, PF_BOX_Y, PF_BOX_HIT, callPfBox} from './pf-box-sub';
 import {fadeFlagsVarName, fadeActiveBit, effectiveBackgroundRows} from '../../blocks/background';
 
 // The high byte of the pointers of the noise (memory read as graphics or colors): DPC+ reads the display memory at $04xx; PXE reads a page of
@@ -2382,8 +2383,10 @@ const buildFinePositionStepAsm = (posVar, intVar, fracVar, posFracVar) => [
   '       sta ' + posVar,
 ];
 
-export const reserveGravityDevVars = (Blockly, reserveDevVar, reserveDevVarRW, usedFor) => {
+export const GRAVITY_LAND_COUNT_VAR = 'gravLandCount';
+export const reserveGravityDevVars = (Blockly, reserveDevVar, reserveDevVarRW, usedFor, landFor) => {
   if (!usedFor || !usedFor.size) return;
+  if (landFor && landFor.size) reserveDevVar(GRAVITY_LAND_COUNT_VAR, undefined, 'lines an object with gravity that stops on the playfield is still to be taken back out of it');
   reserveDevVar(objectGravityFlagsVarName(), undefined, 'shared active-bit byte for objects with gravity');
   reserveDevVar(flagPoolVar(OBJECT_GRAVITY_RAN_FAMILY), undefined, 'a Start gravity block ran for the object in this frame (a bit for each object)');
   reserveDevVar(flagPoolVar(OBJECT_GRAVITY_RAN_LAST_FAMILY), undefined, 'a Start gravity block ran for the object in the last frame (a bit for each object)');
@@ -2464,6 +2467,35 @@ const buildGravityBounceAsm = (Blockly, name, label, at = '@') => {
 
 // Once a frame (spliced into commongamelogic): an object with Gravity on is pulled down: every so many frames its fall speed (pixels a frame, signed) grows by 1,
 // until it is the max fall speed (a rising object, after a bounce, slows down first), and the object moves by it.
+// "Stop on the playfield" (pulling down only): after the fall, the box of the object is tried at its new place (the software box test, see pf-box-sub.js); in a lit pixel, it is taken
+// back up a line at a time (at most 16) until it is clear, the fall speed set to 0 and the gravity turned off, as the Stop block does. A fall speed going up (after a bounce) is left alone.
+const gravityLandLines = (Blockly, name) => {
+  if (!Blockly.BBasic.objectGravityLand || !Blockly.BBasic.objectGravityLand.has(name) || objectGravityConstant(Blockly, name, 'angle') !== 128) return [];
+  const resolveVar = (canonicalName) => Blockly.BBasic.nameDB_.getName(canonicalName, Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+  const flags = resolveVar(objectGravityFlagsVarName());
+  const speed = Blockly.BBasic.superchipRwPairs[objectGravitySpeedVarName(name)];
+  const fine = Blockly.BBasic.superchipRwPairs[objectGravityFineVarName(name)];
+  const [bx, by, hit, count] = [PF_BOX_X, PF_BOX_Y, PF_BOX_HIT, GRAVITY_LAND_COUNT_VAR].map(resolveVar);
+  const box = ` ${callPfBox(Blockly, name, false, false, Blockly.BBasic.objectGravityLand.get(name))}`;
+  const up = `_gravland_${name}_up`;
+  const stop = `_gravland_${name}_stop`;
+  const done = `_gravland_${name}_done`;
+  return [` rem ${name} stops on the playfield:`,
+    ` if ${speed.read} > 127 then goto ${done}`,
+    ` ${bx} = ${name}x`, ` ${by} = ${name}y`, box,
+    ` if ${hit} = 0 then goto ${done}`,
+    ` ${count} = 16`,
+    up,
+    ` if ${name}y = 0 then goto ${stop}`,
+    ` ${name}y = ${name}y - 1`, ` ${by} = ${name}y`, box,
+    ` if ${hit} = 0 then goto ${stop}`,
+    ` ${count} = ${count} - 1`,
+    ` if ${count} > 0 then goto ${up}`,
+    stop,
+    ` ${speed.write} = 0`, ` ${fine.write} = 0`, ` ${flags}{${objectGravityBit(name)}} = 0`,
+    done];
+};
+
 export const generateGravityChecks = (Blockly) => {
   const used = Blockly.BBasic.objectGravityUsedFor;
   if (!used || !used.size) return '';
@@ -2510,6 +2542,7 @@ export const generateGravityChecks = (Blockly) => {
           ...anyAxisAsm({name: `${name}g`, coord: name, axis: 'y', dirVar: 'temp4', speedOperand: 'temp5', fracPair: Blockly.BBasic.superchipRwPairs[objectGravityFracVarName(name, 'Y')], stretch: false, mode: 'apply', table: INERTIA_SINE_TABLE}),
         ]),
         'end',
+        ...gravityLandLines(Blockly, name),
         skip);
   });
   return lines.join(String.fromCharCode(10)) + String.fromCharCode(10);

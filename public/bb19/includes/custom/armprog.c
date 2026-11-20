@@ -433,8 +433,16 @@ static void terrain(volatile b8 *p)
     t2=seed&15;
     if (t2>=t1) goto v;
     if (deeper) goto v;
-    ledge=depth;
     t4=B(((seed>>2)&3)+3);
+    // The ground drops under the ledge by more than the ledge is thick (see the overhang start in pf-draw.js), so a void shows under it.
+    if (depth<=least) goto v;
+    t1=B((depth>>4)+t4);
+    t2=B(B((depth>>3)+t1)+2);
+    t3=B(depth-least);
+    if (t2>t3) t2=t3;
+    if (t2<=t1) goto v;
+    ledge=depth;
+    depth=B(depth-t2);
     over=B(t4+16);
     goto r;
   v:

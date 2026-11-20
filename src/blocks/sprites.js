@@ -1706,12 +1706,19 @@ Blockly.defineBlocksWithJsonArray([
       {'type': 'field_label', 'text': ' '},
       {'type': 'input_value', 'name': 'ANGLE', 'check': 'Number'},
     ],
+    'message3': '%1 %2 stop on the playfield %3 %4 use the sprite width, not 8 pixels',
+    'args3': [
+      {'type': 'field_label', 'text': ' '},
+      {'type': 'field_checkbox', 'name': 'LAND', 'checked': false},
+      {'type': 'field_label', 'text': ' '},
+      {'type': 'field_checkbox', 'name': 'SPRITEWIDTH', 'checked': false},
+    ],
     'inputsInline': true,
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync', 'object_gravity_defaults'],
-    'tooltip': 'Start: the fall speed grows every frame by this many eighths of a pixel (1 to 16, the same as the gravity of the Platform block: a smooth fall, not a jump of a whole pixel) up to "max fall speed" (pixels a frame), on top of Fire movement, so a fired object follows a curve. Start turns the gravity on in the first frame it runs and sets nothing to 0: a Start in code that runs every frame does not start it again (and does not undo a Stop), until a frame goes by in which it did not run. "Bounce keeps": when a Bounce block turns the object back from above or below, the fall speed turns round and keeps this much of its size (100% never settles). Gravity does not look at the playfield: use a Bounce block when it hits something. Stop: gravity off, fall speed 0. The direction is a full turn of 256 (128 down, 0 up, 64 right, 192 left): the object is pulled that way, at most 7 pixels a frame.',
+    'tooltip': 'Makes an object fall, or be pulled in a direction, faster and faster. Start/Stop: turns the gravity on, or off with the fall speed 0. Gravity: eighths of a pixel the fall speed grows each frame (1 to 16). Max fall speed: pixels a frame. Bounce keeps: how much of its speed a Bounce block leaves. Pull toward direction: a full turn of 256 (128 is down). Stop on the playfield (down only): lands on the first lit pixel and stops falling. Use the sprite width: the landing box is as wide as the lit pixels of the player, not 8 pixels.',
   },
   // Starts or stops the gravity of an object, with the numbers a Gravity block gave it (the Start and Stop of the Gravity block, without its numbers).
   {

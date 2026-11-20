@@ -1244,6 +1244,8 @@ Blockly.BBasic.init = function(workspace) {
   this.inertiaFineUsedFor = new Set();
   this.objectGravityUsedFor = new Set();
   this.objectGravityParams = {};
+  // The objects whose Gravity block says "stop on the playfield": name -> whether the box is the sprite width (see generateGravityChecks).
+  this.objectGravityLand = new Map();
   // The two score layouts the Set score layout blocks name (the Score tab's layout is always in the ROM).
   this.scoreLayoutsUsed = new Set();
   // The title screens already said to have more lines than the picture shows (once a build).
@@ -1274,6 +1276,10 @@ Blockly.BBasic.init = function(workspace) {
     if (block.type === 'object_gravity') {
       const name = block.getFieldValue('OBJECT');
       this.objectGravityUsedFor.add(name);
+      if (block.getFieldValue('ACTION') !== 'stop' && block.getFieldValue('LAND') === 'TRUE') {
+        this.objectGravityLand.set(name, !!this.objectGravityLand.get(name) || block.getFieldValue('SPRITEWIDTH') === 'TRUE');
+        this.pfBoxPlayers.add(name);
+      }
       const numberOf = (input, convert) => {
         const target = block.getInputTargetBlock(input);
         return target && target.type === 'math_number' ? convert(Number(target.getFieldValue('NUM'))) : null;
@@ -2999,6 +3005,34 @@ Blockly.BBasic.init = function(workspace) {
   // playfield box test of a player that can not leaves its copies out (see noCopies in generators/bbasic/pf-box.js).
   const widePlayers = new Set([...Object.keys(this.widePartners || {}), ...Object.values(this.widePartners || {})]);
   this.playerCopiesPossible = (name) => widePlayers.has(name) || [...(poolOf.get(name) || [name])].some((member) => sizeChangedPlayers.has(member));
+  // The first and the last lit column (0 to 7) of the pictures a player can show (the animations it uses), for a box as wide as the sprite: null when that is no narrower than 8
+  // pixels, or the player is wider (two sprites) or has no picture.
+  this.playerVisibleColumns = (name) => {
+    if (!/^player\d+$/.test(name) || widePlayers.has(name)) return null;
+    let left = 8;
+    let right = -1;
+    for (const member of (poolOf.get(name) || [name])) {
+      const used = this.usedPlayerAnimations && this.usedPlayerAnimations[member];
+      for (let index = 0; index < allAnimations.length; index++) {
+        if (used && !used.has(index)) continue;
+        for (const frame of allAnimations[index].frames || []) {
+          const rows = Array.isArray(frame.pixels) ? frame.pixels : String(frame.pixels || '').split('\n');
+          for (const row of rows) {
+            // (A row is a text of . and X, or a list of cells.)
+            const cells = Array.isArray(row) ? row : String(row).split('');
+            if (cells.length > 8) return null;
+            cells.forEach((cell, column) => {
+              if (cell && !/^[.\s0]$/.test(String(cell))) {
+                left = Math.min(left, column);
+                right = Math.max(right, column);
+              }
+            });
+          }
+        }
+      }
+    }
+    return right < left || (left === 0 && right === 7) ? null : {left, right};
+  };
   const animationWidths = (name) => new Set([...(poolOf.get(name) || [name])].flatMap((member) => {
     const used = this.usedPlayerAnimations && this.usedPlayerAnimations[member];
     return allAnimations.filter((animation, index) => !used || used.has(index)).map((animation) => ({2: 2, 4: 4})[animation.previewWidthScale] || 1);
@@ -3069,7 +3103,7 @@ Blockly.BBasic.init = function(workspace) {
   // early pre-scan (above) found it used.
   reserveInertiaDevVars(reserveDevVar, this.inertiaUsedFor, this.inertiaAccelUsedFor, this.inertiaDecelUsedFor,
       this.inertiaAccel16UsedFor, this.inertiaFineUsedFor);
-  reserveGravityDevVars({BBasic: this}, reserveDevVar, reserveDevVarRW, this.objectGravityUsedFor);
+  reserveGravityDevVars({BBasic: this}, reserveDevVar, reserveDevVarRW, this.objectGravityUsedFor, this.objectGravityLand);
 
   // Same bucket again, for CTRLPF's  RAM shadow (see
   // reserveCtrlpfShadowDevVar's  comment in generators/bbasic/sprites.js)
@@ -5151,8 +5185,8 @@ Blockly.BBasic.finish = function(code) {
   const generatedPfDrawStep = generatePfDrawStep(Blockly);
   // (The steps of the Draw blocks (terrain, lines, fill) are in the second half of commongamelogic: the Title Screen loop returns before it, so they run before that return
   // there, with the label of their idle jump renamed: without them a Draw block makes nothing while the Titlescreen Kernel is on.)
-  // (Not when "Start title screen" in "Title screen start" keeps the kernel on: the Draw blocks are game kernel blocks, so they draw nothing until the title screen ends.)
-  const titleKernelSteps = this.titleStartDrawBlock ? '' : generatedPfDrawStep.split('_pfd_idle').join('_pfd_idle_title');
+  // (Also when "Start title screen" in "Title screen start" keeps the kernel on in "Title screen update": the Draw blocks of the start event go on drawing there, every one of them.)
+  const titleKernelSteps = generatedPfDrawStep.split('_pfd_idle').join('_pfd_idle_title');
   const generatedTitleKernelSkip = this.titleScreenDrawUsed ?
     ` if !${titleKernelLoopFlag()} then goto commongamelogicdraw\n${titleKernelSteps}\n${this.commonGameLogicReturn()}\ncommongamelogicdraw\n` : '';
   const generatedScoreFlashChecks = Blockly.BBasic.generateScoreFlashChecks();
