@@ -19,7 +19,7 @@ static u load(volatile b8 *p,u r)
   return conv((p[r]<<24)|(p[256+r]<<16)|(p[512+r]<<8)|p[768+r]);
 }
 
-// Built in a program for each set of functions a project needs (see offset-arm.js and the files of the prog folder): with and without -DGROUPS, and with any of the sets of functions left out: -DNOTERRAIN (the Generate terrain block, function 113), -DNOOFFSET (the Playfield offset block), -DNOBOX (the playfield box test), -DNOCIRCLE (the circle block), -DNOPIX (the pixel finding and the bounce of the ball and the missiles), -DNOFIRE (the movement of an object a Fire block launched with the playfield check on), -DNOAUDIO (the DPC+ sound engine's waveform rebuild and volume mix), -DNOTILES (the playfield tilemap), -DNONARROW (its 4-pixel tiles) and -DNORUNS (the backgrounds kept as runs)
+// Built in a program for each set of functions a project needs (see offset-arm.js and the files of the prog folder): with and without -DGROUPS, and with any of the sets of functions left out: -DNOTERRAIN (the Generate terrain block, function 113, and the Playfield gravity block, functions 114 and 115), -DNOOFFSET (the Playfield offset block), -DNOBOX (the playfield box test), -DNOCIRCLE (the circle block), -DNOPIX (the pixel finding and the bounce of the ball and the missiles), -DNOFIRE (the movement of an object a Fire block launched with the playfield check on), -DNOAUDIO (the DPC+ sound engine's waveform rebuild and volume mix), -DNOTILES (the playfield tilemap), -DNONARROW (its 4-pixel tiles) and -DNORUNS (the backgrounds kept as runs)
 // too) for a project with groups of columns that have separate rows, which is a good deal bigger.
 // The numbers of the project's rows, put in by the generator in place of these: rows of a line = line * K[0] / 256, the last row K[1],
 // whether a line is held to 191 first K[2], whether the groups of columns have separate rows K[3]. Then each group (column byte) has its
@@ -471,6 +471,54 @@ static void terrain(volatile b8 *p)
     }
     over=B(t1+B(t2*16));
   }
+}
+
+// "Playfield gravity" (function 114, with the terrain: the set k): the pixels of an area fall, as the steps of the 6502 engine make them (generators/bbasic/pf-draw.js,
+// the gravity). C_function[1..4]: the first column, the first row, the last column and the last row of the area (already cut to the playfield). Each column goes from its
+// lowest row up: a pixel that is on moves to the lowest row not taken, and the row after is the one above it.
+static void pfgravity(volatile b8 *p)
+{
+  u x1=CF[1],y1=CF[2],x2=CF[3],y2=CF[4],c,r,land,base,m;
+  for (c=x1;c<=x2;c++)
+  {
+    base=(c>>3)<<8;
+    m=1<<((c^(((c>>3)&1)?0:7))&7);
+    land=y2;
+    for (r=y2;;r--)
+    {
+      if (p[base+r]&m)
+      {
+        if (r!=land)
+        {
+          p[base+r]&=~m;
+          p[base+land]|=m;
+        }
+        land--;
+      }
+      if (r==y1) break;
+    }
+  }
+}
+// One step of the pixels falling over time (function 115): every row from the one above the last up to the first, left to right, a pixel that is on with a pixel that is off
+// under it moves down one row (so a stack of pixels moves as one). The same arguments as pfgravity; C_function[1] gives back 1 when a pixel moved, 0 when none did.
+static void pfgravstep(volatile b8 *p)
+{
+  u x1=CF[1],y1=CF[2],x2=CF[3],y2=CF[4],c,r,moved=0,base,m;
+  for (r=y2;r>y1;r--)
+  {
+    for (c=x1;c<=x2;c++)
+    {
+      base=(c>>3)<<8;
+      m=1<<((c^(((c>>3)&1)?0:7))&7);
+      if ((p[base+r-1]&m)&&!(p[base+r]&m))
+      {
+        p[base+r-1]&=~m;
+        p[base+r]|=m;
+        moved=1;
+      }
+    }
+  }
+  CF[1]=moved;
 }
 
 #endif
@@ -951,6 +999,8 @@ void __attribute__((section(".text.entry"))) run(void)
 #endif
 #ifndef NOTERRAIN
   else if (op==113) terrain(p);
+  else if (op==114) pfgravity(p);
+  else if (op==115) pfgravstep(p);
 #endif
 #ifndef NOPIX
   else if (op==99) findpixel(p);

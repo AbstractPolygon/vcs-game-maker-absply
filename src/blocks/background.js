@@ -803,6 +803,38 @@ Blockly.Blocks['background_offset'] = {
   },
 };
 
+registerExtension('background_gravity_defaults', numberDefaultsExtension({DELAY: 0}));
+// Playfield gravity: the pixels of the whole playfield, or of an area of it (set up as the area of "Playfield offset" is), fall down until each one is on
+// top of another pixel or on the bottom row of the area. The pixels are moved by the drawing engine (generators/bbasic/pf-draw.js), a few at a time.
+Blockly.Blocks['background_gravity'] = {
+  init: function() {
+    this.appendDummyInput('HEAD')
+        .appendField(`${BACKGROUND_ICON} Playfield gravity`)
+        .appendField(new Blockly.FieldCheckbox('TRUE', (value) => {
+          this.updateShape_(value === 'TRUE' || value === true);
+          return value;
+        }), 'WHOLE')
+        .appendField('whole playfield');
+    this.appendValueInput('DELAY').setCheck('Number').appendField('fall one row every');
+    this.appendDummyInput('DELAYEND').appendField('frames');
+    this.setInputsInline(true);
+    this.setPreviousStatement(true);
+    this.setNextStatement(true);
+    this.setColour(BACKGROUND_COLOR);
+    Blockly.Extensions.apply('background_gravity_defaults', this, false);
+    this.setTooltip(`Makes the playfield pixels fall: with 0 frames all of them at once; otherwise every floating pixel moves down one row every that many frames, from the bottom row up, until none can move. in every column, each pixel that is on moves down until it is on top of another pixel or on the bottom row, so pixels left floating (after part of the terrain was destroyed) land. Unticked: only inside the area from one corner to the other (the top left first; the columns and rows count from 0). Pixels outside the area stay. Colors are not changed. ${DRAW_QUEUE_TOOLTIP}`);
+  },
+  mutationToDom: function() {
+    const container = Blockly.utils.xml.createElement('mutation');
+    container.setAttribute('whole', this.getFieldValue('WHOLE') === 'FALSE' ? '0' : '1');
+    return container;
+  },
+  domToMutation: function(xml) {
+    this.updateShape_(xml.getAttribute('whole') !== '0');
+  },
+  updateShape_: Blockly.Blocks['background_offset'].updateShape_,
+};
+
 export const DEFAULT_BACKGROUNDS = {
   backgrounds: [
     {
@@ -1453,6 +1485,23 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
     'tooltip': 'Stops the fill being drawn and removes waiting fills from the queue (other waiting Draw blocks are still drawn).',
+  },
+  {
+    'type': 'background_when_gravity_done',
+    'message0': `${BACKGROUND_ICON} When playfield gravity is done`,
+    'message1': '%1',
+    'args1': [{'type': 'input_statement', 'name': 'DO'}],
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': BACKGROUND_COLOR,
+    'tooltip': 'Runs the blocks inside once, in the frame after the pixels of a Playfield gravity block have landed (when no other gravity is waiting). Put it in code that runs every frame.',
+  },
+  {
+    'type': 'background_gravity_done',
+    'message0': `${BACKGROUND_ICON} Playfield gravity done`,
+    'output': 'Boolean',
+    'colour': BACKGROUND_COLOR,
+    'tooltip': `True when no playfield gravity is being drawn or waiting to be drawn. Can only be used on "if" statements.`,
   },
   {
     'type': 'background_flood_fill_done',

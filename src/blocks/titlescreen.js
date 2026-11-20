@@ -648,7 +648,7 @@ Blockly.Blocks['titlescreen_start'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(TITLESCREEN_COLOR);
-    this.setTooltip('Restarts the title screen: the kernel draws again, the title screen variables and flags are reset, and "Title screen start" runs again. Blocks after this do not run. Does nothing inside "Title screen start".');
+    this.setTooltip('Restarts the title screen: the kernel draws again, the title screen variables and flags are reset, and "Title screen start" runs again. Blocks after this do not run. Inside "Title screen start" it keeps the Titlescreen Kernel on for "Title screen update" (drawing the Draw title screen block that follows it) until "End title screen", so the game kernel does not run.');
   },
 };
 

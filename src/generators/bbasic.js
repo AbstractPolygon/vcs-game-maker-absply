@@ -1446,6 +1446,21 @@ Blockly.BBasic.init = function(workspace) {
       .map((block) => String(block.getFieldValue('SCREEN') || ''))
       .filter((id) => id !== ''));
   setDrawnTitleScreenIds(drawnTitleScreenIds);
+  // A "Start title screen" block in "Title screen start" turns the Titlescreen Kernel on for "Title screen update" too: the Draw title screen block that follows it in that
+  // event is the one the update loop draws every frame (see generateGameLoopEvent), whether or not the update has a Draw block itself.
+  this.titleStartDrawBlock = null;
+  // (An event block can follow another one in the stack, so the root block is not the event: the surrounding event_block is.)
+  const eventOf = (block) => {
+    let up = block;
+    while (up && up.type !== 'event_block') up = up.getSurroundParent();
+    return up;
+  };
+  codeBlocks(['titlescreen_start']).filter((block) => (eventOf(block) || {getFieldValue: () => ''}).getFieldValue('EVENT') === 'title_start').forEach((start) => {
+    if (this.titleStartDrawBlock) return;
+    for (let next = start.getNextBlock(); next && !this.titleStartDrawBlock; next = next.getNextBlock()) {
+      if (next.type === 'titlescreen_draw' && next.isEnabled()) this.titleStartDrawBlock = next;
+    }
+  });
   this.titleScreenDrawUsed = drawnTitleScreenIds.size > 0 &&
     processTitleScreenStorageForBuild(useTitleScreenStorage()).screens.length > 0;
   // The Text tab messages that are built: the ones a "Show text" block names and the text cards of the title pages that are built; every
@@ -3500,7 +3515,7 @@ Blockly.BBasic.init = function(workspace) {
     if (this.dpcPlusGeometries.length > 1) {
       const rowBlocks = ['background_pixel_to_sprite', 'background_sprite_to_pixel', 'background_get_resolution',
         'background_collision_pixel', 'background_collision_pixel_direction', 'background_area_clear', 'background_fill_area', 'background_fill_circle',
-        'background_flood_fill', 'background_generate_terrain'];
+        'background_flood_fill', 'background_generate_terrain', 'background_gravity'];
       const pfBoxUsed = this.pfBoxPlayers.size > 0 || (this.pfHitExtras && this.pfHitExtras.size > 0);
       const rowsUsed = pfBoxUsed || this.missileFireUsedFor.size > 0 || this.missileBounceUsedFor.size > 0 ||
         this.inertiaUsedFor.size > 0 || workspace.getAllBlocks(false).some((block) => rowBlocks.includes(block.type));
@@ -5136,8 +5151,10 @@ Blockly.BBasic.finish = function(code) {
   const generatedPfDrawStep = generatePfDrawStep(Blockly);
   // (The steps of the Draw blocks (terrain, lines, fill) are in the second half of commongamelogic: the Title Screen loop returns before it, so they run before that return
   // there, with the label of their idle jump renamed: without them a Draw block makes nothing while the Titlescreen Kernel is on.)
+  // (Not when "Start title screen" in "Title screen start" keeps the kernel on: the Draw blocks are game kernel blocks, so they draw nothing until the title screen ends.)
+  const titleKernelSteps = this.titleStartDrawBlock ? '' : generatedPfDrawStep.split('_pfd_idle').join('_pfd_idle_title');
   const generatedTitleKernelSkip = this.titleScreenDrawUsed ?
-    ` if !${titleKernelLoopFlag()} then goto commongamelogicdraw\n${generatedPfDrawStep.split('_pfd_idle').join('_pfd_idle_title')}\n${this.commonGameLogicReturn()}\ncommongamelogicdraw\n` : '';
+    ` if !${titleKernelLoopFlag()} then goto commongamelogicdraw\n${titleKernelSteps}\n${this.commonGameLogicReturn()}\ncommongamelogicdraw\n` : '';
   const generatedScoreFlashChecks = Blockly.BBasic.generateScoreFlashChecks();
   const generatedSpeechChecks = generateSpeechChecks(Blockly);
   // The steps of the fractional data fetchers (DFxFRACINC) stay as they were written: the kernel writes only DF5 and DF7, the coprocessor none. When they are
@@ -6127,8 +6144,19 @@ Blockly.BBasic.generateGameEvent = function(eventName,
 // of the real commongamelogic.
 Blockly.BBasic.generateGameLoopEvent = function(eventName) {
   return this.generateGameEvent(eventName, (eventName, eventCode) => {
-    const innerCode = eventCode.join('\n\n');
-    if (!innerCode.trim()) return '';
+    let innerCode = eventCode.join('\n\n');
+    // (The Draw title screen block that follows "Start title screen" in "Title screen start" is drawn at the end of the loop when the update has no Draw block: see titleStartDrawBlock.)
+    const startDrawBlock = eventName === 'title_update' && this.titleScreenDrawUsed && !innerCode.includes('_titlescreen_system') ? this.titleStartDrawBlock : null;
+    if (!innerCode.trim() && !startDrawBlock) return '';
+    if (startDrawBlock) {
+      const before = Blockly.BBasic.currentEventName;
+      Blockly.BBasic.currentEventName = eventName;
+      try {
+        innerCode += '\n' + Blockly.BBasic.blockToCode(startDrawBlock, true);
+      } finally {
+        Blockly.BBasic.currentEventName = before;
+      }
+    }
     const suffix = Blockly.BBasic.bankJumpSuffix(
         Blockly.BBasic.getEventBank(eventName), Blockly.BBasic.primaryBank());
     // A "Draw title screen" block anywhere in this event's body (see

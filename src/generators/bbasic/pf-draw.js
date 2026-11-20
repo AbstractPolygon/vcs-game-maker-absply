@@ -1,13 +1,13 @@
 'use strict';
 
 import {pfMaxColumn} from '../../utils/playfield-coords';
-import {buildCircleArmCall, buildTerrainArmCall, ensureArmProgram} from './offset-arm';
+import {buildCircleArmCall, buildGravityArmCall, buildGravityStepCall, buildTerrainArmCall, ensureArmProgram} from './offset-arm';
 import {flagPoolVar, flagPoolBit} from './flag-pool';
 
-// Terrain done: one bit of the flag pool for each side (0 bottom, 1 top, 2 left, 3 right) and one (4) for every terrain finished. Set when a terrain
-// is finished, cleared at the end of the frame after.
+// Terrain done: one bit of the flag pool for each side (0 bottom, 1 top, 2 left, 3 right) and one (4) for every terrain finished; the bit 5 is for the
+// playfield gravity (When playfield gravity is done). Set when the work is finished, cleared at the end of the frame after.
 export const PFD_TERRAIN_DONE_FAMILY = 'pfdTerrainDone';
-export const PFD_TERRAIN_DONE_BITS = [0, 1, 2, 3, 4];
+export const PFD_TERRAIN_DONE_BITS = [0, 1, 2, 3, 4, 5];
 const terrainDoneName = (Blockly) => Blockly.BBasic.nameDB_.getName(flagPoolVar(PFD_TERRAIN_DONE_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
 const terrainDoneMask = (index) => 1 << flagPoolBit(PFD_TERRAIN_DONE_FAMILY, index);
 const terrainDoneAllMask = () => PFD_TERRAIN_DONE_BITS.reduce((mask, index) => mask | terrainDoneMask(index), 0);
@@ -37,7 +37,7 @@ const terrainDoneAllMask = () => PFD_TERRAIN_DONE_BITS.reduce((mask, index) => m
 // (The bytes are reserved with reserveDevVarRW: with Superchip they go to its RAM, where the write and the read have different names.)
 
 export const PF_DRAW_BLOCK_TYPES = ['background_change_pixel', 'background_change_hv_line', 'background_fill_area', 'background_draw_line',
-  'background_fill_circle', 'background_flood_fill', 'background_generate_terrain'];
+  'background_fill_circle', 'background_flood_fill', 'background_generate_terrain', 'background_gravity'];
 export const pfDrawKindOf = (block) => {
   switch (block.type) {
     case 'background_change_pixel': return 'pixel';
@@ -47,16 +47,18 @@ export const pfDrawKindOf = (block) => {
     case 'background_generate_terrain': return 'terrain';
     case 'background_fill_circle': return 'circle';
     case 'background_flood_fill': return 'fill';
+    case 'background_gravity': return 'gravity';
     default: return null;
   }
 };
 // (A horizontal and a vertical straight line are one kind: bit 2 of the header says vertical.)
-const KIND_NUMBER = {pixel: 1, hline: 2, vline: 2, terrain: 3, area: 4, carea: 4, line: 5, circle: 6, fill: 7};
+const KIND_NUMBER = {pixel: 1, hline: 2, vline: 2, terrain: 3, area: 4, carea: 4, line: 5, circle: 6, fill: 7, gravity: 7};
 const KINDS_BY_NUMBER = ['none', 'pixel', 'sline', 'terrain', 'area', 'line', 'circle', 'fill'];
+// (The playfield gravity shares the fill's kind number, 7, with the operation 2, flip: its steps flip the pixels they move.)
 const OPERATION_NUMBER = {on: 0, off: 1, flip: 2};
 // The numbers a kind's record holds and the work bytes it keeps while it is drawn (at most five numbers: the record is read into temp1 to temp6).
-const RECORD_NUMBERS = {pixel: 2, hline: 3, vline: 3, terrain: 5, area: 4, carea: 4, line: 4, circle: 5, fill: 2};
-const WORK_BYTES = {pixel: 0, hline: 3, vline: 3, terrain: 10, area: 5, carea: 5, line: 7, circle: 7, fill: 3};
+const RECORD_NUMBERS = {pixel: 2, hline: 3, vline: 3, terrain: 5, area: 4, carea: 4, line: 4, circle: 5, fill: 2, gravity: 5};
+const WORK_BYTES = {pixel: 0, hline: 3, vline: 3, terrain: 10, area: 5, carea: 5, line: 7, circle: 7, fill: 3, gravity: 6};
 // The records of the queue and the seeds of the fill. The standard kernel without Superchip has the least RAM: one record waiting and two seeds.
 const queueRecordsFor = (config, superchip, displayRam) => (displayRam ? 4 : superchip ? 3 : config.pxe ? 2 : 1);
 const seedSlotsFor = (config, superchip) => (superchip || config.pxe ? 4 : 2);
@@ -99,27 +101,41 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
   // The Generate terrain block is drawn by the coprocessor on DPC+ too, in one call (function 113 of armprog.c) as the block runs: no work bytes, no steps, and it
   // does not wait for the time left at the end of the frame (the call takes less than a step of the circle's).
   const armTerrain = displayRam;
+  // The Playfield gravity block too (function 114 of armprog.c, in the set with the terrain): the pixels fall in one call, no work bytes and no steps.
+  const armGravity = displayRam;
   // A circle block with "over several frames" ticked on DPC+ is drawn by the steps, row by row from the center, as on the other kernels (flag bit 0 of its header).
   const circleSpread = armCircle && blocks.some((block) => block.type === 'background_fill_circle' && block.getFieldValue('SPREAD') === 'TRUE');
   const seeds = kinds.has('fill') && !displayRam ? seedSlotsFor(config, superchip) : 0;
-  const workBytes = Math.max(kinds.has('fill') ? FILL_KEEPS + 2 * seeds : 0, ...[...kinds].map((kind) => ((kind === 'circle' && armCircle && !circleSpread) || (kind === 'terrain' && armTerrain) ? 0 : WORK_BYTES[kind])));
+  // The playfield gravity falls over time (a block with a number of frames above 0, see background_gravity): it keeps the area, the frames between its steps and a byte counting the frames.
+  const gravityAnim = kinds.has('gravity') && blocks.some((block) => {
+    const target = block.type === 'background_gravity' && block.getInput('DELAY') && block.getInput('DELAY').connection.targetBlock();
+    return !!target && !(target.type === 'math_number' && Number(target.getFieldValue('NUM')) === 0);
+  });
+  const workOf = (kind) => {
+    if ((kind === 'circle' && armCircle && !circleSpread) || (kind === 'terrain' && armTerrain)) return 0;
+    if (kind === 'gravity') return armGravity ? (gravityAnim ? 5 : 0) : (gravityAnim ? 7 : 6);
+    return WORK_BYTES[kind];
+  };
+  const workBytes = Math.max(kinds.has('fill') ? FILL_KEEPS + 2 * seeds : 0, ...[...kinds].map(workOf));
   const recordBytes = 1 + Math.max(...[...kinds].map((kind) => RECORD_NUMBERS[kind]));
   const records = queueRecordsFor(config, superchip, displayRam);
+  const gravityTick = gravityAnim ? reserveDevVarRW('pfdGravTick', 'playfield gravity: the frames left before its next step') : null;
   const state = reserveDevVarRW('pfdState', 'playfield drawing: the kind of work being drawn, its operation and its steps');
   // 1 for the one frame after terrain was finished (see Playfield terrain done).
-  const terrainDone = blocks.some((block) => block.type === 'background_generate_terrain_done' || block.type === 'background_when_terrain_done') ?
+  const terrainDone = blocks.some((block) => ['background_generate_terrain_done', 'background_when_terrain_done', 'background_when_gravity_done'].includes(block.type)) ?
     {family: PFD_TERRAIN_DONE_FAMILY} : null;
   const work = Array.from({length: workBytes}, (_, i) => reserveDevVarRW(`pfdWork${i}`, 'playfield drawing: what the work being drawn keeps'));
   const queue = displayRam ? null : Array.from({length: records}, (_, r) => Array.from({length: recordBytes}, (_, i) =>
     reserveDevVarRW(`pfdQueue${r}_${i}`, 'playfield drawing: a waiting Draw block\'s record')));
   const seedBytes = Array.from({length: seeds}, (_, s) => [work[FILL_KEEPS + 2 * s], work[FILL_KEEPS + 2 * s + 1]]);
-  Blockly.BBasic.pfDraw = {kinds, state, terrainDone, work, queue, records, recordBytes, seeds: seedBytes, displayRam, armCircle, armTerrain, circleSpread, config, superchip};
+  Blockly.BBasic.pfDraw = {kinds, state, terrainDone, work, queue, records, recordBytes, seeds: seedBytes, displayRam, armCircle, armTerrain, armGravity, gravityAnim, gravityTick, circleSpread, config, superchip};
   // (The operations the blocks use: the plotting routine and the circle's calls have only those.)
   const drawBlocks = blocks.filter((block) => pfDrawKindOf(block));
   Blockly.BBasic.pfDrawOperations = new Set(drawBlocks.map((block) => block.getFieldValue('OPERATION') || 'on'));
+  Blockly.BBasic.pfDrawGravityDone = blocks.some((block) => block.type === 'background_gravity_done');
   Blockly.BBasic.pfDrawCircleOperations = new Set(drawBlocks.filter((block) => block.type === 'background_fill_circle').map((block) => block.getFieldValue('OPERATION')));
   Blockly.BBasic.pfDrawFillControls = blocks.some((block) => block.type === 'background_flood_fill_stop' || block.type === 'background_flood_fill_done');
-  Blockly.BBasic.pfDrawTerrainDone = blocks.some((block) => block.type === 'background_generate_terrain_done' || block.type === 'background_when_terrain_done');
+  Blockly.BBasic.pfDrawTerrainDone = blocks.some((block) => ['background_generate_terrain_done', 'background_when_terrain_done', 'background_when_gravity_done'].includes(block.type));
 };
 
 // Where the records are: the lines that read and write them (byte i of record r), for separate bytes or the display RAM.
@@ -161,7 +177,7 @@ const recordStore = (pfDraw) => {
 // The engine, one subroutine with its entries (see the comment at the top).
 const buildEngine = (Blockly) => {
   const pfDraw = Blockly.BBasic.pfDraw;
-  const {kinds, state: S, work: W, records, seeds: P, displayRam, armCircle, armTerrain, circleSpread, config} = pfDraw;
+  const {kinds, state: S, work: W, records, seeds: P, displayRam, armCircle, armTerrain, armGravity, circleSpread, config} = pfDraw;
   const store = recordStore(pfDraw);
   const maxRow = Blockly.BBasic.maxRowText(config);
   const maxColumn = pfMaxColumn(config);
@@ -745,9 +761,9 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
   // and the pixels above and below it looked at: where a run of them the fill takes begins, a seed. State bits 2-0: 000 a seed is to be taken,
   // 010 going left, 1ab going right (a: the pixel above the last one was taken, b: the one below). Testing a pixel (temp1, temp2): temp4 is 0 when
   // it is one the fill takes (off to fill, on to erase).
-  if (has('fill')) {
-    const [fx, fy, count] = W;
-    add(label('a7'), set(count, 0), 'temp1 = temp2', 'temp2 = temp3', 'gosub _pfd_push', 'goto _pfd_shift',
+  // The test of a pixel (temp4 is 0 when it is one the fill takes: for the gravity, state 2 in bits 4-3, it is not 0 when the pixel is on).
+  if (has('fill') || has('gravity')) {
+    add(
         label('test'),
         ...(ownPlayfield ? [['asm', ...place, 'lda playfield,y', 'and _pfd_bit,x', 'beq _pfd_toff', 'lda #8', '@_pfd_toff', `eor ${S.read}`, 'and #8',
           'sta temp4', 'rts', '@end'].join('\n')] : [
@@ -755,8 +771,13 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
             'if pfread(temp1, temp2) then temp4 = 8',
             `temp4 = temp4 ^ ${S.read}`,
             'temp4 = temp4 & 8',
-            'return thisbank']),
+            'return thisbank']));
+  }
+  if (has('fill')) {
+    const [fx, fy, count] = W;
+    add(label('a7'), ...(has('gravity') ? [`if ${S.read}{4} then goto _pfd_a7g`] : []), set(count, 0), 'temp1 = temp2', 'temp2 = temp3', 'gosub _pfd_push', 'goto _pfd_shift',
         label('u7'),
+        ...(has('gravity') ? [`if ${S.read}{4} then goto _pfd_u7g`] : []),
         `if ${S.read}{2} then goto _pfd_u7b`,
         `if ${S.read}{1} then goto _pfd_u7a`,
         `if ${count.read} = 0 then goto _pfd_unone`,
@@ -829,14 +850,124 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
       add('return thisbank');
     }
   }
+  // The playfield gravity (the pixels of an area fall): x1, y1, x2 and y2 (a corner to the other, the first the top left, the last two cut to the playfield) and the
+  // frames between steps (0: all at once). The state is the fill's kind with the operation 2 (see the test above).
+  // All at once: the columns go one after the other, each from its lowest row up: a pixel that is on moves down to the lowest row not taken (it and that row are
+  // flipped), and the row after is the one above. A pixel a step. Kept: the column, the row, the row the next pixel lands on, the last column, the first row and
+  // the last row. On DPC+ the coprocessor does it all in one call as the record starts (function 114 of armprog.c).
+  // Over time (state bit 0): every row from the one above the last up to the first, a pixel a step left to right: a pixel that is on with a pixel that is off under
+  // it moves down one row. After a whole pass the wait is the number of frames (the byte counted down once a frame, see generatePfDrawStep), and the passes go on
+  // until one moves nothing (state bit 1 is set when a pixel moves). Kept: the column, the row (the upper one of the two), the first column, the last column, the
+  // first row, the last row and the frames; on DPC+ (the coprocessor's function 115 does a whole pass) the four of the area and the frames.
+  const anim = pfDraw.gravityAnim;
+  const tick = pfDraw.gravityTick;
+  const gz = pfDraw.terrainDone ? '_pfd_a7gz' : '_pfd_anone';
+  const gdoneCall = pfDraw.terrainDone ? ['gosub _pfd_gdone'] : [];
+  // The part of a finished gravity that makes the bit 5 of Terrain done true (when no other gravity waits), and the empty area that has nothing to make fall.
+  const gravityDoneLines = () => (pfDraw.terrainDone ? [label('a7gz'), 'gosub _pfd_gdone', 'goto _pfd_anone', label('gdone'),
+    ...Array.from({length: pfDraw.records}, (_, i) => [...header(i), 'temp1 = temp1 / 8', 'if temp1 = 30 then return thisbank']).flat(),
+    `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | ${terrainDoneMask(5)}`, 'return thisbank'] : []);
+  const gravityClamp = [`if temp4 > ${maxColumn} then temp4 = ${maxColumn}`, `if temp5 > ${maxRow} then temp5 = ${maxRow}`,
+    `if temp2 > temp4 then goto ${gz}`, `if temp3 > temp5 then goto ${gz}`];
+  if (has('gravity') && armGravity) {
+    ensureArmProgram(Blockly, undefined, 'k');
+    Blockly.BBasic.pfBoxArm = true;
+    const [ax1, ay1, ax2, ay2, adl] = anim ? W : [];
+    // (The record leaves the queue and the state stays the gravity's until the next step, which sets it to 0 and starts the record waiting, so that Playfield gravity
+    // done is true from the frame after.)
+    add(...(has('fill') ? [] : [label('a7')]), label('a7g'),
+        ...gravityClamp,
+        ...(anim ? ['if temp6 > 0 then goto _pfd_a7ga'] : []),
+        buildGravityArmCall({x1: 'temp2', y1: 'temp3', x2: 'temp4', y2: 'temp5'}),
+        ...store.remove(0),
+        'return',
+        ...(anim ? [label('a7ga'), 'if temp3 >= temp5 then goto ' + gz, set(ax1, 'temp2'), set(ay1, 'temp3'), set(ax2, 'temp4'), set(ay2, 'temp5'), set(adl, 'temp6'), set(tick, 0),
+          set(S, `${S.read} | 1`), 'goto _pfd_shift'] : []),
+        ...(has('fill') ? [] : [label('u7')]), label('u7g'),
+        ...(anim ? [`if ${S.read}{0} then goto _pfd_u7ga`] : []),
+        label('u7gf'),
+        ...gdoneCall,
+        set(S, 0),
+        ...header(0),
+        `if temp1 <> 0 then ${S.write} = 2`,
+        'return',
+        ...(anim ? [label('u7ga'), `if ${tick.read} > 0 then return`,
+          buildGravityStepCall({x1: ax1.read, y1: ay1.read, x2: ax2.read, y2: ay2.read}),
+          'if temp1 = 0 then goto _pfd_u7gf', set(tick, adl.read), 'return'] : []),
+        ...gravityDoneLines());
+  } else if (has('gravity')) {
+    const [gc, gr, gl, gx, gt, gb, gd] = W;
+    // A pixel is cleared and another set (not flipped: the pixel's place is the same code for each).
+    add(label('gclr'),
+        ...(ownPlayfield ? [['asm', ...place, 'lda _pfd_bit,x', 'eor #255', 'and playfield,y', `sta ${writeBase},y`, 'rts', '@end'].join('\n')] : ['pfpixel temp1 temp2 off', 'return thisbank']),
+        label('gset'),
+        ...(ownPlayfield ? [['asm', ...place, 'lda playfield,y', 'ora _pfd_bit,x', `sta ${writeBase},y`, 'rts', '@end'].join('\n')] : ['pfpixel temp1 temp2 on', 'return thisbank']));
+    add(...(has('fill') ? [] : [label('a7')]), label('a7g'),
+        ...gravityClamp,
+        ...(anim ? ['if temp6 > 0 then goto _pfd_a7ga'] : []),
+        set(gc, 'temp2'), set(gr, 'temp5'), set(gl, 'temp5'), set(gx, 'temp4'), set(gt, 'temp3'), set(gb, 'temp5'),
+        'goto _pfd_shift',
+        ...(anim ? [label('a7ga'), 'if temp3 >= temp5 then goto ' + gz, set(gc, 'temp2'), set(gr, 'temp5 - 1'), set(gl, 'temp2'), set(gx, 'temp4'), set(gt, 'temp3'), set(gb, 'temp5'),
+          set(gd, 'temp6'), set(tick, 0), set(S, `${S.read} | 1`), 'goto _pfd_shift'] : []),
+        ...(has('fill') ? [] : [label('u7')]), label('u7g'),
+        ...(anim ? [`if ${S.read}{0} then goto _pfd_u7ga`] : []),
+        `temp1 = ${gc.read}`, `temp2 = ${gr.read}`, 'gosub _pfd_test',
+        'if temp4 = 0 then goto _pfd_u7gn',
+        `if ${gr.read} = ${gl.read} then goto _pfd_u7gl`,
+        `temp1 = ${gc.read}`, `temp2 = ${gr.read}`, 'gosub _pfd_gclr',
+        `temp1 = ${gc.read}`, `temp2 = ${gl.read}`, 'gosub _pfd_gset',
+        label('u7gl'),
+        set(gl, `${gl.read} - 1`),
+        label('u7gn'),
+        `if ${gr.read} = ${gt.read} then goto _pfd_u7gc`,
+        set(gr, `${gr.read} - 1`),
+        'return thisbank',
+        label('u7gc'),
+        set(gc, `${gc.read} + 1`),
+        `if ${gc.read} > ${gx.read} then goto ${pfDraw.terrainDone ? '_pfd_u7gz' : '_pfd_unone'}`,
+        set(gr, gb.read), set(gl, gb.read),
+        'return thisbank',
+        ...(pfDraw.terrainDone ? [label('u7gz'), 'gosub _pfd_gdone', 'goto _pfd_unone'] : []),
+        // Over time: the pixel (column, row) with the one under it.
+        ...(anim ? [label('u7ga'),
+          `if ${tick.read} > 0 then return thisbank`,
+          `temp1 = ${gc.read}`, `temp2 = ${gr.read}`, 'gosub _pfd_test',
+          'if temp4 = 0 then goto _pfd_u7an',
+          `temp1 = ${gc.read}`, `temp2 = ${gr.read} + 1`, 'gosub _pfd_test',
+          'if temp4 <> 0 then goto _pfd_u7an',
+          `temp1 = ${gc.read}`, `temp2 = ${gr.read}`, 'gosub _pfd_gclr',
+          `temp1 = ${gc.read}`, `temp2 = ${gr.read} + 1`, 'gosub _pfd_gset',
+          set(S, `${S.read} | 2`),
+          label('u7an'),
+          `if ${gc.read} >= ${gx.read} then goto _pfd_u7ar`,
+          set(gc, `${gc.read} + 1`),
+          'return thisbank',
+          label('u7ar'),
+          set(gc, gl.read),
+          `if ${gr.read} = ${gt.read} then goto _pfd_u7ap`,
+          set(gr, `${gr.read} - 1`),
+          'return thisbank',
+          label('u7ap'),
+          `if ${S.read}{1} then goto _pfd_u7am`,
+          ...gdoneCall,
+          'goto _pfd_unone',
+          label('u7am'),
+          set(S, `${S.read} & 253`),
+          set(gr, `${gb.read} - 1`),
+          set(tick, gd.read),
+          'return thisbank'] : []),
+        ...gravityDoneLines());
+  }
   // Stop fill: the fill being drawn ends and the fills waiting are taken out of the queue. Fill done (temp6 1): no fill drawn or waiting.
+  // (A fill is the kind 7 with the operation 0 or 1; the gravity is the kind 7 with 2: with both in the project the header is read in eighths, 28 and 29 are fills.)
+  const isFill = (skip) => (has('gravity') ? ['temp1 = temp1 / 8', `if temp1 < 28 then goto ${skip}`, `if temp1 > 29 then goto ${skip}`] : ['temp1 = temp1 / 32', `if temp1 <> ${KIND_NUMBER.fill} then goto ${skip}`]);
   if (Blockly.BBasic.pfDrawFillControls) {
     add(label('stopfill'),
-        `temp1 = ${S.read} / 32`,
-        `if temp1 = ${KIND_NUMBER.fill} then ${S.write} = 0`,
+        `temp1 = ${S.read}`, ...isFill('_pfd_stops'), set(S, 0),
+        label('stops'),
         label('stopq'));
     for (let r = 0; r < records; r++) {
-      add(...header(r), 'temp1 = temp1 / 32', `if temp1 <> ${KIND_NUMBER.fill} then goto _pfd_stopk${r}`, ...store.remove(r), 'goto _pfd_stopq',
+      add(...header(r), ...isFill(`_pfd_stopk${r}`), ...store.remove(r), 'goto _pfd_stopq',
           label(`stopk${r}`));
     }
     add(`if ${S.read} >= 32 then return`,
@@ -846,9 +977,14 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         'return',
         label('filldone'),
         'temp6 = 1',
-        `temp1 = ${S.read} / 32`,
-        `if temp1 = ${KIND_NUMBER.fill} then temp6 = 0`);
-    for (let r = 0; r < records; r++) add(...header(r), 'temp1 = temp1 / 32', `if temp1 = ${KIND_NUMBER.fill} then temp6 = 0`);
+        `temp1 = ${S.read}`, ...isFill('_pfd_fds'), 'temp6 = 0', label('fds'));
+    for (let r = 0; r < records; r++) add(...header(r), ...isFill(`_pfd_fd${r}`), 'temp6 = 0', label(`fd${r}`));
+    add('return');
+  }
+  // Gravity done (temp6 1): no playfield gravity is drawn or waiting.
+  if (Blockly.BBasic.pfDrawGravityDone) {
+    add(label('gravdone'), 'temp6 = 1', `temp1 = ${S.read} / 8`, 'if temp1 = 30 then temp6 = 0');
+    for (let r = 0; r < records; r++) add(...header(r), 'temp1 = temp1 / 8', 'if temp1 = 30 then temp6 = 0');
     add('return');
   }
   // Terrain done (temp6 1): no terrain is drawn or waiting.
@@ -891,7 +1027,8 @@ export const generatePfDrawStep = (Blockly) => {
   if (!ensurePfDraw(Blockly)) return '';
   const done = Blockly.BBasic.pfDraw.terrainDone;
   // (The pulse of Playfield terrain done is cleared here, at the end of the frame that saw it, before the steps that may set it again.)
-  return [...(done ? [` ${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} & ${255 ^ terrainDoneAllMask()}`] : []), ` if ${Blockly.BBasic.pfDraw.state.read} = 0 then goto _pfd_idle`,
+  const tick = Blockly.BBasic.pfDraw.gravityTick;
+  return [...(done ? [` ${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} & ${255 ^ terrainDoneAllMask()}`] : []), ...(tick ? [` if ${tick.read} > 0 then ${tick.write} = ${tick.read} - 1`] : []), ` if ${Blockly.BBasic.pfDraw.state.read} = 0 then goto _pfd_idle`,
     ` gosub _pfd_step${Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.primaryBank ? Blockly.BBasic.primaryBank() : 1,
         Blockly.BBasic.getSubroutineBank(PF_DRAW_SUBROUTINE))}`, '_pfd_idle'].join('\n');
 };
@@ -935,4 +1072,9 @@ export const pfDrawStopFillCode = (Blockly) => (ensurePfDraw(Blockly) ? callEngi
 // (index: the bit, 0 to 3 a side and 4 for every terrain.)
 export const pfDrawTerrainDoneCode = (Blockly, index = 4) => (ensurePfDraw(Blockly) && Blockly.BBasic.pfDraw.terrainDone ?
   `(${terrainDoneName(Blockly)} & ${terrainDoneMask(index)})` : '0');
+// (The bit 5 of the Terrain done flags: true for the frame after a playfield gravity finished.)
+export const pfDrawGravityPulseCode = (Blockly) => (ensurePfDraw(Blockly) && Blockly.BBasic.pfDraw.terrainDone && Blockly.BBasic.pfDraw.kinds.has('gravity') ?
+  `(${terrainDoneName(Blockly)} & ${terrainDoneMask(5)})` : '0');
+export const pfDrawGravityDoneCode = (Blockly) => (ensurePfDraw(Blockly) ? `${callEngine(Blockly, 'gravdone')}
+temp6` : '1');
 export const pfDrawFillDoneCode = (Blockly) => (ensurePfDraw(Blockly) ? `${callEngine(Blockly, 'filldone')}\ntemp6` : '1');

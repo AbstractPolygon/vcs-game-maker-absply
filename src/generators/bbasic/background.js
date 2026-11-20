@@ -7,7 +7,7 @@ import {flagPoolVar, flagPoolBit} from './flag-pool';
 import {NARROW_TILE_WIDTH, STANDARD_TILE_LOAD_NAME, TILE_SET_FUNCTION} from './pf-tiles';
 import {OFFSET_ARM_FUNCTION, buildOffsetArmCall, ensureArmProgram, ARM_FIND_PIXEL_FUNCTION, buildPixArmCall} from './offset-arm';
 import {fireObjectName} from '../../utils/fire-object';
-import {pfDrawBlockCode, pfDrawCircleCode, pfDrawCenteredAreaCode, pfDrawStopFillCode, pfDrawFillDoneCode, pfDrawTerrainDoneCode} from './pf-draw';
+import {pfDrawBlockCode, pfDrawCircleCode, pfDrawCenteredAreaCode, pfDrawStopFillCode, pfDrawFillDoneCode, pfDrawGravityDoneCode, pfDrawGravityPulseCode, pfDrawTerrainDoneCode} from './pf-draw';
 import {EXTRA_PLAYER_NAME} from '../../utils/pxe';
 import {effectiveBackgroundRows, backgroundDataRows, backgroundFadeTimerVarName, backgroundFadePaceVarName,
   backgroundFadeTargetVarName, fadeFlagsVarName, FADE_STEPS, rowFadeStartColor, multicolorFadeVarName,
@@ -1736,6 +1736,28 @@ goto _terraindone_${number}_end
 ${body}
 @ _terraindone_${number}_end
 `;
+  };
+  // Playfield gravity: the whole playfield is the corners 0, 0 and 255, 255 (the engine cuts them to the playfield).
+  Blockly.BBasic['background_gravity'] = function(block) {
+    const whole = block.getFieldValue('WHOLE') !== 'FALSE';
+    return pfDrawBlockCode(Blockly, 'gravity', 'flip', [...(whole ? ['0', '0', '255', '255'] : ['X1', 'Y1', 'X2', 'Y2'].map((name) => drawArg(block, name))), drawArg(block, 'DELAY')]);
+  };
+  // The same as the condition block, with the blocks to run inside: they run in the one frame after the playfield gravity finished.
+  Blockly.BBasic['background_when_gravity_done'] = function(block) {
+    const condition = pfDrawGravityPulseCode(Blockly);
+    const body = Blockly.BBasic.statementToCode(block, 'DO').trim();
+    if (condition === '0') return '';
+    const number = Blockly.BBasic.blockNumbers.next();
+    return `
+if ${condition} then goto _gravitydone_${number}_run
+goto _gravitydone_${number}_end
+@ _gravitydone_${number}_run
+${body}
+@ _gravitydone_${number}_end
+`;
+  };
+  Blockly.BBasic['background_gravity_done'] = function() {
+    return [pfDrawGravityDoneCode(Blockly), Blockly.BBasic.ORDER_ATOMIC];
   };
   Blockly.BBasic['background_flood_fill_stop'] = function() {
     return pfDrawStopFillCode(Blockly);

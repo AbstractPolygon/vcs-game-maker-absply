@@ -133,6 +133,27 @@ export const buildTerrainArmCall = ({side, least, most, rough, packed, seed, las
   '@end',
 ].join('\n');
 
+// The lines of a Playfield gravity block (function 114 of armprog.c, the set k): the first column, the first row, the last column and the last row of the area. Each operand
+// is an operand of lda. All the pixels fall in the call.
+export const OFFSET_ARM_GRAVITY_FUNCTION = 114;
+export const buildGravityArmCall = ({x1, y1, x2, y2}) => [
+  'asm',
+  'lda #<C_function', 'sta DF0LOW', 'lda #(>C_function) & $0F', 'sta DF0HI',
+  ...[`#${OFFSET_ARM_GRAVITY_FUNCTION}`, x1, y1, x2, y2].flatMap((operand) => [`lda ${operand}`, 'sta DF0WRITE']),
+  'lda #255', 'sta CALLFUNCTION',
+  '@end',
+].join('\n');
+
+// One step of the pixels falling over time (function 115): the same arguments; it gives back 1 in temp1 when a pixel moved and 0 when none did.
+export const OFFSET_ARM_GRAVITY_STEP_FUNCTION = 115;
+export const buildGravityStepCall = ({x1, y1, x2, y2}) => [
+  'asm',
+  'lda #<C_function', 'sta DF0LOW', 'lda #(>C_function) & $0F', 'sta DF0HI',
+  ...[`#${OFFSET_ARM_GRAVITY_STEP_FUNCTION}`, x1, y1, x2, y2].flatMap((operand) => [`lda ${operand}`, 'sta DF0WRITE']),
+  'lda #255', 'sta CALLFUNCTION', 'lda #<(C_function+1)', 'sta DF0LOW', 'lda DF0DATA', 'sta temp1',
+  '@end',
+].join(String.fromCharCode(10));
+
 export const buildCircleArmCall = ({operation, cx, cy, radius, padLeft, padRight, padTop, padBottom, last}) => [
   'asm',
   'lda #<C_function', 'sta DF0LOW', 'lda #(>C_function) & $0F', 'sta DF0HI',

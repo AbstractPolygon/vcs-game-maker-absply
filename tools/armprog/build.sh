@@ -2,7 +2,7 @@
 # Builds the DPC+ coprocessor programs that are kept in the ROM as data (public/bb19/includes/custom/prog, see src/generators/bbasic/offset-arm.js):
 # one for each set of the functions of armprog.c, named by the letters of the sets it has (o offset, b box test, c circle, p pixel finding and bounce,
 # f fire movement, a sound engine, t playfield tilemap, n its 4-pixel tiles (only with t), r backgrounds as runs (never with t: a build keeps one
-# or the other), k the Generate terrain block (function 113), in that order), then g for the build with -DGROUPS. The sets left out are given as -DNOOFFSET -DNOBOX -DNOCIRCLE -DNOPIX -DNOFIRE
+# or the other), k the Generate terrain block (function 113) and the Playfield gravity block (functions 114 and 115), in that order), then g for the build with -DGROUPS. The sets left out are given as -DNOOFFSET -DNOBOX -DNOCIRCLE -DNOPIX -DNOFIRE
 # -DNOAUDIO -DNOTILES -DNONARROW -DNORUNS -DNOTERRAIN.
 # FROM=<first set number> builds only the programs from that number of the sets up (512: the ones with k, the others were built before k was added and a build with -DNOTERRAIN of them is the same).
 # usage: TC=<the bin folder of arm-none-eabi-gcc 10.3> sh tools/armprog/build.sh [out folder, default public/bb19/includes/custom/prog]

@@ -1911,7 +1911,7 @@ export default (Blockly) => {
   // kernel-ended bit there) and carries on into "Title screen update". Inside "Title screen start" itself that would start over forever.
   Blockly.BBasic['titlescreen_start'] = function(block) {
     const eventName = Blockly.BBasic.currentEventName;
-    if (eventName === 'title_start') return 'rem "Start title screen" is not needed inside "Title screen start"\n';
+    if (eventName === 'title_start') return 'rem "Start title screen" in "Title screen start": the Titlescreen Kernel stays on in "Title screen update"\n';
     const suffix = Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getEventBank('title_start'));
     return `goto title_start_begin${suffix}\n`;
   };
