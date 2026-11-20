@@ -21,7 +21,7 @@
           @change="handleChangeConfiguration"
           :items="kernelOptions"
           label="Kernel"
-          hint="DPC+ trades the standard kernel's playfield/missile/ball tricks (Superchip, per-row playfield colors, no_blank_lines) for an ARM co-processor with different capabilities (settable playfield row height, independent per-row playfield AND background colors) - see the options that appear below once selected."
+          hint="DPC+ uses an ARM co-processor instead of the standard kernel's tricks (Superchip, per-row playfield colors, no_blank_lines). More options appear once selected."
           persistent-hint
         />
         <v-checkbox
@@ -29,7 +29,7 @@
           v-model="configurationState.enableRand16"
           @change="handleChangeConfiguration"
           label="Use 16-bit random number generator (rand16)"
-          hint="Widens the random number generator's cycle length before it starts visibly repeating - every Random block on the Actions tab still reads the same 'rand' either way, this only changes how long it takes before that sequence repeats. Costs one extra variable."
+          hint="Makes the random sequence repeat later. Costs one extra variable."
           persistent-hint
           class="option-switch"
         />
@@ -41,8 +41,8 @@
             :color="player0RainbowColorsActive ? 'amber darken-2' : undefined"
             label="Fill blank lines between background rows with missile0 (no_blank_lines)"
             :hint="player0RainbowColorsActive ?
-              'Forced off: the player0 rainbow colors block requires blank lines shown normally - batari Basic never allows player-colors and no_blank_lines together.' :
-              'Turning this on packs playfield rows tighter together, but uses missile0\'s graphics circuitry, so missile0 can no longer be used as a sprite.'"
+              'Forced off: the player0 rainbow colors block needs blank lines shown.' :
+              'Packs playfield rows tighter, but uses missile0, so it can\'t be a sprite.'"
             persistent-hint
             class="option-switch"
           />
@@ -50,7 +50,7 @@
             v-model="configurationState.dpcPlusTilemap"
             @change="handleChangeConfiguration"
             label="Keep backgrounds as tiles (tilemap, beta 0.5)"
-            hint="The build cuts every background into tiles one playfield column (8 pixels) wide, keeps each different tile once, and the 6502 builds a background from its tiles when it is shown (a load takes about twice the time of a plain one). Used only when it makes the ROM smaller: with several backgrounds that repeat parts. Collision, the pixel blocks and scrolling work as before, and the Set playfield tile block can change a tile while the game runs."
+            hint="Cuts each background into 8-pixel-wide tiles and keeps each different tile once. Used only when it makes the ROM smaller. A load takes about twice as long."
             persistent-hint
             class="option-switch"
           />
@@ -60,7 +60,7 @@
             v-model="configurationState.enablePfColors"
             @change="handleChangeConfiguration"
             label="Enable per-row playfield colors"
-            hint="Playfield show a different color on every row."
+            hint="Lets the playfield show a different color on every row."
             persistent-hint
             class="option-switch"
           />
@@ -68,7 +68,7 @@
             v-model="configurationState.enableDpcPlusBkColors"
             @change="handleChangeConfiguration"
             label="Enable per-row background colors"
-            hint="An independent color per background row, on top of (not instead of) per-row playfield colors above."
+            hint="A separate background color per row, besides the playfield colors."
             persistent-hint
             class="option-switch"
           />
@@ -77,7 +77,7 @@
             v-model="configurationState.dpcPlusTilemap"
             @change="handleChangeConfiguration"
             label="Keep backgrounds as tiles (tilemap, beta 0.5)"
-            hint="The build cuts every background into tiles one playfield column (8 pixels) wide, keeps each different tile once, and builds a background from its tiles when it is shown. Used only when the tiles and their part of the coprocessor's program (about 430 bytes) take fewer bytes than the rows, which takes backgrounds that repeat parts, or when a Set playfield tile block places them. Collision, the offset block, the pixel blocks and scrolling work as before, and the Set playfield tile block can change a tile while the game runs."
+            hint="Cuts each background into 8-pixel-wide tiles, kept once each. Used only when the tiles and about 430 bytes of coprocessor code take fewer bytes than the rows, or when a Set playfield tile block needs them."
             persistent-hint
             class="option-switch"
           />
@@ -86,7 +86,7 @@
             v-model="configurationState.dpcPlusRuns"
             @change="handleChangeConfiguration"
             label="Keep backgrounds as runs"
-            hint="The build keeps each playfield column as runs of rows (a byte and how many rows it is for), and the coprocessor writes the rows from them when a background is shown. Used only when the runs and their part of the coprocessor's program (about 180 bytes) take fewer bytes than the rows, and than the tiles when those are on: tall backgrounds with flat stretches gain the most. Not with the Set playfield tile block, which needs tiles. Collision, the offset block, the pixel blocks and scrolling work as before."
+            hint="Keeps each playfield column as runs of rows. Used only when the runs and about 180 bytes of coprocessor code take fewer bytes than the rows (or tiles). Not with the Set playfield tile block."
             persistent-hint
             class="option-switch"
           />
@@ -94,7 +94,7 @@
             v-model="configurationState.enableDpcPlusAudio"
             @change="handleChangeConfiguration"
             label="Play sound and music with the DPC+ sound chip"
-            hint="Sounds and songs are played by the DPC+ chip: each sound has a waveform you draw on its Sound tab card instead of a sound type, and a note can be any piano key. It plays all three of the chip's voices (Ch0 voice 1 to 3 in the channel choices), and Ch1 stays on the TIA. The chip's sound stops for the part of each frame after the picture (a faint 60 Hz buzz). Turned off, the sounds use the TIA's two channels like the standard kernel."
+            hint="The DPC+ chip plays all three voices (Ch0 voice 1 to 3) with a waveform you draw per sound; Ch1 stays on the TIA. Causes a faint 60 Hz buzz after the picture. Off: sounds use the TIA's two channels."
             persistent-hint
             class="option-switch"
           />
@@ -104,7 +104,7 @@
           v-model="configurationState.enablePlayer0SpriteColors"
           @change="handleChangeConfiguration"
           :label="kernelIsDpcPlus ? 'Enable per-row Player 0 sprite colors' : 'Enable per-row Player 0 sprite colors (playercolors)'"
-          :hint="kernelIsDpcPlus ? 'Lets Player 0 show a different color on every row, the same way backgrounds can. The colors are the ones set on each sprite row in the Sprites tab.' : 'Lets Player 0 show a different color on every row, the same way backgrounds can. Costs missile0 (can\'t be used as a sprite anywhere in the project once this is on) and paddle input. batari Basic requires player1colors alongside playercolors, so turning this on also turns on (and locks on) Player 1 sprite colors below, costing missile1 too.'"
+          :hint="kernelIsDpcPlus ? 'Lets Player 0 show a different color on every row, set per sprite row in the Sprites tab.' : 'A different color on every Player 0 row. Costs missile0 and paddle input, and turns on Player 1 sprite colors below (costing missile1).'"
           persistent-hint
           class="option-switch"
         />
@@ -115,9 +115,9 @@
           :disabled="player0RainbowColorsActive"
           :color="player0RainbowColorsActive ? 'amber darken-2' : undefined"
           :label="kernelIsDpcPlus ? 'Enable per-row Player 1 sprite colors' : 'Enable per-row Player 1 sprite colors (player1colors)'"
-          :hint="kernelIsDpcPlus ? 'Lets Player 1 and the other players show a different color on every row, the same way backgrounds can. The colors are the ones set on each sprite row in the Sprites tab.' : player0RainbowColorsActive ?
-            'Forced on: batari Basic requires player1colors whenever playercolors (Player 0 sprite colors, above) is on.' :
-            'Lets Player 1 show a different color on every row, the same way backgrounds can. Costs missile1 (can\'t be used as a sprite anywhere in the project once this is on) - unlike Player 0 sprite colors, this works alone with no other cost.'"
+          :hint="kernelIsDpcPlus ? 'Lets Player 1 and the other players show a different color on every row, set in the Sprites tab.' : player0RainbowColorsActive ?
+            'Forced on: required whenever Player 0 sprite colors are on.' :
+            'A different color on every Player 1 row. Costs missile1.'"
           persistent-hint
           class="option-switch"
         />
@@ -126,7 +126,7 @@
           v-model="configurationState.enablePfColors"
           @change="handleChangeConfiguration"
           label="Enable per-row playfield colors (pfcolors)"
-          hint="Backgrounds can still have row colors set while this is off; they just won't be included in the generated code. Works fine together with Superchip RAM."
+          hint="Off: row colors are left out of the generated code. Works with Superchip RAM."
           persistent-hint
           class="option-switch"
         />
@@ -146,7 +146,7 @@
           :items="tvStandardOptions"
           label="TV standard"
           class="mb-0"
-          hint="NTSC is the North American color standard. PAL is the 50 Hz standard: 312 lines a frame, so a frame lasts longer (a song keeps its tempo, but a duration in frames takes longer), each color is swapped in the ROM for the closest PAL color, and the sound previews use the PAL audio clock. PAL60 is a PAL console's color signal at the same 60 Hz timing as NTSC: frame-based timing (durations, tempo) is identical to NTSC."
+          hint="NTSC: 60 Hz North American colors. PAL: 50 Hz, longer frames, colors swapped for the closest PAL ones. PAL60: PAL colors at NTSC's 60 Hz timing."
           persistent-hint
         />
         <v-select
@@ -157,14 +157,14 @@
           label="ROM size"
           class="rom-size-field"
           :hint="configurationState.enableSuperchip ?
-            'Smaller sizes are hidden while Superchip RAM is on - see below.' : undefined"
+            'Smaller sizes are hidden while Superchip RAM is on.' : undefined"
           :persistent-hint="configurationState.enableSuperchip"
         />
         <v-checkbox
           v-model="configurationState.showScore"
           @change="handleChangeConfiguration"
           label="Show score at bottom of screen (noscore)"
-          hint="Turning this off skips the score display code entirely, freeing up ROM space."
+          hint="Off: skips the score display code, freeing ROM."
           persistent-hint
           class="option-switch score-switch"
         />
@@ -174,7 +174,7 @@
           :items="pxePfWidthOptions"
           @change="handleChangePxePfWidth"
           label="Playfield width"
-          hint="32 columns is the playfield of the other kernels, with 16 pixels free at each side of the screen. 40 columns fills the screen. 64 and 120 columns are wider than the screen: it shows 40 of them and the PXE playfield scroll blocks (PXE category) move the picture sideways. Every block that takes a playfield column uses the wider picture (the last column is 39, 63 or 119), a background has the same rows for all its columns (no separate rows for groups of 8 columns), and changing the width adds or removes columns of every background (4 at the left going to or from 32, the rest at the right)."
+          hint="32 columns matches the other kernels, 40 fills the screen, 64 and 120 are wider and scroll sideways with the PXE scroll blocks. Changing it resizes every background."
           persistent-hint
         />
         <v-checkbox
@@ -182,7 +182,7 @@
           v-model="configurationState.pxeSeparateScroll"
           @change="handleChangeConfiguration"
           label="Each column group has its own scroll and row step (parallax)"
-          hint="Every group of 8 columns keeps a vertical scroll position and a row step of its kind, which the PXE category blocks set (column group show row at the top, column group row step), so groups can move at different speeds and have taller or shorter rows. The background scroll blocks do not move the columns while this is on (the colors still scroll): scroll with the column group blocks."
+          hint="Each group of 8 columns scrolls and steps rows separately, set by the PXE column group blocks. The background scroll blocks stop moving the columns (colors still scroll)."
           persistent-hint
           class="option-switch"
         />
@@ -191,7 +191,7 @@
           v-model="configurationState.enableAtariVox"
           @change="handleChangeConfiguration"
           label="AtariVox in the Player 2 port"
-          hint="The project uses an AtariVox (speech, sound effects and a memory chip on the Player 2 controller port): the AtariVox blocks (speech, sound effects, memory, high scores) and the AtariVox instruments of the Music tab are built into the ROM, and the AtariVox is plugged into the emulator. Off: they are left out. The Player 2 joystick can not be used with it."
+          hint="Builds in the AtariVox blocks and instruments (speech, sound, memory chip on the Player 2 port) and plugs one into the emulator. The Player 2 joystick can't be used."
           persistent-hint
           class="option-switch"
         />
@@ -199,7 +199,7 @@
           v-model="configurationState.muteAllAudio"
           @change="handleChangeConfiguration"
           label="Mute in-game audio"
-          hint="Silences every sound effect and channel, overriding whatever any Sound block sets - useful for quick testing without needing to remove sound blocks."
+          hint="Silences all game sound, overriding Sound blocks. Handy for testing."
           persistent-hint
           class="option-switch"
         />
@@ -211,7 +211,7 @@
             label="Playfield resolution presets"
             placeholder="Custom"
             persistent-placeholder
-            hint="Common row heights: pick one to set the pfres below to match."
+            hint="Pick a common row height to set pfres."
             persistent-hint
             dense
             class="dpcplus-pfres-presets"
@@ -224,7 +224,7 @@
               min="1"
               max="192"
               label="Playfield vertical resolution (pfres)"
-              hint="How many rows the playfield has on screen, from 1 to 192 (192 / pfres scanlines tall each, not necessarily a whole number). 12, the default, gives the same 16-scanline rows as the standard kernel without Superchip; 24 gives its Superchip 24-row look; 96 gives 2-scanline rows. A background can set a different pfres in the Backgrounds tab; the rest use this one."
+              hint="Rows on screen, 1 to 192 (192 / pfres scanlines each). 12 is the default. A background can set a different pfres."
               persistent-hint
               class="dpcplus-row-height-field"
             />
@@ -243,7 +243,7 @@
                   @click="() => handleToggleDpcPlusSprite(n)"
                 >{{ n }}</v-btn>
               </div>
-              <div v-if="!hideDescriptionText" class="dpcplus-sprites-hint">Each virtual sprite that is on keeps memory for its x, y, height and NUSIZ; the ones that are off give that memory to variables ({{ dpcPlusSpriteVariableSlots }} variable slots from the sprites that are off now, 4 for each; the Text Minikernel keeps 4 of them). A player a block uses is always on.</div>
+              <div v-if="!hideDescriptionText" class="dpcplus-sprites-hint">Each virtual sprite that is on keeps memory for x, y, height and NUSIZ; the ones off free it for variables ({{ dpcPlusSpriteVariableSlots }} slots now, 4 each; the Text Minikernel keeps 4). A player a block uses is always on.</div>
             </div>
           </div>
         </template>
@@ -252,7 +252,7 @@
             v-model="configurationState.enableSuperchip"
             @change="handleToggleSuperchip"
             label="Enable Superchip RAM for higher-resolution playfields"
-            hint="Adds a Superchip (SC) to the ROM and lets the playfield use more than 11 rows. Requires an 8k or larger ROM (bumped automatically if needed), and horizontal playfield scrolling (left/right) isn't supported once this is on. Also moves the app's bookkeeping variables off letters and into extra Superchip RAM, freeing every letter (a-z) for your variables."
+            hint="Adds Superchip RAM for more than 11 rows. Needs an 8k or larger ROM (set automatically); no horizontal scrolling. Frees letters a-z for your variables."
             persistent-hint
             class="option-switch"
           />
@@ -266,8 +266,8 @@
             :disabled="!configurationState.enableSuperchip"
             label="Playfield vertical resolution (pfres)"
             :hint="configurationState.enableSuperchip ?
-              'Up to 32 rows. Values that don\'t evenly divide 96 (3, 4, 6, 8, 12, 16, 24, 32) may leave the screen slightly shorter than normal.' :
-              'Only takes effect with Superchip RAM on above - the standard kernel always uses a fixed 11-row default otherwise.'"
+              'Up to 32 rows. Values that don\'t divide 96 evenly may leave the screen slightly short.' :
+              'Needs Superchip RAM on: otherwise 11 rows.'"
             persistent-hint
             class="pfres-field"
           />
@@ -275,7 +275,7 @@
             v-model="configurationState.enablePfRowHeight"
             @change="handleTogglePfRowHeight"
             label="Override playfield row height (pfrowheight)"
-            hint="Advanced: overrides the row height (in scanlines) the kernel derives from pfres above. Doesn't change how many rows the playfield has, only how tall each one is drawn."
+            hint="Advanced: sets each row's height in scanlines instead of deriving it from pfres."
             persistent-hint
             class="option-switch pfrowheight-switch"
           />
@@ -287,7 +287,7 @@
             min="1"
             :disabled="!configurationState.enablePfRowHeight"
             label="Playfield row height (pfrowheight)"
-            hint="The sprite/playfield coordinate conversion blocks on the Actions tab use this value too, so they stay accurate."
+            hint="The coordinate conversion blocks use this value too."
             persistent-hint
             class="pfrowheight-field"
           />
@@ -307,7 +307,7 @@
           @change="handleChangeConfiguration"
           :disabled="!romSizeIsBankswitched"
           label="Inline random number calls (inlinerand)"
-          hint="Places calls to the random number generator inline with your code instead of as a shared routine, trading a small increase in code size for speed - most useful in a bankswitched game, where a shared routine call would otherwise have to switch banks. Requires a bankswitched ROM size (8k or larger) - see ROM size above."
+          hint="Inlines random calls: faster, slightly bigger. Needs a bankswitched ROM (8k or larger)."
           persistent-hint
           class="option-switch"
         />
@@ -315,7 +315,7 @@
           v-model="configurationState.enableOptimizationSpeed"
           @change="handleChangeConfiguration"
           label="Optimize for speed (speed)"
-          hint="May increase speed - particularly of multiplication and division - at the cost of code size."
+          hint="May speed up multiply and divide, at the cost of code size."
           persistent-hint
           class="option-switch"
         />
@@ -323,7 +323,7 @@
           v-model="configurationState.enableFastMath"
           @change="handleChangeConfiguration"
           label="Faster multiply and divide"
-          hint="Replaces the multiply and divide routines with ones that look the answer up in a table (multiplying always takes about 60 cycles instead of up to 180) and shift and subtract for big answers (dividing takes at most about 210 cycles instead of over 1000). Costs about 600 bytes of ROM. Only matters when a block multiplies or divides by something that is not a power of 2, such as the playfield and sprite conversion blocks. On DPC+ this is always on and only dividing changes: big answers are worked out by the coprocessor, and no extra ROM is used."
+          hint="Table-based multiply (about 60 cycles) and faster divide, for about 600 bytes of ROM. Matters for non-power-of-2 factors. On DPC+ always on, with no extra ROM."
           persistent-hint
           class="option-switch"
         />
@@ -332,7 +332,7 @@
           v-model="configurationState.enableHarmonyCartFix"
           @change="handleChangeConfiguration"
           label="Harmony cart fix (DPC+)"
-          hint="Puts temp1=temp1 right after each bank declaration, as the batari Basic documentation asks for a DPC+ program: without it the Harmony cartridge's bank switch detection can misfire on real hardware. It costs a few bytes in each bank. On by default; turn it off only to save those bytes in a game that is not played on a Harmony cartridge."
+          hint="Adds temp1=temp1 after each bank declaration so a Harmony cart detects bank switches. Costs a few bytes per bank; turn off if not played on a Harmony."
           persistent-hint
           class="option-switch"
         />
@@ -341,7 +341,7 @@
           v-model="configurationState.enableFireCoprocessor"
           @change="handleChangeConfiguration"
           label="Move fired objects with the coprocessor (DPC+)"
-          hint="Saves ROM: an object a Fire block launches with Check playfield while moving on is moved by the coprocessor, about 85 bytes less for each object, but the coprocessor program takes 720 to 840 bytes, so it only saves ROM from about nine such objects, and for an object that moves 1 pixel a frame it takes more cycles than the 6502 code (from 2 pixels a frame it takes fewer). Off by default."
+          hint="Moves fired objects with the coprocessor: saves about 85 bytes per object, but the program takes 720 to 840 bytes (worth it from about nine objects). Off by default."
           persistent-hint
           class="option-switch"
         />
@@ -351,7 +351,7 @@
           v-model="configurationState.enableCycleScore"
           @change="handleToggleCycleScore"
           label="Show remaining CPU cycles as the score (cyclescore)"
-          hint="Displays an estimate (accurate to about +/- 64 cycles) of how many machine cycles are left in the current frame, using the score digits - white means positive (cycles to spare), red means negative (over budget). Only measures +/- 2000 cycles; a bigger deficit may show garbage or crash. Meant for debugging - turn it back off before shipping. Has no effect while a Title screen is being shown."
+          hint="Shows estimated spare cycles in the frame as the score (white: spare, red: over, range +/- 2000). For debugging; turn off before shipping. No effect on a Title screen."
           persistent-hint
           class="option-switch"
         />
@@ -359,7 +359,7 @@
           v-model="configurationState.enableScanlinesDebug"
           @change="handleToggleScanlinesScore"
           label="Show scanlines used as the score"
-          hint="Writes the playfield kernel's scanline count (out of the 192-line picture it draws, the same on NTSC, PAL and PAL60) into the score once at startup, computed from the current pfres/pfrowheight settings. Useful for spotting a kernel overrun that shows up as screen rolling/tearing. Meant for debugging - turn it back off before shipping."
+          hint="Writes the kernel's scanline count into the score at startup. For spotting overruns; turn off before shipping."
           persistent-hint
           class="option-switch"
         />
@@ -379,14 +379,14 @@
           :min="MIN_UNDO_LIMIT"
           :max="MAX_UNDO_LIMIT"
           label="Undo steps"
-          hint="How many steps back Undo can go, across all tabs. From 1 to 999, default 99."
+          hint="How many steps Undo can go back, across all tabs. 1 to 999, default 99."
           persistent-hint
           class="undo-limit-field"
         />
         <v-checkbox
           v-model="loadLastProject"
           label="Load last project on startup"
-          hint="When on, the app starts with your last open project, so you can pick up where you left off."
+          hint="Starts the app with your last open project."
           persistent-hint
           class="option-switch"
         />
@@ -394,7 +394,7 @@
           v-if="isElectron"
           v-model="checkForUpdates"
           label="Notify me of new versions"
-          hint="Tells you at startup when a newer version is out, with a download link for your system."
+          hint="Tells you at startup when a newer version is out."
           persistent-hint
           class="option-switch"
         />
@@ -402,14 +402,14 @@
           id="show-startup-tips-option"
           v-model="showStartupTips"
           label="Show Tips at startup"
-          hint="Shows a tip with a link to the wiki page about the topic, each time the app starts. The tip popup's &quot;Don't show again&quot; checkbox disables this feature."
+          hint="Shows a tip with a wiki link at each start. The popup's &quot;Don't show again&quot; turns this off."
           persistent-hint
           class="option-switch"
         />
         <v-checkbox
           v-model="muteBlocklySounds"
           label="Mute Blockly sounds"
-          hint="Silences the click, delete, and disconnect sounds heard while editing blocks on the Actions tab. Doesn't affect the game itself - see &quot;Mute in-game audio&quot; above for that."
+          hint="Silences click, delete and disconnect sounds while editing blocks. Not the game: see &quot;Mute in-game audio&quot;."
           persistent-hint
           class="option-switch"
         />
@@ -417,14 +417,14 @@
           v-if="emulatorSettings.backend === 'gopher2600'"
           v-model="adaptiveFrameSkip"
           label="Adaptive frame skipping"
-          hint="On a slower computer, the gopher2600 emulator draws only some of the frames it runs when it is close to falling behind, which leaves more time for emulating. Game speed and sound are unchanged."
+          hint="On a slow computer, gopher2600 skips drawing some frames to keep up. Speed and sound are unchanged."
           persistent-hint
           class="option-switch"
         />
         <v-checkbox
           v-model="previewShowNames"
           label="Show names in emulator previews"
-          hint="The previews of a sprite, a playfield or a scene show its name in a line of text under the picture. Turned off, the preview shows the picture alone."
+          hint="Shows names under sprite, playfield and scene previews."
           persistent-hint
           class="option-switch"
         />
@@ -432,28 +432,28 @@
           v-model="configurationState.showVariableComments"
           @change="handleChangeConfiguration"
           label="Show detailed comments in generated code"
-          hint="Adds a short comment next to each reserved variable's &quot;dim&quot; line, and each data table, in the generated bBasic code explaining what it's for."
+          hint="Adds a comment to each reserved variable and data table in the generated code."
           persistent-hint
           class="option-switch"
         />
         <v-checkbox
           v-model="darkMode"
           label="Dark Mode"
-          hint="Switches the app to a dark theme. Combines with Subdued Palette below."
+          hint="A dark theme. Combines with Subdued Palette."
           persistent-hint
           class="option-switch"
         />
         <v-checkbox
           v-model="desaturateBlocklyColors"
           label="Subdued Palette"
-          hint="Mutes colors for a calmer, less colorful view."
+          hint="Mutes colors for a calmer view."
           persistent-hint
           class="option-switch"
         />
         <v-checkbox
           v-model="colorblindMode"
           label="High Contrast"
-          hint="Makes the icons in the left and top toolbars black instead of a color for each, or white in Dark Mode."
+          hint="Makes the toolbar icons black (white in Dark Mode)."
           persistent-hint
           class="option-switch"
         />
@@ -461,7 +461,7 @@
           v-model="hideTopToolbar"
           :disabled="hideSidebar"
           label="Hide top toolbar"
-          hint="Always hides the top app toolbar. Not available while the left toolbar is hidden."
+          hint="Hides the top toolbar. Not while the left one is hidden."
           persistent-hint
           class="option-switch"
         />
@@ -469,14 +469,14 @@
           v-model="hideSidebar"
           :disabled="hideTopToolbar"
           label="Hide left toolbar"
-          hint="Always hides the left app toolbar. Not available while the top toolbar is hidden."
+          hint="Hides the left toolbar. Not while the top one is hidden."
           persistent-hint
           class="option-switch"
         />
         <v-checkbox
           v-model="hideDescriptionText"
           label="Expert mode"
-          hint="Hides the small explanatory hint text under fields and switches throughout the app (including this one), for a more compact layout once you're familiar with VCS Game Maker."
+          hint="Hides hint text like this throughout the app, for a compact layout."
           persistent-hint
           class="option-switch"
         />
@@ -484,7 +484,7 @@
           v-model="hideToolbarLabels"
           :disabled="!hideDescriptionText"
           label="Hide toolbar text labels"
-          hint="Expert mode only: the left and top toolbars show just their icons, without the names under them (hover an icon to see its name)."
+          hint="Expert mode only: toolbars show icons without names."
           persistent-hint
           class="option-switch"
         />
@@ -492,7 +492,7 @@
           v-if="isElectron"
           v-model="stellaPathStorage"
           label="Stella installation location"
-          hint="Path to the Stella executable, used by the emulator preview's 'Test in Stella' button. You need to install Stella yourself first - this only points the app at it."
+          hint="Path to the Stella executable for the 'Test in Stella' button. Install Stella first."
           persistent-hint
           class="stella-path-field"
         >

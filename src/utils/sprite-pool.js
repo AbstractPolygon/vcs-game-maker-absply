@@ -75,8 +75,10 @@ export const expandSpritePools = (dom, Blockly, {supported = true} = {}) => {
   };
   const missingIds = new Set();
   let badIds = 0;
+  let poolBlocks = dom.querySelector('block[type="sprite_pool_define"]') !== null;
   [...dom.querySelectorAll('block')].forEach((node) => {
     const type = node.getAttribute('type');
+    if (SELECTOR_TYPES.includes(type)) poolBlocks = true;
     if (SELECTOR_TYPES.includes(type) && !fieldOf(node, 'FROM')) {
       const id = !supported ? null : idOf(node, 'ID');
       if (id !== null && definitions.has(id)) {
@@ -95,6 +97,7 @@ export const expandSpritePools = (dom, Blockly, {supported = true} = {}) => {
     }
     const poolIdInput = children(node, 'value').find((input) => input.getAttribute('name') === 'POOLID');
     if (poolIdInput) {
+      poolBlocks = true;
       const id = !supported ? null : idOf(node, 'POOLID');
       if (id !== null && definitions.has(id)) {
         setRangeFields(node, 'POOLID', 'POOLFROM', 'POOLTO', definitions.get(id));
@@ -104,7 +107,7 @@ export const expandSpritePools = (dom, Blockly, {supported = true} = {}) => {
       }
     }
   });
-  if (!supported) warnings.push('Sprite pools work on the DPC+ and PXE kernels, not on the standard kernel: the Sprite pool blocks are left out of the build.');
+  if (!supported && poolBlocks) warnings.push('Sprite pools work on the DPC+ and PXE kernels, not on the standard kernel: the Sprite pool blocks are left out of the build.');
   if (badIds) warnings.push(`${badIds} Sprite pool block${badIds === 1 ? ' has' : 's have'} a pool id that is not a Number block: left out of the build.`);
   if (missingIds.size) warnings.push(`Sprite pool id ${[...missingIds].sort((a, b) => a - b).join(', ')} has no Sprite pool ID block: the blocks that name it are left out.`);
   // The blocks that make the pools are not built.
