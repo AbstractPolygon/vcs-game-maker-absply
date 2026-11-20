@@ -5528,6 +5528,29 @@ Blockly.BBasic.extraPlayerNusizLine = function(n) {
   return ` NUSIZ${n} = player${n}size & $0F` + (this.maskPlayers.has(n) ? `\n if ${maskRef(Blockly, n)} then NUSIZ${n}{6} = 1` : '');
 };
 
+// The lines a Wait block puts after each frame of its wait (see runOnceKeepLines): what the reset left fired stays touched, so a Run once block that contains the wait,
+// or is before it, does not run again after it. The same bytes and guard as the reset.
+Blockly.BBasic.generateRunOnceWaitKeep = function() {
+  if (this.runOnceRamBytes) return runOnceKeepLines(this.runOnceRamBytes).join(String.fromCharCode(10));
+  const bytes = this.runOnceByteLetters || [];
+  if (!bytes.length) return '';
+  const hostedNames = this.runOnceHostedBytes || new Set();
+  const names = this.runOnceByteNames || [];
+  const isHosted = (index) => hostedNames.has(names[index]);
+  const ordered = [...bytes.keys()].filter((i) => !isHosted(i)).concat([...bytes.keys()].filter(isHosted));
+  const firstHosted = ordered.findIndex(isHosted);
+  const keepId = this.blockNumbers.next('runOnceKeep');
+  return [
+    'asm',
+    ...ordered.flatMap((index, position) => [
+      ...(position === firstHosted ? ['LDA player0size', 'BPL _runoncekeep_' + keepId + '_run', 'JMP _runoncekeep_' + keepId + '_skip', '@_runoncekeep_' + keepId + '_run'] : []),
+      'LDA ' + bytes[index], 'LSR', 'LSR', 'LSR', 'LSR', 'ORA ' + bytes[index], 'STA ' + bytes[index],
+    ]),
+    ...(firstHosted !== -1 ? ['@_runoncekeep_' + keepId + '_skip'] : []),
+    '@end',
+  ].join(String.fromCharCode(10));
+};
+
 Blockly.BBasic.generateRunOnceEdgeReset = function() {
   if (this.runOnceRamBytes) return runOnceResetLines(this.runOnceRamBytes).join('\n');
   const bytes = this.runOnceByteLetters || [];
@@ -10000,7 +10023,7 @@ import titlescreen, {TITLE_SCREEN_SUBROUTINE_NAME, TITLE_FADE_CHECKS_NAME} from 
 import variables from './bbasic/variables';
 import {findGameplayOnlyNames} from '../utils/title-liveness';
 import {dpcTileMarker} from '../utils/dpc-tile';
-import {runOnceResetLines, runOnceClearLines, runOnceStartupLines} from '../utils/dpc-ram-flags';
+import {runOnceResetLines, runOnceKeepLines, runOnceClearLines, runOnceStartupLines} from '../utils/dpc-ram-flags';
 import {collectChipChannels, createDpcPlusAudioPlan, DPC_AUDIO_SUBROUTINE_NAME, dpcAudioVars, redirectSoundRegisters} from './bbasic/dpcplus-audio';
 
 [background, bit, collision, color, colour, data, event, functionGenerators, input, logic, loops, math, music,

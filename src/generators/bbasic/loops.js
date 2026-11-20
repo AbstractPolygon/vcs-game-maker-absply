@@ -11,6 +11,7 @@
 'use strict';
 
 import {invertCondition} from './logic';
+import {generateGravityWaitKeep} from './sprites';
 
 /*
 goog.provide('Blockly.BBasic.loops');
@@ -202,9 +203,21 @@ export default (Blockly) => {
     // loops again until it hits 0, sidestepping the "for...to" bound-reread
     // problem entirely rather than working around it.
     const labelBase = `_wait_frames_${Blockly.BBasic.blockNumbers.next('waitFrames')}`;
+    // Every frame of the wait also runs the "When ... collide" blocks (a copy of each, sharing its bits with the original, so a collision is told once), right after
+    // the screen is drawn, as the main loop would. Not those with a Wait block inside (the wait would be inside itself, and use its counter).
+    const collideCode = (Blockly.BBasic.collisionWhenBlocks || [])
+        .filter((collide) => !(collide.getInputTargetBlock('DO') ? collide.getInputTargetBlock('DO').getDescendants(false) : [])
+            .some((inside) => inside.type === 'wait_frames'))
+        .map((collide) => Blockly.BBasic['collision_when'](collide))
+        .join('\n');
+    const keepGravity = generateGravityWaitKeep(Blockly);
+    const keepRunOnce = Blockly.BBasic.generateRunOnceWaitKeep();
     return `${counter} = ${argument0}\n` +
       `@${labelBase}\n` +
       `${Blockly.BBasic.commonGameLogicCall(suffix)} : drawscreen\n` +
+      (keepRunOnce ? `${keepRunOnce}\n` : '') +
+      (keepGravity ? `${keepGravity}\n` : '') +
+      (collideCode ? `${collideCode}\n` : '') +
       `${counter} = ${counter} - 1\n` +
       `if ${counter} <> 0 then goto ${labelBase}\n`;
   };

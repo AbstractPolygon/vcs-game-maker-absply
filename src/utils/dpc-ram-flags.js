@@ -60,6 +60,21 @@ export const runOnceResetLines = (count) => [
   '@end',
 ];
 
+// What a Wait block does after each frame of its wait: the instances that have fired are marked touched again (the reset clears the touched bits, and an
+// instance untouched for a frame would fire again after the wait).
+export const runOnceKeepLines = (count) => [
+  'asm',
+  'lda #0', 'sta DF0LOW', `lda #${PAGE}`, 'sta DF0HI',
+  ...Array.from({length: count}).flatMap((_, index) => [
+    'lda DF0DATA',
+    `beq _runonce_keep_${index}_done`,
+    'sta temp1', 'lsr', 'lsr', 'lsr', 'lsr', 'ora temp1',
+    `ldx #${index}`, 'stx DF1LOW', `ldx #${PAGE}`, 'stx DF1HI', 'sta DF1WRITE',
+    `@_runonce_keep_${index}_done`,
+  ]),
+  '@end',
+];
+
 // Clears both bits of the first pairs instances (the ones a title screen and the gameplay take turns with).
 export const runOnceClearLines = (pairs) => {
   const bytes = [];

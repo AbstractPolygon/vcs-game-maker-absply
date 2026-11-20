@@ -2496,6 +2496,11 @@ const gravityLandLines = (Blockly, name) => {
     done];
 };
 
+// A Wait block runs the frame's work again and again: a Start gravity block that ran just before it must not look as if it had stopped running (and start the gravity
+// again after the wait), so each frame of the wait keeps the "ran" bit of an object that ran in the last frame.
+export const generateGravityWaitKeep = (Blockly) => [...(Blockly.BBasic.objectGravityUsedFor || [])].map((name) =>
+  `if ${gravityRanRef(Blockly, OBJECT_GRAVITY_RAN_LAST_FAMILY, name)} then ${gravityRanRef(Blockly, OBJECT_GRAVITY_RAN_FAMILY, name)} = 1`).join(String.fromCharCode(10));
+
 export const generateGravityChecks = (Blockly) => {
   const used = Blockly.BBasic.objectGravityUsedFor;
   if (!used || !used.size) return '';
