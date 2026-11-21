@@ -1,4 +1,4 @@
-// usage: node tests/projects/mkcircle.cjs -> tests/projects/circle_<kernel>.vcsgm (kernel = std, dpc, dpcspread): the circle block on short rows (std: pfres 32 with
+// usage: node tests/projects/mkcircle.cjs -> tests/projects/circle_<kernel>.vcsgm (kernel = std, dpc, dpcspread, pxe): the circle block on short rows (std: pfres 32 with
 // Superchip, dpc: pfres 96), after the playfield is cleared, in a Run once block of Gameplay update: A a plain circle, B the same kept round ("keep it round on short
 // rows"), C a circle kept round with a padding for each side (left 10, right 3, top 12, bottom 15, on dpc 40 as the top and bottom are a byte: it is cut to columns 10 to 28 and rows 12 to the last row less the bottom).
 // dpcspread: B and C drawn over several frames (the steps of the 6502 engine, not the coprocessor). The score is set to 777 once the queue is done.
@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
-const bases = {std: 'tv_std_score_ntsc.vcsgm', dpc: 'tv_dpc_score_ntsc.vcsgm', dpcspread: 'tv_dpc_score_ntsc.vcsgm'};
+const bases = {std: 'tv_std_score_ntsc.vcsgm', dpc: 'tv_dpc_score_ntsc.vcsgm', dpcspread: 'tv_dpc_score_ntsc.vcsgm', pxe: 'tv_pxe_score_ntsc.vcsgm'};
 const v = (name, n) => `<value name="${name}"><block type="math_number"><field name="NUM">${n}</field></block></value>`;
 const chain = (blocks) => blocks.reduceRight((next, block) => block.replace(/<\/block>$/, next ? `<next>${next}</next></block>` : '</block>'), '');
 // ERASE=1: the playfield is filled first and the circles clear it (circle_<kernel>_off.vcsgm).
