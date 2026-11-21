@@ -226,9 +226,15 @@ fuu
 ;     sty HMBL
 ; relocated code above prior to vblank, to allow for Cosmic Ark starfield
 ; and/or skewed players
- sleep 17 
+ sleep 17
 
+     ; vcs-game-maker: without the collision option the loop ends on the timer's flag (TIMINT), which is set one count after the timer
+     ; reads 0: one count less here keeps the picture the same height (see the end of the loop).
+     ifnconst DPC_kernel_options
+     lda #KERNEL_LINES-1
+     else
      lda #KERNEL_LINES
+     endif
      sta TIM64T
      lda #1
      sta VDELBL
@@ -289,8 +295,18 @@ norepo     ; 60
      tay ; 62
      lda #<DF0DATA ; 64
 
+     ; vcs-game-maker: a line that repositions a sprite (repo) does not read the timer. When the timer's 0 fell on one, "ldx INTIM / beq"
+     ; missed it, and the next read (of the timer counting down a cycle at a time after 0) set it back to counting by 64 from about 180:
+     ; the picture went on about 95 lines and the screen rolled. The flag stays set once the timer has passed 0, so the next line that
+     ; looks ends the loop. Same cycles and bytes. With the collision option X has to hold the timer (temp4, the line of the first
+     ; collision), so that one keeps the old test.
+     ifnconst DPC_kernel_options
+     bit TIMINT ; 68
+     bmi exitkernel ; 70/71
+     else
      ldx INTIM ; 68 timed for 192 lines
      beq exitkernel; 70/71
+     endif
      sta HMOVE ; 73
 
      STA COLUP0 ; 0

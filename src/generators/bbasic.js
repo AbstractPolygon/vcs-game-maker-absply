@@ -2968,6 +2968,10 @@ Blockly.BBasic.init = function(workspace) {
   this.pfBoxArmRows = false;
   // Set when a player's box test is done by the coprocessor (see armBox in generators/bbasic/pf-box.js).
   this.pfBoxArm = false;
+  // The Find playfield pixel collided with blocks a Bounce block's call before them does (see bounceFindArgs in generators/bbasic/background.js).
+  this.bounceFindMerged = new Set();
+  // Set when commongamelogic is called from another bank (see commonGameLogicCall).
+  this.commonGameLogicFarUsed = false;
   // The playfield tilemap (see generators/bbasic/pf-tiles.js and generateBackgrounds): its plan, and whether the coprocessor's program has its functions.
   this.pfTilemap = null;
   this.pfTilesArm = false;
@@ -5196,7 +5200,7 @@ Blockly.BBasic.finish = function(code) {
   // (Also when "Start title screen" in "Title screen start" keeps the kernel on in "Title screen update": the Draw blocks of the start event go on drawing there, every one of them.)
   const titleKernelSteps = generatedPfDrawStep.split('_pfd_idle').join('_pfd_idle_title');
   const generatedTitleKernelSkip = this.titleScreenDrawUsed ?
-    ` if !${titleKernelLoopFlag()} then goto commongamelogicdraw\n${titleKernelSteps}\n${this.commonGameLogicReturn()}\ncommongamelogicdraw\n` : '';
+    ` if !${titleKernelLoopFlag()} then goto commongamelogicdraw\n${titleKernelSteps}\n${COMMON_GAME_LOGIC_RETURN_MARK}\ncommongamelogicdraw\n` : '';
   const generatedScoreFlashChecks = Blockly.BBasic.generateScoreFlashChecks();
   const generatedSpeechChecks = generateSpeechChecks(Blockly);
   // The steps of the fractional data fetchers (DFxFRACINC) stay as they were written: the kernel writes only DF5 and DF7, the coprocessor none. When they are
@@ -5396,8 +5400,7 @@ Blockly.BBasic.finish = function(code) {
   // The blocks of the Title Screen and of the game using each other's flag families: generated again with all flags on bits of their own.
   this.flagOverlayConflict = this.flagOverlay && flagPoolPhaseConflict();
   const commonGameLogicReturn = this.commonGameLogicReturn();
-  const commonGameLogicFar = this.commonGameLogicFar();
-  const templateData = ({commonGameLogicReturn, commonGameLogicFar, generatedDpcPlusAudio, generatedPfDrawStep, generatedBody, generatedBackgrounds, generatedBackgroundColorOverride,
+  const templateData = ({commonGameLogicReturn, generatedDpcPlusAudio, generatedPfDrawStep, generatedBody, generatedBackgrounds, generatedBackgroundColorOverride,
     generatedAnimations, generatedDataTables, generatedRomNoiseChecks, generatedPlayerHeightLimitChecks, generatedTitleScreenAnimationChecks,
     generatedRainbowColorGraphics, generatedRainbowColorChecks, generatedMissileFireChecks,
     generatedSeekChecks, generatedLockChecks, generatedBoxChecksCall, generatedWidePartnerSync, generatedPfHitChecks, generatedInertiaChecks, generatedPlatformerChecks, generatedShakeScreenChecks, generatedScoreFlashChecks, generatedSpeechChecks, generatedDpcPlusColorPriming, generatedDpcPlusColorPrimingOnce, generatedDpcPlusColorTables, generatedDpcPlusInitialDrawscreen,
@@ -5417,7 +5420,7 @@ Blockly.BBasic.finish = function(code) {
     generatedEnvelopeChecks, hasSoundHandling, hasFadeRoutines,
     generatedBackgroundFadeChecks, generatedMusicChecks, generatedDistanceChecks, generatedDistancePointChecks,
     generatedJoystickDirection8Checks, generatedJoystickButtonChecks, generatedJoystickDoubleTapChecks,
-    generatedTextScrollAdvance, generatedTitleKernelSkip, generatedScoreBkColorAsm, generatedRunOnceEdgeReset,
+    generatedTextScrollAdvance, generatedTitleKernelSkip: generatedTitleKernelSkip.split(COMMON_GAME_LOGIC_RETURN_MARK).join(commonGameLogicReturn), generatedScoreBkColorAsm, generatedRunOnceEdgeReset,
     generatedKeypadPollCall, generatedKeypadSetup, generatedCtrlpfShadowSetup, generatedBackgroundFadeSetup,
     nusiz0Line, player1NusizLine, player1FlipLines, extraPlayerNusizLines});
   const setupText = handlebarsSetupTemplate(templateData).replace(/\r\n/g, '\n');
@@ -7009,25 +7012,23 @@ const BANK_COUNT_BY_ROMSIZE_MINI = {'8k': 2, '16k': 4, '32k': 8, '64k': 16, 'dpc
 // tab only allows enabling it when the project's ROM size actually
 // bankswitches - see Configuration.vue.
 // commongamelogic runs on every frame, called from the main loop in its bank: its returns are "return thisbank" (an rts), not the return that finds
-// out while the game runs where the caller is (13 bytes, about 10 cycles more). A call from another bank (a title loop or a Wait frames block put
-// in another bank) goes through _commongamelogic_far, in the same bank, which makes the call there and goes back with "return otherbank". Not on
-// PXE (its compiler is another one) nor for 64k (every return switches banks there, see utils/bank64-returns.js).
+// out while the game runs where the caller is (13 bytes, about 10 cycles more). When a call comes from another bank (a title loop or a Wait frames
+// block put in another bank) its returns are that one. (A call from another bank through a routine in the bank of commongamelogic, which called it
+// and went back with "return otherbank", took two bytes more of the stack: on DPC+ a background load in commongamelogic, a bank switched call
+// deeper, then ran past the stack's 10 bytes into var8.) Not on PXE (its compiler is another one) nor for 64k (every return switches banks there,
+// see utils/bank64-returns.js).
+// (Put in the return's place in code made before the events, which tell whether a call comes from another bank: see generatedTitleKernelSkip.)
+const COMMON_GAME_LOGIC_RETURN_MARK = '@@commongamelogic_return@@';
 const commonGameLogicNarrowed = () => {
   const config = useConfigurationStorage().value || {};
   return !isPxe(config) && !(config.kernel !== 'dpcplus' && config.romSize === '64k');
 };
-const COMMON_GAME_LOGIC_FAR = '_commongamelogic_far';
 Blockly.BBasic.commonGameLogicCall = function(suffix) {
-  return suffix && commonGameLogicNarrowed() ? `gosub ${COMMON_GAME_LOGIC_FAR}${suffix}` : `gosub commongamelogic${suffix}`;
+  if (suffix) this.commonGameLogicFarUsed = true;
+  return `gosub commongamelogic${suffix}`;
 };
 Blockly.BBasic.commonGameLogicReturn = function() {
-  return commonGameLogicNarrowed() ? ' return thisbank' : ' return';
-};
-// (Only a ROM that switches banks has the bank-switching return, and only there can a call come from another bank.)
-Blockly.BBasic.commonGameLogicFar = function() {
-  const config = useConfigurationStorage().value || {};
-  const switched = config.kernel === 'dpcplus' || BANKSWITCHED_ROM_SIZES.includes(config.romSize);
-  return switched && commonGameLogicNarrowed() ? `${COMMON_GAME_LOGIC_FAR}\n gosub commongamelogic\n return otherbank\n` : '';
+  return commonGameLogicNarrowed() && !this.commonGameLogicFarUsed ? ' return thisbank' : ' return';
 };
 
 Blockly.BBasic.useInlineRand = function() {

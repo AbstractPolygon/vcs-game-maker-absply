@@ -3812,6 +3812,12 @@ ${fine.write} = 0
   // by 0 to N steps either way, wrapping.
   // The same for an any direction heading (a full turn of 256): a step is 22.5 degrees (16 of the 256), a heading that is exactly up, down, left or right is turned a step
   // either way, and the half of the circle works on the heading itself (128 is the line between the halves, mirrored by 128 - heading or 0 - heading).
+  // temp1 = a random 0 to count - 1: the high byte of rand times count, by shifts and adds (a division by a number that is not a power of two is a call of
+  // the division routine, often in another bank: about 200 cycles on the frame of a bounce, where this takes about 50). temp2 is the high byte.
+  const randomBelowLines = (count) => {
+    const mulLines = count.toString(2).slice(1).split('').flatMap((bit) => ['  asl', '  rol temp2', ...(bit === '1' ? ['  clc', '  adc temp1', '  bcc *+4', '  inc temp2'] : [])]);
+    return [' temp1 = rand', ' asm', '  lda #0', '  sta temp2', '  lda temp1', ...mulLines, '  lda temp2', '  sta temp1', '@end'];
+  };
   const anySpreadTurnLines = (block, name, dirVar) => {
     const id = Blockly.BBasic.blockNumbers.next(`bouncespreadany_${name}`);
     const skip = `_bouncespread_${name}_${id}_ok`;
@@ -3827,9 +3833,7 @@ ${fine.write} = 0
     const stepsNumber = literalNumber(stepsCode);
     if (stepsNumber !== null) {
       const steps = Math.min(4, Math.max(1, Math.round(stepsNumber)));
-      const divisor = Math.ceil(256 / (2 * steps + 1));
-      Blockly.BBasic.usesDivMul = true;
-      return [` temp1 = rand / ${divisor}`, ' temp1 = temp1 * 16', ` ${dirVar} = ${dirVar} + temp1 + ${256 - steps * 16}`, ...notStraight, ...hemisphereLines];
+      return [...randomBelowLines(2 * steps + 1), ' temp1 = temp1 * 16', ` ${dirVar} = ${dirVar} + temp1 + ${256 - steps * 16}`, ...notStraight, ...hemisphereLines];
     }
     Blockly.BBasic.usesDivMul = true;
     return [` temp2 = ${stepsCode}`, ' if temp2 = 0 then temp2 = 1', ' if temp2 > 4 then temp2 = 4',
@@ -3866,10 +3870,8 @@ ${fine.write} = 0
     const stepsNumber = literalNumber(stepsCode);
     if (stepsNumber !== null) {
       const steps = Math.min(4, Math.max(1, Math.round(stepsNumber)));
-      const divisor = Math.ceil(256 / (2 * steps + 1));
-      // (The divisor is never a power of two, so it is a real division: the routine for it has to be in the program, as it is for the steps worked out at run time.)
-      Blockly.BBasic.usesDivMul = true;
-      return [` temp1 = rand / ${divisor}`, ` ${dirVar} = (${dirVar} + temp1 + ${maxAngle + 1 - steps}) & ${maxAngle}`, ...notStraight, ...hemisphereLines];
+      return [...randomBelowLines(2 * steps + 1),
+        ` ${dirVar} = (${dirVar} + temp1 + ${maxAngle + 1 - steps}) & ${maxAngle}`, ...notStraight, ...hemisphereLines];
     }
     // A value worked out when the program runs: clamped to 1-4, then a random 0 to 2N from 16 steps scaled to 2N+1 values.
     Blockly.BBasic.usesDivMul = true;
@@ -4620,6 +4622,38 @@ ${fine.write} = 0
       }
     }
 
+    // With a Find playfield pixel collided with block of the object right after it (see bounceFindArgs in generators/bbasic/background.js): one call of the
+    // coprocessor every frame does both (function 101 of armprog.c: bouncepix, every stage of it, then findpixel with the heading the bounce started from, the
+    // one the Find block takes while a bounce goes on), in place of the stage code below and the Find block's call; one bank switch and one call less.
+    const bounceSteps = (Blockly.BBasic.missileFire16UsedFor || new Set()).has(name) ? 16 : 8;
+    const bounceFind = bounceArm && Blockly.BBasic.bounceFindArgs ? Blockly.BBasic.bounceFindArgs(block, name, bounceSteps === 16) : null;
+    // (Only when the numbers the two share are the same: the x, the directions, the last row, the column offset and the row increment.)
+    const sharedFindArgs = bounceFind && [bounceFind.args[0], bounceFind.args[5], bounceFind.args[6], bounceFind.args[7], bounceFind.args[8]].map((lines) => lines.join(' '));
+    const sharedBounceArgs = [`lda ${name}x`, `lda #${bounceSteps | (bounceRowDiv ? 128 : 0)}`, `lda #${bounceMaxRow}`,
+      `lda #${missileBallPfXOffset(bounceConfig, name)}`, `lda #${bounceRowInc & 255}`];
+    if (bounceFind && sharedFindArgs.every((text, i) => text === sharedBounceArgs[i])) {
+      Blockly.BBasic.bounceFindMerged.add(bounceFind.block.id);
+      const findName = `_bouncefind_${name}`;
+      if (!Blockly.BBasic.subroutines[findName]) {
+        const topText = pfTopY(bounceConfig, name);
+        const topLines = /\+ 1$/.test(topText) ? [`lda ${name}y`, 'clc', 'adc #1'] : /- 1$/.test(topText) ? [`lda ${name}y`, 'sec', 'sbc #1'] : [`lda ${name}y`];
+        const callLines = buildPixArmCall({fn: ARM_FIND_PIXEL_FUNCTION.bounceFind, after: [bounceDirVar, stagePair.write, bounceFind.col.write, bounceFind.row.write],
+          args: [[`lda ${name}x`], topLines, [`lda ${bounceDirVar}`], [`lda #${bounceSteps | (bounceRowDiv ? 128 : 0)}`], [`lda #${bounceMaxRow}`],
+            [`lda #${missileBallPfXOffset(bounceConfig, name)}`], [`lda #${bounceRowInc & 255}`], [`lda ${stagePair.read}`],
+            ...(armGravity ? [['lda #1'], [`lda ${armGravity.read}`]] : [['lda #0'], ['lda #0']]),
+            // (The Find block's top line, height and size bits.)
+            bounceFind.args[1], bounceFind.args[2], bounceFind.args[3]]}).split('\n').slice(1, -1);
+        Blockly.BBasic.subroutines[findName] = [
+          'asm',
+          ...callLines,
+          ...(armGravity ? [`lda ${stagePair.read}`, `bpl _bouncefind_${name}_nograv`, 'and #127', `sta ${stagePair.write}`,
+            ...buildGravityBounceAsm(Blockly, name, `_gravkeep_${name}_armf_`, '@'), `@_bouncefind_${name}_nograv`] : []),
+          '@end',
+        ].join('\n');
+      }
+      const findSuffix = Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(findName));
+      return [` gosub ${findName}${findSuffix}`, ...manualAngleLines, ...spreadLines].join('\n') + '\n';
+    }
     // Reached by every Bounce block through a gosub, not repeated in each one.
     if (bounceArm && !Blockly.BBasic.subroutines[stageName]) {
       const topText = pfTopY(bounceConfig, name);

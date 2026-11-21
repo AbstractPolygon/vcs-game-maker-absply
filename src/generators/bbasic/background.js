@@ -534,10 +534,10 @@ export default (Blockly) => {
   // the sprite's right column; temp5 = the sprite's bottom row; temp6 = vertical
   // step, then the row above or below (all of temp3-temp6 survive pfread, which
   // only overwrites temp1/temp2).
-  const buildFindPixelBody = ({sprite, is16, maxRow, rowDivisor, topY, col, row, groupRows}) => {
+  // Under DPC+ the coprocessor finds it (function 99 of armprog.c, the same cells in the same order; about 350 cycles less): the lines that give it each
+  // of its numbers (the direction from temp5), or null when the build has it done by the 6502. tag: a part of the label in the lines (two copies in one bank).
+  const findPixelArmArgs = ({sprite, is16, maxRow, rowDivisor, topY, groupRows, tag = ''}) => {
     const coords = spriteCollisionCoords(sprite);
-    // Under DPC+ the coprocessor finds it (function 99 of armprog.c, the same cells in the same order; about 350 cycles less): the numbers go to it and the column
-    // and the row come back.
     const config = useConfigurationStorage().value || {};
     // (The row increment it is given: see bounceFracInc in generators/bbasic/sprites.js.)
     const fracInc = Blockly.BBasic.exactRowIncrement(config, 1);
@@ -545,20 +545,51 @@ export default (Blockly) => {
     const findPixelRowDiv = /^\d+$/.test(String(rowDivisor)) && 256 % Number(rowDivisor) !== 0 && Number(rowDivisor) < 256 && fracInc === null;
     const findPixelRowInc = /^\d+$/.test(String(rowDivisor)) && 256 % Number(rowDivisor) === 0 ? 256 / Number(rowDivisor) :
       findPixelRowDiv ? Number(rowDivisor) : (typeof fracInc === 'number' ? fracInc : null);
-    if (config.kernel === 'dpcplus' && !config.pxe && !groupRows && !pfScrollColumns(config) && coords.heightVar && coords.sizeBits &&
-        findPixelRowInc !== null && /^\d+$/.test(String(maxRow))) {
+    if (!(config.kernel === 'dpcplus' && !config.pxe && !groupRows && !pfScrollColumns(config) && coords && coords.heightVar && coords.sizeBits &&
+        findPixelRowInc !== null && /^\d+$/.test(String(maxRow)))) return null;
+    const lda = (operand) => [`lda ${operand}`];
+    return [
+      lda(coords.x),
+      topY === coords.y ? lda(coords.y) : /\+ 1$/.test(topY) ? [`lda ${coords.y}`, 'clc', 'adc #1'] : [`lda ${coords.y}`, 'sec', 'sbc #1'],
+      // (The lines it covers are the height less one for missile 0 and one more for missile 1: measured against the hardware flag.)
+      coords.extraHeight < 0 ? [`lda ${coords.heightVar}`, `beq _fp_${sprite}${tag}_hz`, 'sec', 'sbc #1', `@_fp_${sprite}${tag}_hz`] :
+        coords.extraHeight > 0 ? [`lda ${coords.heightVar}`, 'clc', 'adc #1'] : lda(coords.heightVar), lda(coords.sizeBits), lda('temp5'), lda(`#${(is16 ? 16 : 8) | (findPixelRowDiv ? 128 : 0)}`), lda(`#${maxRow}`), lda(`#${coords.pfXOffset}`),
+      // (A row increment of 256, rows of one line, is given as 0: armprog.c reads it as 256.)
+      lda(`#${findPixelRowInc & 255}`)];
+  };
+
+  // The settings of the Find playfield pixel collided with block for a sprite (the ones its generator below works out).
+  const findPixelSettings = (sprite) => {
+    const config = (useConfigurationStorage() && useConfigurationStorage().value) || {};
+    return {maxRow: Blockly.BBasic.dpcPlusGroupFracVars ? '191' : Blockly.BBasic.maxRowText(config),
+      // Under DPC+ a missile's or the ball's y counts lines, not the two-line steps of a player's.
+      rowDivisor: Blockly.BBasic.rowDivisorText(config, !!(spriteCollisionCoords(sprite) || {}).heightVar),
+      topY: topYText(spriteCollisionCoords(sprite), config), groupRows: !!Blockly.BBasic.dpcPlusGroupFracVars};
+  };
+
+  // A Bounce block of a fired object with a Find playfield pixel collided with block of the same object, by its Fire angle, right after it: under DPC+ both
+  // are one call of the coprocessor (function 101 of armprog.c, see bounceFind in generators/bbasic/sprites.js), and the Find block then gives no code.
+  // Its numbers (from the second, the top line, on: the bounce gives the x and the direction), or null when it is not the case.
+  Blockly.BBasic.bounceFindArgs = (bounceBlock, name, is16) => {
+    const next = bounceBlock.getNextBlock();
+    if (!next || next.type !== 'background_collision_pixel_direction' || !next.isEnabled() || next.getFieldValue('SPRITE') !== name) return null;
+    const dirBlock = next.getInputTargetBlock('DIRECTION');
+    if (!dirBlock || dirBlock.type !== 'sprite_fire_angle_get' || !dirBlock.isEnabled() || fireObjectName(dirBlock.getFieldValue('MISSILE')) !== name) return null;
+    const args = findPixelArmArgs({sprite: name, is16, ...findPixelSettings(name), tag: '_bf'});
+    const col = Blockly.BBasic.superchipRwPairs[collisionPixelColumnVarName()];
+    const row = Blockly.BBasic.superchipRwPairs[collisionPixelRowVarName()];
+    const named = (pair) => pair && /^[A-Za-z_]\w*$/.test(String(pair.write));
+    return args && named(col) && named(row) ? {block: next, args, col, row} : null;
+  };
+
+  const buildFindPixelBody = ({sprite, is16, maxRow, rowDivisor, topY, col, row, groupRows}) => {
+    const coords = spriteCollisionCoords(sprite);
+    const armArgs = findPixelArmArgs({sprite, is16, maxRow, rowDivisor, topY, groupRows});
+    if (armArgs) {
       ensureArmProgram(Blockly, undefined, 'p');
       Blockly.BBasic.pfBoxArm = true;
-      const lda = (operand) => [`lda ${operand}`];
       return [
-        buildPixArmCall({fn: ARM_FIND_PIXEL_FUNCTION.find, read: 2, args: [
-          lda(coords.x),
-          topY === coords.y ? lda(coords.y) : /\+ 1$/.test(topY) ? [`lda ${coords.y}`, 'clc', 'adc #1'] : [`lda ${coords.y}`, 'sec', 'sbc #1'],
-          // (The lines it covers are the height less one for missile 0 and one more for missile 1: measured against the hardware flag.)
-          coords.extraHeight < 0 ? [`lda ${coords.heightVar}`, `beq _fp_${sprite}_hz`, 'sec', 'sbc #1', `@_fp_${sprite}_hz`] :
-            coords.extraHeight > 0 ? [`lda ${coords.heightVar}`, 'clc', 'adc #1'] : lda(coords.heightVar), lda(coords.sizeBits), lda('temp5'), lda(`#${(is16 ? 16 : 8) | (findPixelRowDiv ? 128 : 0)}`), lda(`#${maxRow}`), lda(`#${coords.pfXOffset}`),
-          // (A row increment of 256, rows of one line, is given as 0: armprog.c reads it as 256.)
-          lda(`#${findPixelRowInc & 255}`)]}),
+        buildPixArmCall({fn: ARM_FIND_PIXEL_FUNCTION.find, read: 2, args: armArgs}),
         `${col.write} = temp3`,
         `${row.write} = temp4`,
       ].join('\n');
@@ -696,13 +727,11 @@ export default (Blockly) => {
   };
 
   Blockly.BBasic['background_collision_pixel_direction'] = function(block) {
+    // (Done by the call of the Bounce block before it: see bounceFindArgs.)
+    if (Blockly.BBasic.bounceFindMerged.has(block.id)) return '';
     const sprite = block.getFieldValue('SPRITE');
     const direction = Blockly.BBasic.valueToCode(block, 'DIRECTION', Blockly.BBasic.ORDER_NONE) || '255';
-    const configurationStorage = useConfigurationStorage();
-    const config = (configurationStorage && configurationStorage.value) || {};
-    const maxRow = Blockly.BBasic.dpcPlusGroupFracVars ? '191' : Blockly.BBasic.maxRowText(config);
-    // Under DPC+ a missile's or the ball's y counts lines, not the two-line steps of a player's.
-    const rowDivisor = Blockly.BBasic.rowDivisorText(config, !!spriteCollisionCoords(sprite).heightVar);
+    const {maxRow, rowDivisor, topY, groupRows} = findPixelSettings(sprite);
     Blockly.BBasic.usesDivMul = true;
 
     const col = Blockly.BBasic.superchipRwPairs[collisionPixelColumnVarName()];
@@ -736,8 +765,7 @@ export default (Blockly) => {
 
     const name = findPixelSubroutineName(sprite, is16);
     if (!Blockly.BBasic.subroutines[name]) {
-      Blockly.BBasic.subroutines[name] = buildFindPixelBody({sprite, is16, maxRow, rowDivisor, topY: topYText(spriteCollisionCoords(sprite), config), col, row,
-        groupRows: !!Blockly.BBasic.dpcPlusGroupFracVars});
+      Blockly.BBasic.subroutines[name] = buildFindPixelBody({sprite, is16, maxRow, rowDivisor, topY, col, row, groupRows});
     }
     const suffix = Blockly.BBasic.bankJumpSuffix(
         Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(name));

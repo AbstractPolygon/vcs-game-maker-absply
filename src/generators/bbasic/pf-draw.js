@@ -36,7 +36,7 @@ const terrainDoneAllMask = () => PFD_TERRAIN_DONE_BITS.reduce((mask, index) => m
 //     1 erase), bits 2-0 a few flags of the kind's (the line's direction, the circle's row and side, the fill's steps);
 //   the work bytes: what the kind being drawn keeps (as many as the kind that needs the most of the ones the project uses);
 //   the queue: records of a header (the kind and the operation, as the state has them) and the numbers of the block, as many as the kind with the
-//     most of them takes; a free record has a header of 0. A block writes its record straight into the last record (it is free: see _pfd_room),
+//     most of them takes; a free record has a header of 0. A block writes its record straight into the last record (it is free: see _pfd_room; on DPC+ into one more past the queue),
 //     and _pfd_submit moves it down to the first free one. A record that starts is read into temp1 (the header) to temp6 (the numbers). On DPC+ the
 //     records are in the display RAM (page $0F from RECORD_OFFSET, read with data fetcher 0 and written with 1), elsewhere in separate bytes;
 //   the fill's seeds (a place on a row the fill still has to look at, two bytes): on DPC+ in the display RAM (page $0F from SEED_OFFSET), elsewhere
@@ -197,7 +197,8 @@ const recordStore = (pfDraw) => {
       ...Array.from({length: (last - r) * size}, () => ['lda DF0DATA', 'sta DF1WRITE']).flat()] : []),
     ...aim(1, offset(last, 0)), 'ldx #0', 'stx DF1WRITE'])],
     free: (r) => [asm([...aim(1, offset(r, 0)), 'ldx #0', 'stx DF1WRITE'])],
-    write: (i, code) => [...(code === 'temp6' ? [] : [`temp6 = ${code}`]), asm([...aim(1, offset(last, i)), 'lda temp6', 'sta DF1WRITE'])],
+    // (Into the record past the queue: see _pfd_submit.)
+    write: (i, code) => [...(code === 'temp6' ? [] : [`temp6 = ${code}`]), asm([...aim(1, offset(records, i)), 'lda temp6', 'sta DF1WRITE'])],
   };
 };
 
@@ -273,23 +274,28 @@ const buildEngine = (Blockly) => {
       'if temp1 <> 0 then goto _pfd_flush',
       'return');
   // Called by a block before it writes its record: the last record has to be free. When it is not, everything waiting is drawn now, and the state's
-  // 1 has the block drawn at once too (see _pfd_submit).
-  add(label('room'),
-      ...header(last),
-      'if temp1 = 0 then return',
-      'gosub _pfd_flush',
-      set(S, 1),
-      'return');
-  // The record the block wrote in the last record goes down to the first free one. With nothing being drawn the first one waiting starts (a circle
-  // on DPC+, which is drawn as it starts, waits for the steps at the end of the frame).
+  // 1 has the block drawn at once too (see _pfd_submit). (Not on DPC+: there the block writes its record into one more record past the queue, and
+  // _pfd_submit makes the room, so a Draw block is one call of the engine, in another bank as often as not.)
+  if (!displayRam) {
+    add(label('room'),
+        ...header(last),
+        'if temp1 = 0 then return',
+        'gosub _pfd_flush',
+        set(S, 1),
+        'return');
+  }
+  // The record the block wrote in the last record (DPC+: the one past the queue) goes down to the first free one. With nothing being drawn the first
+  // one waiting starts (a circle on DPC+, which is drawn as it starts, waits for the steps at the end of the frame).
+  const from = displayRam ? records : last;
   add(label('submit'),
-      ...header(last),
-      'if temp1 = 0 then return');
-  for (let r = 0; r < last; r++) {
+      ...store.read(from, 0, 'temp1'),
+      'if temp1 = 0 then return',
+      ...(displayRam ? [...header(last), 'if temp1 = 0 then goto _pfd_subr', 'gosub _pfd_flush', set(S, 1), label('subr')] : []));
+  for (let r = 0; r < from; r++) {
     add(...header(r),
         `if temp1 <> 0 then goto _pfd_sub${r + 1}`,
-        ...store.copy(last, r),
-        ...store.free(last),
+        ...store.copy(from, r),
+        ...store.free(from),
         'goto _pfd_subd',
         label(`sub${r + 1}`));
   }
@@ -1134,6 +1140,8 @@ export const ensurePfDraw = (Blockly) => {
 };
 const callEngine = (Blockly, entry) =>
   `gosub _pfd_${entry}${Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(PF_DRAW_SUBROUTINE))}`;
+// The call before a block writes its record (none on DPC+: see _pfd_room).
+const roomCall = (Blockly) => (Blockly.BBasic.pfDraw.displayRam ? [] : [callEngine(Blockly, 'room')]);
 
 // The line for the end of commongamelogic: the steps of the frame.
 export const generatePfDrawStep = (Blockly) => {
@@ -1153,7 +1161,7 @@ const headerOf = (kind, operation, flags = 0) => KIND_NUMBER[kind] * 32 + OPERAT
 export const pfDrawBlockCode = (Blockly, kind, operation, numbers, flags = 0) => {
   if (!ensurePfDraw(Blockly)) return '';
   const store = recordStore(Blockly.BBasic.pfDraw);
-  return [callEngine(Blockly, 'room'), ...numbers.flatMap((code, i) => store.write(i + 1, code)), ...store.write(0, headerOf(kind, operation, flags)),
+  return [...roomCall(Blockly), ...numbers.flatMap((code, i) => store.write(i + 1, code)), ...store.write(0, headerOf(kind, operation, flags)),
     callEngine(Blockly, 'submit')].join('\n') + '\n';
 };
 
@@ -1167,7 +1175,7 @@ export const pfDrawCircleCode = (Blockly, operation, cx, cy, radius, padLeft, pa
     'temp4 = temp4 * 16', ...store.write(i, 'temp3 | temp4')];
   // (The top and the bottom: a row each, a byte, as many rows as a high pfres has.)
   const row = (code, i) => [`temp3 = ${code}`, ...store.write(i, 'temp3')];
-  return [callEngine(Blockly, 'room'), ...store.write(1, cx), ...store.write(2, cy), ...radiusCode,
+  return [...roomCall(Blockly), ...store.write(1, cx), ...store.write(2, cy), ...radiusCode,
     ...pack(padLeft, padRight, 4), ...row(padTop, 5), ...row(padBottom, 6), ...store.write(0, headerOf('circle', operation, spread ? 1 : 0)), callEngine(Blockly, 'submit')].join('\n') + '\n';
 };
 
@@ -1179,7 +1187,7 @@ export const pfDrawCenteredAreaCode = (Blockly, operation, cx, cy, width, height
   const skip = `_pfd_rect${Blockly.BBasic.blockNumbers.next('pfdrect')}`;
   const side = (center, size, low, high, max, first, lastIndex) => [`temp3 = ${center}`, `temp4 = ${size}`, `temp5 = ${low}`, `temp6 = ${high}`,
     `temp2 = ${max}`, callEngine(Blockly, 'axis'), `if temp3 > temp4 then goto ${skip}`, ...store.write(first, 'temp3'), ...store.write(lastIndex, 'temp4')];
-  return [callEngine(Blockly, 'room'),
+  return [...roomCall(Blockly),
     ...side(cx, width, padLeft, padRight, pfMaxColumn(config), 1, 3),
     ...side(cy, height, padTop, padBottom, Blockly.BBasic.maxRowText(config), 2, 4),
     ...store.write(0, headerOf('area', operation)), callEngine(Blockly, 'submit'), `@ ${skip}`].join('\n') + '\n';

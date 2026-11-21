@@ -165,7 +165,7 @@ export const buildCircleArmCall = ({operation, cx, cy, radius, padLeft, padRight
 
 // The ball's and the missiles' pixel finding and bounce (functions 99 and 100 of armprog.c): each argument is the lines that leave the byte in A, written
 // after the function number in order; then the call, and the first `read` bytes it gives back go to temp3, temp4 (and temp5, temp6).
-export const ARM_FIND_PIXEL_FUNCTION = {find: 99, bounce: 100};
+export const ARM_FIND_PIXEL_FUNCTION = {find: 99, bounce: 100, bounceFind: 101};
 // The reads of the bytes a call gives back: the first `read` go to temp3, temp4 (and temp5, temp6), and byte i also to after[i] when that is a name.
 const resultReads = (read, after) => {
   const count = Math.max(read, ...after.map((place, i) => (place ? i + 1 : 0)));

@@ -696,6 +696,24 @@ static void bouncepix(volatile b8 *p)
   // Bit 7 asks the 6502 for the bounce of the fall speed (the vertical way was turned).
   CF[2]=(stage&207)|16|((grav && flip>1)?128:0);
 }
+
+// A Bounce block and the Find playfield pixel collided with block right after it, for the same object by its Fire angle (bounceFind in
+// generators/bbasic/sprites.js), in one call: C_function[1..10] as bouncepix's, then the finder's top line, height and size bits. The pixel is looked for
+// with the heading the bounce started from (the low 4 bits of the stage byte), as the Find block does while a bounce goes on. Gives back the direction,
+// the stage byte, the column and the row in [1] to [4].
+static void bouncefind(volatile b8 *p)
+{
+  u x=CF[1],steps=CF[4],maxrow=CF[5],off=CF[6],inc=CF[7],top=CF[11],height=CF[12],size=CF[13],dir,stage;
+  bouncepix(p);
+  dir=CF[1];
+  stage=CF[2];
+  CF[1]=x; CF[2]=top; CF[3]=height; CF[4]=size; CF[5]=stage&15; CF[6]=steps; CF[7]=maxrow; CF[8]=off; CF[9]=inc;
+  findpixel(p);
+  CF[3]=CF[1];
+  CF[4]=CF[2];
+  CF[1]=dir;
+  CF[2]=stage;
+}
 #endif
 
 #ifndef NOFIRE
@@ -1032,6 +1050,7 @@ void __attribute__((section(".text.entry"))) run(void)
 #ifndef NOPIX
   else if (op==99) findpixel(p);
   else if (op==100) bouncepix(p);
+  else if (op==101) bouncefind(p);
 #endif
 #ifndef NOFIRE
   else if (op==102) firebatch(p);
