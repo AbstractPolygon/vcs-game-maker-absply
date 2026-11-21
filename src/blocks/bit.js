@@ -174,6 +174,19 @@ Blockly.Blocks['nibble_get'] = {
   },
 };
 
+// The number a half of a variable is set to, from what is typed: four 0s and 1s are the bits (0101 is 5), any other number is held to 0 to 15.
+// null for what is not a number.
+export const nibbleNumber = (text) => {
+  const trimmed = String(text).trim();
+  if (/^[01]{4}$/.test(trimmed)) return parseInt(trimmed, 2);
+  // (The ways a number block takes too: %1010 or 0b1010, $1F or 0x1F.)
+  if (/^(%|0[bB])[01]+$/.test(trimmed)) return Math.min(15, parseInt(trimmed.replace(/^(%|0[bB])/, ''), 2));
+  if (/^(\$|0[xX])[0-9a-fA-F]+$/.test(trimmed)) return Math.min(15, parseInt(trimmed.replace(/^(\$|0[xX])/, ''), 16));
+  const value = Number(trimmed);
+  if (trimmed === '' || Number.isNaN(value)) return null;
+  return Math.max(0, Math.min(15, Math.floor(value)));
+};
+
 Blockly.Blocks['nibble_set'] = {
   init: function() {
     this.appendValueInput('VALUE')
@@ -186,8 +199,17 @@ Blockly.Blocks['nibble_set'] = {
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setStyle('variable_blocks');
-    this.setTooltip('Sets half of a variable to 0 to 15 (bits 0 to 3 or 4 to 7) and leaves the other half. Only the lowest 4 bits of the number are used.');
+    this.setTooltip('Sets half of a variable to a number from 0 to 15 (bits 0 to 3 or 4 to 7) and leaves the other half. Four 0s and 1s (like 0101) are read as the bits. A number above 15 is set to 15.');
     if (this.workspace) ensureBitVariableRenameListener(this.workspace);
+  },
+  // The number typed in the block, as it is kept: four 0s and 1s (0101) are the bits, turned into their number (5); above 15 is put back to
+  // 15, below 0 to 0.
+  onchange: function() {
+    const target = this.getInputTargetBlock('VALUE');
+    if (!target || target.type !== 'math_number' || this.isInFlyout) return;
+    const text = String(target.getFieldValue('NUM'));
+    const held = nibbleNumber(text);
+    if (held !== null && text !== String(held)) target.setFieldValue(String(held), 'NUM');
   },
   // See bit_get.
   getVarModels: function() {

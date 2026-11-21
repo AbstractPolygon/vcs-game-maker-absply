@@ -1,4 +1,5 @@
 'use strict';
+import {nibbleNumber} from '../../blocks/bit';
 
 export default (Blockly) => {
   // The variable dropdown mixes the user's  variables, which are listed by
@@ -35,13 +36,15 @@ export default (Blockly) => {
   Blockly.BBasic['nibble_set'] = function(block) {
     const varName = resolveVariable(block);
     const value = (Blockly.BBasic.valueToCode(block, 'VALUE', Blockly.BBasic.ORDER_BITWISE_AND) || '0').trim();
-    const literal = /^\d+$/.test(value) ? Number(value) & 15 : null;
+    // A plain number as the block keeps it (four 0s and 1s are the bits, above 15 is 15, see nibbleNumber); a worked out one is held to 15 in temp1.
+    // (A number block is read from what is typed in it: its code drops the 0 in front of 0101.)
+    const target = block.getInputTargetBlock('VALUE');
+    const literal = target && target.type === 'math_number' ? nibbleNumber(target.getFieldValue('NUM')) : (/^\d+$/.test(value) ? nibbleNumber(value) : null);
+    const held = literal !== null ? '' : `temp1 = ${value}\nif temp1 > 15 then temp1 = 15\n`;
     if (block.getFieldValue('HALF') === 'LAST') {
-      return `${varName} = (${varName} & 15) | ${literal !== null ? literal * 16 : `((${value} & 15) * 16)`}
-`;
+      return `${held}${varName} = (${varName} & 15) | ${literal !== null ? literal * 16 : '(temp1 * 16)'}\n`;
     }
-    return `${varName} = (${varName} & $F0) | ${literal !== null ? literal : `(${value} & 15)`}
-`;
+    return `${held}${varName} = (${varName} & $F0) | ${literal !== null ? literal : 'temp1'}\n`;
   };
 
   // Just the plain built-in name - it's already a real, directly-readable

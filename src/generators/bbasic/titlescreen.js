@@ -56,6 +56,19 @@ const toColorHexByte = (n) => toHexByte(tvColorByte(n & 0xff));
 // card.scrollWindow's  comment in blocks/titlescreen.js for the runtime
 // scroll-offset byte this also declares in that case (bmp_${key}_index,
 // read directly by the kernel's per-copy asm via "ifconst").
+// A two-tone 48x2 graphic: a left and a right color for every row (see 48x2_T_kernel.asm), on DPC+ (not PXE) only; the rows its display memory
+// has room for (ten bytes a row from P1GFX: the eight lists and two of the page's color).
+export const TITLE_TWO_TONE_MAX_ROWS = 102;
+// 'dpc': a left and a right color for every row; 'std' (the standard kernel): one left and one right color (the first row's), on a page with a black
+// background that no block changes (its loop has no time to put a page color back after the right color); null: drawn as a usual 48x2 graphic
+// (PXE, or a page in color on the standard kernel).
+export const titleCardTwoTone = (card, typeInfo, pageColor = 0, Blockly = null) => {
+  const config = (useConfigurationStorage() && useConfigurationStorage().value) || {};
+  if (!(card && card.twoTone) || !typeInfo || typeInfo.width !== 48 || !typeInfo.doubleLine || isPxe(config)) return null;
+  if (config.kernel === 'dpcplus') return 'dpc';
+  return !(pageColor & 0xfe) && !(Blockly && Blockly.BBasic.titleBgUsed) ? 'std' : null;
+};
+
 const buildCardDataAsm = (card, key, typeInfo, ref, Blockly, pageColor) => {
   const {blockCount, doubleLine, hasRowColors} = typeInfo;
   const padded = padTitleCardFrames(card, typeInfo);
@@ -365,6 +378,32 @@ const buildCardDataAsm = (card, key, typeInfo, ref, Blockly, pageColor) => {
       lines.push(`bmp_${key}_ballx = ${varName(titleCardBallXVarName(ref))}`);
     } else {
       lines.push(`bmp_${key}_ballx`, `\t.byte ${titleBallXByte(place.x)}`);
+    }
+  }
+
+  // A two-tone 48x2 graphic on DPC+ (see 48x2_T_kernel.asm and titleCardTwoTone): its first frame again, a list a column, a byte a row from the top,
+  // inverted (a lit pixel is a hole the color shows through), and its left and right colors, a byte a row. Copied into the display memory by its entry.
+  const twoToneMode = titleCardTwoTone(card, typeInfo, pageColor, Blockly);
+  if (twoToneMode) {
+    const first = paddedFrames[0];
+    const twoHeight = Math.min(TITLE_TWO_TONE_MAX_ROWS, frameHeight);
+    const columns = Array.from({length: 6}, () => []);
+    first.pixelRows.slice(0, twoHeight).forEach((row) => packRowToBytes(row, 6).forEach((byte, b) => columns[b].push(byte ^ 0xff)));
+    const leftColors = Array.from({length: twoHeight}, (_, row) => (typeInfo.singleColor ? card.color : (first.colorRows || [])[row]) || 0);
+    const rightList = Array.isArray(card.rightRowColors) ? card.rightRowColors : [];
+    const rightColors = Array.from({length: twoHeight}, (_, row) => (rightList[row] !== undefined ? rightList[row] : (card.rightColor !== undefined ? card.rightColor : leftColors[row])) || 0);
+    Blockly.BBasic.titleTwoToneKeys.set(key, {height: twoHeight, pageColor: pageColor || 0, mode: twoToneMode, left: leftColors[0], right: rightColors[0]});
+    lines.push(`bmp_${key}_twoheight = ${twoHeight}`);
+    if (twoToneMode === 'std') {
+      // The standard kernel's loop reads the columns with absolute addresses from the bottom row up (see twoToneStdLines), the first line of a row
+      // from the table less 1 plus the row number: the byte before each table and the table in one page, or a read would take a cycle more.
+      columns.forEach((list, b) => lines.push(`   if >. != >[.+${twoHeight + 1}]`, '\talign 256', '   endif', '\tBYTE 0', `bmp_${key}_s${b}`,
+          ...[...list].reverse().map((byte) => `\tBYTE ${toBinaryByte(byte)}`)));
+      lines.push('');
+    } else {
+      columns.forEach((list, b) => lines.push(`bmp_${key}_t${b}`, ...list.map((byte) => `\tBYTE ${toBinaryByte(byte)}`)));
+      lines.push(`bmp_${key}_tl`, ...leftColors.map((color) => `\tBYTE ${toColorHexByte(color)}`));
+      lines.push(`bmp_${key}_tr`, ...rightColors.map((color) => `\tBYTE ${toColorHexByte(color)}`), '');
     }
   }
 
@@ -712,6 +751,7 @@ const assignKernelSlots = (screens, Blockly) => {
   Blockly.BBasic.titleBallUsed = false;
   Blockly.BBasic.titlePictureTables = new Map();
   Blockly.BBasic.titleColorTables = new Map();
+  Blockly.BBasic.titleTwoToneKeys = new Map();
   // One entry per screen: {id, backgroundColor, layoutMacroName, layoutLines}.
   const screenPlans = [];
   // The "player" minikernel is a project-wide singleton (see
@@ -985,8 +1025,78 @@ const buildTitleTextCall = (Blockly) => {
 // is given these ticks more and the overscan as many less (the frame keeps its length): a page with a lot of graphics (the Bricks of Olympus
 // logo page, with the logo, its title and the torches) had less than the text needs left, and showed none.
 const TITLE_TEXT_EXTRA_TICKS = 12;
+// The entry of a two-tone 48x2 graphic (see 48x2_T_kernel.asm): its eight lists copied into the display memory from P1GFX (the DPC+ driver's
+// copy, function 1: the ROM place, the fetcher whose pointer is the place in the display memory, the count), a list of the page's color after them
+// (the fill, function 2), data fetcher 0 at that list and the fractional fetchers at the eight lists, half a byte a read. Only ldx and stx: fast
+// fetch can be on, and an lda # of a number under $28 would read a fetcher. (The ROM place of a table: its bank's 4K from its label, as the coprocessor
+// sees the ROM, see patchArmProgramAddress.)
+const twoToneEntryLines = (key, {height, pageColor}, bgVarName) => {
+  const at = (k) => `(P1GFX+${k * height})`;
+  const rom = (label) => `((${label} & $0FFF) | ((${label} >> 1) & $7000))`;
+  const point = (k) => [`\tldx #<${at(k)}`, '\tstx DF0LOW', `\tldx #(>${at(k)}) & $0F`, '\tstx DF0HI'];
+  const tables = [0, 1, 2, 3, 4, 5].map((b) => `bmp_${key}_t${b}`).concat([`bmp_${key}_tl`, `bmp_${key}_tr`]);
+  return [
+    `@draw_bmp_${key}`,
+    // (The page's color in temp2 for the kernel: titlescreencolor is a byte of the ROM. With Set title screen background color, the variable.)
+    bgVarName ? `\tldx ${bgVarName}` : `\tldx #${toColorHexByte(pageColor)}`,
+    '\tstx temp2',
+    '\tldx #0',
+    '\tstx CALLFUNCTION',
+    ...tables.flatMap((table, k) => [...point(k),
+      `\tldx #<${rom(table)}`, '\tstx PARAMETER', `\tldx #>${rom(table)}`, '\tstx PARAMETER',
+      '\tldx #0', '\tstx PARAMETER', `\tldx #${height}`, '\tstx PARAMETER', '\tldx #1', '\tstx CALLFUNCTION']),
+    ...point(8),
+    '\tldx temp2', '\tstx PARAMETER', '\tldx #0', '\tstx PARAMETER', '\tstx PARAMETER', `\tldx #${2 * height}`, '\tstx PARAMETER',
+    '\tldx #2', '\tstx CALLFUNCTION',
+    ...point(8),
+    ...tables.flatMap((table, k) => [`\tldx #<${at(k)}`, `\tstx DF${k}FRACLOW`, `\tldx #(>${at(k)}) & $0F`, `\tstx DF${k}FRACHI`,
+      '\tldx #$80', `\tstx DF${k}FRACINC`]),
+    `\tldx #${height}`,
+    '\tjmp draw_bmp_48x2_T',
+  ];
+};
+
+// The two-tone 48x2 graphic on the standard kernel (see 48x2_T_kernel.asm for the way it is drawn): the AtariAge logo's text loop as it is, with
+// the card's columns (bmp_<key>_s0 to s5, inverted, from the bottom row up) read with absolute addresses, the left color in COLUPF and the right
+// one in temp2 for the whole graphic, a page with a black background. A copy of the positioning and of the loop for each graphic.
+const twoToneStdLines = (key, {height, left, right}) => {
+  const col = (b, a) => `bmp_${key}_s${b}${a ? '-1' : ''},x`;
+  const line = (a) => [
+    `\tlda ${col(0, a)}`, '\tsta GRP0', `\tlda ${col(1, a)}`, '\tsta GRP1', `\tlda ${col(2, a)}`, '\tsta GRP0',
+    `\tlda ${col(5, a)}`, '\tsta temp3', `\tldy ${col(4, a)}`, `\tlda ${col(3, a)}`,
+    '\tldx #$ff', '\tstx PF2', '\tldx temp2', '\tstx COLUBK',
+    '\tldx temp3', '\tsta GRP1', '\tsty GRP0', '\tstx GRP1', '\tsta GRP0',
+    '\tlda #0', '\tsta COLUBK', a ? '\tsta PF2' : '\tsta.w PF2',
+    ...(a ? ['\ttsx', '\tdex', '\ttxs'] : ['\ttsx', `\tbne bmp_${key}_tloop`]),
+  ];
+  return [
+    `@draw_bmp_${key}`,
+    '\ttsx', '\tstx stack1',
+    '\tlda #0', '\tsta GRP0', '\tsta GRP1', '\tsta GRP0', '\tsta ENAM0', '\tsta ENAM1', '\tsta ENABL', '\tsta PF0', '\tsta PF1', '\tsta PF2',
+    '\tsta COLUP0', '\tsta COLUP1', '\tsta COLUPF', '\tsta COLUBK',
+    `\tlda #${toColorHexByte(right)}`, '\tsta temp2',
+    '\tlda #%110011', '\tsta NUSIZ0', '\tsta NUSIZ1',
+    // The AtariAge positioning (see 48x2_T_kernel.asm): the missiles left and right of the graphic, the ball at its middle.
+    '\tsta WSYNC', '\tSLEEP 17', '\tsta VDELP0', '\tldx #$4f', '\tSLEEP 3', '\tsta RESM0', '\tsta VDELP1', '\tstx HMP0', '\tstx HMM0',
+    '\tsta.w RESP0', '\tsta RESP1', '\tsta RESBL', '\tstx HMBL', '\tinx', '\tsta RESM1', '\tstx HMP1', '\tldx #$d0', '\tstx HMM1',
+    '\tldx #$5f', '\tstx HMBL', '\tsta WSYNC', '\tsta HMOVE',
+    // (cycle 3) The ball 8 wide, the masks on, the left color, the rows in the stack pointer; to cycle 68 and the loop.
+    '\tldx #%110000', '\tstx CTRLPF', '\tldx #2', '\tstx ENAM0', '\tstx ENAM1', '\tstx ENABL',
+    // (The left color last on the line: the ball, just enabled, is drawn on it in COLUPF. With A: X is the rows.)
+    `\tldx #${height}`, '\ttxs', '\tstx HMCLR',
+    '\tSLEEP 34', `\tlda #${toColorHexByte(left)}`, '\tsta COLUPF', `\tjmp bmp_${key}_tloop`,
+    `   if >. != >[.+$80]`, '\talign 256', '   endif',
+    `@bmp_${key}_tloop`,
+    ...line(true),
+    ...line(false),
+    '\tlda #0', '\tsta GRP0', '\tsta GRP1', '\tsta GRP0', '\tsta GRP1', '\tsta ENAM0', '\tsta ENAM1', '\tsta ENABL',
+    '\tsta VDELP0', '\tsta VDELP1', '\tsta PF2', '\tsta COLUPF', '\tsta COLUBK', '\tsta HMCLR',
+    '\tldx stack1', '\ttxs', '\trts',
+  ];
+};
+
 const buildDriverAsm = (selectedIdVarName, screenPlans, usedKernelKeys, playerKernelLines, hasScoreCard, bgVarName, textCall, shareSetup = false, shareKeys = null, uniformUsed = false,
-    ballUsed = false) => {
+    ballUsed = false, twoTone = new Map()) => {
   const extraTicks = (textCall && textCall.length) || screenPlans.some((plan) => plan.hasTextCard) ? TITLE_TEXT_EXTRA_TICKS : 0;
   const lines = ['asm'];
 
@@ -1100,11 +1210,13 @@ const buildDriverAsm = (selectedIdVarName, screenPlans, usedKernelKeys, playerKe
   usedKernelKeys.forEach((key) => {
     lines.push(
         `\t#ifconst mk_${key}_on`,
-        `\tinclude "${key}_kernel.asm"`,
+        ...(twoTone.has(key) ? (twoTone.get(key).mode === 'std' ? twoToneStdLines(key, twoTone.get(key)) : twoToneEntryLines(key, twoTone.get(key), bgVarName)) :
+          [`\tinclude "${key}_kernel.asm"`]),
         `\t#endif ;mk_${key}_on`,
         '',
     );
   });
+  if ([...usedKernelKeys].some((key) => twoTone.has(key) && twoTone.get(key).mode !== 'std')) lines.push('\tinclude "48x2_T_kernel.asm"', '');
   lines.push(
       '\t#ifconst mk_48x1_X_on',
       '\tinclude "48x1_X_kernel.asm"',
@@ -1668,7 +1780,7 @@ export const registerTitleScreenSubroutine = (Blockly, {selectedIdVarName}) => {
         Blockly.BBasic.titleBgUsed ?
           Blockly.BBasic.nameDB_.getName(TITLE_BG_COLOR_VAR_NAME, Blockly.Names.DEVELOPER_VARIABLE_TYPE) : null,
         buildTitleTextCall(Blockly), !!Blockly.BBasic.titleShareSetup, Blockly.BBasic.titleShareKeys, !!Blockly.BBasic.titleUniformUsed,
-        !!Blockly.BBasic.titleBallUsed);
+        !!Blockly.BBasic.titleBallUsed, Blockly.BBasic.titleTwoToneKeys || new Map());
 };
 
 // With a Player card on several pages: when the page drawn is not the one drawn last, the page's Player card puts its sprites where they start
@@ -1713,7 +1825,10 @@ export default (Blockly) => {
     // a project with score bars keeps their values on the stack while the kernel draws, and the bars show what the blocks set.
     const barsUsed = ((useConfigurationStorage() && useConfigurationStorage().value) || {}).kernel === 'dpcplus' &&
       block.workspace.getAllBlocks(false).some((other) => other.isEnabled() && /^score_bar_/.test(other.type));
-    const callKernel = ` gosub ${TITLE_SCREEN_SUBROUTINE_NAME}${suffix}\n`;
+    // On DPC+ the title screen can come back with fast fetch on (seen after its text: an lda # of a number under $28 then reads a data fetcher, so
+    // "player0y = 24" or "temp1 = 17" after it got other numbers, and the players of Blammo were placed off the screen now and then): it is turned off
+    // after the kernel. (ldx: fast fetch never changes it.)
+    const callKernel = ` gosub ${TITLE_SCREEN_SUBROUTINE_NAME}${suffix}\n asm\n ifconst FASTFETCH\n ldx #255\n stx FASTFETCH\n endif\n@end\n`;
     let draw = `${titlePlayerPageSwitch(Blockly, screenId)}${selectPage}${derive}` + (barsUsed ?
       ' asm\n lda pfscore1\n pha\n lda pfscore2\n pha\n@end\n' + callKernel + ' asm\n pla\n sta pfscore2\n pla\n sta pfscore1\n@end\n' :
       callKernel);
@@ -1889,6 +2004,11 @@ export default (Blockly) => {
   // Stops the kernel and goes back to the top of Title screen update, which from then on draws the
   // regular game screen (see generateGameLoopEvent). The documentation asks for the missile
   // heights to be zeroed when leaving the Titlescreen Kernel, which uses the missile registers.
+  // Its blocks are made in the Title Screen loop (see generateGameLoopEvent): nothing here.
+  Blockly.BBasic['titlescreen_while_showing'] = function() {
+    return 'rem "While title screen is showing": its blocks run in the Title Screen loop\n';
+  };
+
   Blockly.BBasic['titlescreen_end'] = function(block) {
     if (!Blockly.BBasic.titleEndUsed) return 'rem No title screen kernel to end\n';
     if (Blockly.BBasic.currentEventName !== 'title_update') {

@@ -1488,7 +1488,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
-    'tooltip': 'How many steps of drawing the Draw blocks that run over several frames (a big circle, fill, line, area, terrain) take each frame: a step is a pixel or a row. 0 draws as fast as the frame allows. Lower is slower, so the picture builds up over more frames.',
+    'tooltip': 'How many steps of drawing the Draw blocks that run over several frames (a big circle, fill, line, area, terrain) take each frame: a step is a pixel or a row. 1 to 15 (more is 15); 0 draws as fast as the frame allows. Lower is slower, so the picture builds up over more frames.',
   },
   {
     'type': 'background_flood_fill_stop',

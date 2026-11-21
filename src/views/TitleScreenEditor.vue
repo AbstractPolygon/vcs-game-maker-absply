@@ -590,6 +590,15 @@
                                 same as a Player sprite animation) - no trigger block needed.
                               </p>
                               <v-checkbox
+                                v-if="card.type === '48x2'"
+                                v-model="card.twoTone"
+                                label="Two colors, left and right (DPC+)"
+                                title="Each row has a left color and a right color: the left 24 pixels in the row color on the left, the right 24 in the one on the right. Drawn the way the AtariAge logo is, on the DPC+ kernel; the other kernels draw the graphic as usual. Its first frame only: no animation, scrolling, window height, ball or box."
+                                hide-details
+                                class="titlescreen-play-once-switch"
+                                @change="() => handleTwoToneToggle(card)"
+                              />
+                              <v-checkbox
                                 v-if="card.frames.length > 1"
                                 v-model="card.playOnce"
                                 label="Play animation once"
@@ -641,8 +650,8 @@
                                       :fgColor="ballModeOn(screen, card) ? ballColorCss(screen, card, frame) : editorFgColor(card)"
                                       :rowColors="ballModeOn(screen, card) ? null : editorRowColors(card, frame)"
                                       :columnBackdrop="cardBackdrop(screen, card, frame)"
-                                      :cellColors="ballCellColors(screen, card, frame)"
-                                      :cellColorsCover="ballModeOn(screen, card)"
+                                      :cellColors="card.twoTone && !ballModeOn(screen, card) ? twoToneCellColors(card, frame) : ballCellColors(screen, card, frame)"
+                                      :cellColorsCover="ballModeOn(screen, card) || !!card.twoTone"
                                       :rowRunWidths="ballModeOn(screen, card) ? TITLE_BALL_WIDTHS : null"
                                       :showClearButton="true"
                                       :showGrid="showPixelGrid"
@@ -673,6 +682,14 @@
                                           :quickColors="quickColorPalette"
                                           :activeQuickColor="selectedQuickColor"
                                           @input="(colors) => handleSetCardColor(card, colors[0])"
+                                        />
+                                      </template>
+                                      <template v-if="card.twoTone && card.type === '48x2'" v-slot:sidebar-right>
+                                        <playfield-color-strip
+                                          :value="twoToneRightColors(card, frame)"
+                                          :quickColors="quickColorPalette"
+                                          :activeQuickColor="selectedQuickColor"
+                                          @input="(colors) => handleTwoToneRightInput(card, colors)"
                                         />
                                       </template>
                                       <template v-if="cardWidth(card) === 48" v-slot:below-sidebar>
@@ -1456,6 +1473,40 @@ export default defineComponent({
     // is in front of the ball, as on the TV); the painted cells show in the ball's color where it is off. The list is made again only when what it
     // is made from changes (the canvas draws all of it again when it gets a new one): out of Ball mode the ball cells, in it the picture.
     const ballCellCache = new WeakMap();
+    // A two-tone 48x2 graphic (see 48x2_T_kernel.asm): its right colors, a byte a row of the frame (the card keeps one list, rightRowColors, or
+    // one color, rightColor, for a single color graphic), as long as the frame; the picture shown with the right 24 pixels of a row in its right color.
+    const twoToneRightColors = (card, frame) => {
+      const height = (frame.pixels && frame.pixels.length) || 1;
+      if (card.singleColor) return [card.rightColor !== undefined ? card.rightColor : (card.color || 0)];
+      const list = Array.isArray(card.rightRowColors) ? card.rightRowColors : [];
+      return Array.from({length: height}, (_, y) => (list[y] !== undefined ? list[y] : ((frame.rowColors || [])[y] || 0)));
+    };
+    const handleTwoToneRightInput = (card, colors) => {
+      if (card.singleColor) card.rightColor = colors[0];
+      else card.rightRowColors = colors.slice();
+      handleChildChange();
+    };
+    const handleTwoToneToggle = (card) => {
+      if (card.twoTone && !card.singleColor && !Array.isArray(card.rightRowColors) && card.frames[0]) {
+        card.rightRowColors = (card.frames[0].rowColors || []).slice();
+      }
+      handleChildChange();
+    };
+    const twoToneCellColors = (card, frame) => {
+      const height = (frame.pixels && frame.pixels.length) || 1;
+      const leftCss = editorRowColors(card, frame);
+      const right = twoToneRightColors(card, frame);
+      const css = (byte) => {
+        const value = colorByteToCss(byte);
+        return value === '#000000' ? '#010101' : value;
+      };
+      return Array.from({length: height}, (_, y) => Array.from({length: 48}, (__, x) => {
+        if (!(frame.pixels[y] && frame.pixels[y][x])) return null;
+        if (x < 24) return (leftCss && leftCss[y]) || editorFgColor(card);
+        return css(right[card.singleColor ? 0 : y]);
+      }));
+    };
+
     const ballCellColors = (screen, card, frame) => {
       if (card.type !== '48x2') return null;
       const height = (frame.pixels && frame.pixels.length) || 1;
@@ -2183,7 +2234,7 @@ export default defineComponent({
       screenDragAttrs, screenDragCardClass, screenDragHandleListeners, screenDragTargetListeners,
       TITLE_GRAPHIC_MAX_HEIGHT, cardWidth, editorWidth, cardAspectRatio, cardHasRowColors, editorRowColors, editorFgColor, cardTypeLabel,
       addCardOptions, canAddCardType, maxCopies, maxCopiesForType, playerAnimationOptions, textCardOptions,
-      ballModeOn, toggleBallMode, handleFrameEditorInput, ballColorCss, ballCellColors, ballCaption, TITLE_BALL_WIDTHS, handleWindowFieldFocus, windowPreviewShown,
+      ballModeOn, toggleBallMode, handleFrameEditorInput, ballColorCss, ballCellColors, twoToneCellColors, twoToneRightColors, handleTwoToneRightInput, handleTwoToneToggle, ballCaption, TITLE_BALL_WIDTHS, handleWindowFieldFocus, windowPreviewShown,
       handleAddCard, handleDeleteCard, handleToggleCardHidden, handleDuplicateCard, titleScrollStartOf, handleScrollStartInput,
       showPictureBackgroundControls, frameBoxColor, frameBoxCells, handleSetFrameBoxColor, handleToggleFrameBoxCell, cardBackdrop, handleFitBox,
       handleClearBox,

@@ -640,6 +640,20 @@ Blockly.Blocks['titlescreen_end'] = {
   },
 };
 
+// Blocks that run every frame while the Titlescreen Kernel draws (see generateGameLoopEvent in generators/bbasic.js), wherever the block is: for example in "Title screen
+// start", after "Start title screen", which runs once.
+Blockly.Blocks['titlescreen_while_showing'] = {
+  init: function() {
+    this.appendDummyInput()
+        .appendField(`${TITLE_ICON} While title screen is showing`);
+    this.appendStatementInput('DO');
+    this.setPreviousStatement(true, null);
+    this.setNextStatement(true, null);
+    this.setColour(TITLESCREEN_COLOR);
+    this.setTooltip('Runs the blocks inside every frame while the Titlescreen Kernel draws the title screen, and not after End title screen. Can go anywhere, for example in "Title screen start" after "Start title screen"; there, with an End title screen block in the project, the blocks after it wait and run once when the title screen ends.');
+  },
+};
+
 // The other way round: starts the title screen again, so the Title Screen Kernel draws once more after "End title screen".
 Blockly.Blocks['titlescreen_start'] = {
   init: function() {

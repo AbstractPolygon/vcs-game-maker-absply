@@ -1998,7 +1998,8 @@ const buildRomInner = async () => {
       // stays undefined otherwise), and only fetches the specific per-copy
       // kernel files the project's  cards (across every page) actually use.
       if (BlocklyBB.titleScreenUsedKernelKeys) {
-        Object.assign(siblingFiles, await getTitleScreenSiblingFiles(BlocklyBB.titleScreenUsedKernelKeys, !!BlocklyBB.titleScreenHasScoreCard, !!BlocklyBB.titleShareSetup));
+        Object.assign(siblingFiles, await getTitleScreenSiblingFiles(BlocklyBB.titleScreenUsedKernelKeys, !!BlocklyBB.titleScreenHasScoreCard, !!BlocklyBB.titleShareSetup,
+            !!(BlocklyBB.titleTwoToneKeys && BlocklyBB.titleTwoToneKeys.size)));
         Object.assign(siblingFiles, BlocklyBB.titleScreenAsmFiles || {});
       }
       // The compiler has no font support, so point its score
@@ -3143,7 +3144,8 @@ const buildPreviewRom = async ({name, xml, titleScreen = false, configOverride =
         if (textFontOverride) siblingFiles[textKernelFile] = textFontOverride;
       }
       if (BlocklyBB.titleScreenUsedKernelKeys) {
-        Object.assign(siblingFiles, await getTitleScreenSiblingFiles(BlocklyBB.titleScreenUsedKernelKeys, !!BlocklyBB.titleScreenHasScoreCard, !!BlocklyBB.titleShareSetup));
+        Object.assign(siblingFiles, await getTitleScreenSiblingFiles(BlocklyBB.titleScreenUsedKernelKeys, !!BlocklyBB.titleScreenHasScoreCard, !!BlocklyBB.titleShareSetup,
+            !!(BlocklyBB.titleTwoToneKeys && BlocklyBB.titleTwoToneKeys.size)));
         Object.assign(siblingFiles, BlocklyBB.titleScreenAsmFiles || {});
       }
       const log = (text) => appendCompileLog(text);

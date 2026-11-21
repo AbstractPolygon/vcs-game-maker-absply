@@ -52,12 +52,14 @@ const getKernelFile = (name) => {
  * @param {boolean} shareSetup Whether the 48x2 graphics share one setup routine (see 48x2_S_kernel.asm).
  * @return {Promise<Object<string, string>>} filename -> file content.
  */
-export const getTitleScreenSiblingFiles = async (usedKernelKeys, hasScoreCard = false, shareSetup = false) => {
+// twoTone: a two-tone 48x2 graphic is used (48x2_T_kernel.asm).
+export const getTitleScreenSiblingFiles = async (usedKernelKeys, hasScoreCard = false, shareSetup = false, twoTone = false) => {
   const staticEntries = await getStaticFiles();
   const files = Object.fromEntries(staticEntries);
 
   const perCopyNames = new Set();
   if (hasScoreCard) perCopyNames.add('48x1_X_kernel.asm');
+  if (twoTone) perCopyNames.add('48x2_T_kernel.asm');
   usedKernelKeys.forEach((key) => {
     perCopyNames.add(`${key}_kernel.asm`);
     if (key.startsWith('48x1_')) perCopyNames.add('48x1_X_kernel.asm');

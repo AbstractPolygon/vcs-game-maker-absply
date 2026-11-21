@@ -2383,10 +2383,8 @@ const buildFinePositionStepAsm = (posVar, intVar, fracVar, posFracVar) => [
   '       sta ' + posVar,
 ];
 
-export const GRAVITY_LAND_COUNT_VAR = 'gravLandCount';
 export const reserveGravityDevVars = (Blockly, reserveDevVar, reserveDevVarRW, usedFor, landFor) => {
   if (!usedFor || !usedFor.size) return;
-  if (landFor && landFor.size) reserveDevVar(GRAVITY_LAND_COUNT_VAR, undefined, 'lines an object with gravity that stops on the playfield is still to be taken back out of it');
   reserveDevVar(objectGravityFlagsVarName(), undefined, 'shared active-bit byte for objects with gravity');
   reserveDevVar(flagPoolVar(OBJECT_GRAVITY_RAN_FAMILY), undefined, 'a Start gravity block ran for the object in this frame (a bit for each object)');
   reserveDevVar(flagPoolVar(OBJECT_GRAVITY_RAN_LAST_FAMILY), undefined, 'a Start gravity block ran for the object in the last frame (a bit for each object)');
@@ -2475,22 +2473,25 @@ const gravityLandLines = (Blockly, name) => {
   const flags = resolveVar(objectGravityFlagsVarName());
   const speed = Blockly.BBasic.superchipRwPairs[objectGravitySpeedVarName(name)];
   const fine = Blockly.BBasic.superchipRwPairs[objectGravityFineVarName(name)];
-  const [bx, by, hit, count] = [PF_BOX_X, PF_BOX_Y, PF_BOX_HIT, GRAVITY_LAND_COUNT_VAR].map(resolveVar);
+  const [bx, by, hit] = [PF_BOX_X, PF_BOX_Y, PF_BOX_HIT].map(resolveVar);
   const box = ` ${callPfBox(Blockly, name, false, false, Blockly.BBasic.objectGravityLand.get(name))}`;
   const up = `_gravland_${name}_up`;
+  const out = `_gravland_${name}_out`;
   const stop = `_gravland_${name}_stop`;
   const done = `_gravland_${name}_done`;
   return [` rem ${name} stops on the playfield:`,
     ` if ${speed.read} > 127 then goto ${done}`,
     ` ${bx} = ${name}x`, ` ${by} = ${name}y`, box,
     ` if ${hit} = 0 then goto ${done}`,
-    ` ${count} = 16`,
+    // (The lines left to go up are counted on the stack: no byte for it.)
+    ' asm', '       lda #16', '       pha', 'end',
     up,
-    ` if ${name}y = 0 then goto ${stop}`,
+    ` if ${name}y = 0 then goto ${out}`,
     ` ${name}y = ${name}y - 1`, ` ${by} = ${name}y`, box,
-    ` if ${hit} = 0 then goto ${stop}`,
-    ` ${count} = ${count} - 1`,
-    ` if ${count} > 0 then goto ${up}`,
+    ` if ${hit} = 0 then goto ${out}`,
+    ' asm', '       pla', '       sec', '       sbc #1', '       pha', `       bne .${up}`, 'end',
+    out,
+    ' asm', '       pla', 'end',
     stop,
     ` ${speed.write} = 0`, ` ${fine.write} = 0`, ` ${flags}{${objectGravityBit(name)}} = 0`,
     done];

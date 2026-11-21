@@ -337,7 +337,9 @@ static void terrain(volatile b8 *p)
         if (params&128) break;
         t1=ledge;
         if (t1==0||pixel>=t1) break;
-        t2=B(B((ledge>>4)+1)+(over&15));
+        // (An overhang to the right gets thinner toward its tip, one to the left (high nibble of over 2 or more: its length less 1) thicker toward the hill.)
+        t3=over>>4;
+        t2=B(B((ledge>>4)+1)+(t3>=2?B(t3-(over&15)):(over&15)));
         t2=B(t1-t2);
         if (t2>t1) t2=0;
         if (pixel<t2) pixel=t2;
@@ -436,8 +438,8 @@ static void terrain(volatile b8 *p)
     t1=B(t1*3);
     t2=seed&15;
     if (t2>=t1) goto v;
-    if (deeper) goto v;
     t4=B(((seed>>2)&3)+3);
+    if (deeper) goto lo;
     // The ground drops under the ledge by more than the ledge is thick (see the overhang start in pf-draw.js), so a void shows under it.
     if (depth<=least) goto v;
     t1=B((depth>>4)+t4);
@@ -448,6 +450,18 @@ static void terrain(volatile b8 *p)
     ledge=depth;
     depth=B(depth-t2);
     over=B(t4+16);
+    goto r;
+  lo:
+    // Where the ground is rising, an overhang to the left: the ground stays low for the length of it, under a ledge at the height it goes up to (thin at its tip,
+    // thicker toward the hill), and goes up there at the end (see r).
+    if (depth>=most) goto v;
+    t1=B((depth>>4)+t4);
+    t2=B(B((depth>>3)+t1)+2);
+    t3=B(most-depth);
+    if (t2>t3) t2=t3;
+    if (t2<=t1) goto v;
+    ledge=B(depth+t2);
+    over=B(t4+B((t4-1)*16));
     goto r;
   v:
     t1=caves&7;
@@ -466,6 +480,7 @@ static void terrain(volatile b8 *p)
   r:
     if ((over&15)==0)
     {
+      if (!(params&128)&&(over>>4)>=2) depth=ledge;
       over=0;
       ledge=0;
       params&=127;

@@ -1455,6 +1455,8 @@ Blockly.BBasic.init = function(workspace) {
   // A "Start title screen" block in "Title screen start" turns the Titlescreen Kernel on for "Title screen update" too: the Draw title screen block that follows it in that
   // event is the one the update loop draws every frame (see generateGameLoopEvent), whether or not the update has a Draw block itself.
   this.titleStartDrawBlock = null;
+  // The While title screen is showing blocks: their blocks run every frame of the Title Screen loop (see generateGameLoopEvent).
+  this.titleShowingBlocks = codeBlocks(['titlescreen_while_showing']);
   // (An event block can follow another one in the stack, so the root block is not the event: the surrounding event_block is.)
   const eventOf = (block) => {
     let up = block;
@@ -1585,6 +1587,10 @@ Blockly.BBasic.init = function(workspace) {
   // "End title screen" needs its flag bit only when the kernel is in use at all.
   this.titleEndUsed = this.titleScreenDrawUsed &&
     workspace.getAllBlocks(false).some((block) => block.type === 'titlescreen_end' && block.isEnabled());
+  // A While title screen is showing block in Title screen start, in a project with End title screen: the blocks after it wait for the title screen to
+  // end, and run once then (see generateGameLoopEvent), instead of before the title screen shows.
+  this.titleShowingDeferred = new Set(this.titleEndUsed ? (this.titleShowingBlocks || []).filter((block) =>
+    (eventOf(block) || {getFieldValue: () => ''}).getFieldValue('EVENT') === 'title_start' && block.getNextBlock()) : []);
 
   // Same idea, for "Joystick N direction (8-way)" getter blocks (see
   // joyDir8ResultVarName's  comment in generators/bbasic/input.js for why
@@ -2809,6 +2815,7 @@ Blockly.BBasic.init = function(workspace) {
     {family: TITLE_TEXT_FLAG_FAMILY, bits: this.isTitleTextUsed() ? [0] : [], first: true},
     {family: TEXT_BLINK_DONE_FAMILY, bits: this.textBlinkDoneUsed ? [0] : []},
     {family: PFD_TERRAIN_DONE_FAMILY, bits: Blockly.BBasic.pfDrawTerrainDone ? PFD_TERRAIN_DONE_BITS : []},
+    {family: PFD_SPEED_FAMILY, bits: Blockly.BBasic.pfDraw && Blockly.BBasic.pfDraw.speed ? PFD_SPEED_BITS : []},
     {family: TITLE_KERNEL_ENDED_FAMILY, bits: this.titleEndUsed ? [0] : []},
     {family: TITLE_KERNEL_LOOP_FAMILY, bits: this.titleScreenDrawUsed ? [0] : []},
     {family: TITLE_CARD_HOLD_FAMILY, bits: this.titleCardHoldRefs.map((_, index) => index), phase: 'title'},
@@ -2832,6 +2839,7 @@ Blockly.BBasic.init = function(workspace) {
   reserveJoyTapDevVars(reserveDevVar, this.joyTapOnlyFor);
   this.everyFramesVars.forEach((name) => reserveDevVar(name, undefined, 'an "Every x frames" block: the frames left until it runs again'));
   if (this.textBlinkDoneUsed) reserveDevVar(flagPoolVar(TEXT_BLINK_DONE_FAMILY), undefined, 'a "When text blinking is done" block: 1 for the frame after the blinking is done');
+  if (Blockly.BBasic.pfDraw && Blockly.BBasic.pfDraw.speed) reserveDevVar(flagPoolVar(PFD_SPEED_FAMILY), undefined, 'playfield drawing: the steps a frame of the Set playfield draw speed block, 0 to 15 (0: as many as the time left allows)');
   if (Blockly.BBasic.pfDrawTerrainDone) reserveDevVar(flagPoolVar(PFD_TERRAIN_DONE_FAMILY), undefined, 'playfield drawing: a bit for each side and one for every terrain, 1 for the frame after terrain was made');
   if (this.titleCardOnceRefs.length) {
     reserveDevVar(titleCardOnceVar(), undefined, 'title screen graphics set to play once by "Set title screen graphic frame"');
@@ -5828,7 +5836,9 @@ Blockly.BBasic.scrub_ = function(block, code, optThisOnly) {
     this.pendingPreambleLines = [];
   }
   const nextBlock = block.nextConnection && block.nextConnection.targetBlock();
-  const nextCode = optThisOnly ? '' : this.blockToCode(nextBlock);
+  // (The blocks after a While title screen is showing block that waits for End title screen are made in the Title Screen loop, see titleShowingDeferred.)
+  const deferred = this.titleShowingDeferred && this.titleShowingDeferred.has(block);
+  const nextCode = optThisOnly || deferred ? '' : this.blockToCode(nextBlock);
   return preambleCode + commentCode + code + nextCode;
 };
 
@@ -6255,13 +6265,36 @@ Blockly.BBasic.generateGameLoopEvent = function(eventName) {
     // With "End title screen" in the project the loop has two ways to draw: the kernel's, and once
     // that block has run, the regular game screen's, so the rest of the event goes on as gameplay.
     const hasEnd = usesTitleScreenKernel && this.titleEndUsed;
-    const kernelLoopTop = [`${titleKernelLoopFlag()} = 1`, this.commonGameLogicCall(suffix), titleScreenAnimationChecks];
+    // The blocks of the While title screen is showing blocks, every frame the kernel draws (not after End title screen).
+    let showingCode = '';
+    if (eventName === 'title_update' && usesTitleScreenKernel && (this.titleShowingBlocks || []).length) {
+      const before = Blockly.BBasic.currentEventName;
+      Blockly.BBasic.currentEventName = eventName;
+      try {
+        showingCode = this.titleShowingBlocks.map((block) => Blockly.BBasic.statementToCode(block, 'DO')).join('\n');
+      } finally {
+        Blockly.BBasic.currentEventName = before;
+      }
+    }
+    const kernelLoopTop = [`${titleKernelLoopFlag()} = 1`, this.commonGameLogicCall(suffix), titleScreenAnimationChecks, showingCode];
+    let afterCode = '';
+    if (eventName === 'title_update' && usesTitleScreenKernel && this.titleShowingDeferred && this.titleShowingDeferred.size) {
+      const before = Blockly.BBasic.currentEventName;
+      Blockly.BBasic.currentEventName = eventName;
+      try {
+        afterCode = [...this.titleShowingDeferred].map((block) => Blockly.BBasic.blockToCode(block.getNextBlock())).join('\n');
+      } finally {
+        Blockly.BBasic.currentEventName = before;
+      }
+    }
     return [
       ...(hasEnd ? [
         `if ${titleKernelEndedVar()}{${titleKernelEndedBit()}} then goto _titleupdate_ended`,
         ...kernelLoopTop,
         'goto _titleupdate_body',
         '@_titleupdate_ended',
+        // (The first pass after End title screen, the loop flag still set: the blocks after a While title screen is showing block in Title screen start.)
+        ...(afterCode ? [`if !${titleKernelLoopFlag()} then goto _titleupdate_afterdone`, afterCode, '@_titleupdate_afterdone'] : []),
         `${titleKernelLoopFlag()} = 0`,
         this.commonGameLogicCall(suffix),
         'drawscreen',
@@ -7386,6 +7419,10 @@ Blockly.BBasic.generateConfiguration = function() {
     textBankConfigurationCode,
     textRow2ConfigurationCode,
     titleTextConfigurationCode,
+    // The Titlescreen Kernel's 48-wide graphics keep twelve pointer bytes in scorepointers, which titlescreen/dpcfix.asm puts at player6height (to
+    // NUSIZ8, bytes no variable gets with a title screen). With the Text Minikernel on DPC+, text12DPCplus.asm named scorepointers temp1 first, so the
+    // title kernel wrote its pointers over temp1 to temp6 and the letters a to f, the variables kept there (a crash, and flags gone wrong). Named here first.
+    config.kernel === 'dpcplus' && this.titleScreenDrawUsed && this.textMinikernelUsed ? 'const scorepointers = player6height' : '',
     pfresConfigurationCode,
     pfRowHeightConfigurationCode,
     optimizationConfigurationCode,
@@ -9988,7 +10025,7 @@ Blockly.BBasic.generateAnimations = function() {
 import background, {backgroundGetPixelDevVarsNeeded,
   reserveShakeScreenDevVar, reserveOffsetAreaDevVars, offsetArmSharedVars, offsetByteRange, bgColorFlagBits, rainbowBackgroundBits, rainbowIdBits, BG_COLOR_FLAGS_FAMILY, BG_RAINBOW_ID_FAMILY, BG_COLOR_STEP_FAMILY, BG_SCROLL_EDGE_FAMILY, reserveBackgroundColorFlagsDevVar, bgColorFlagRef, generateShakeScreenChecks, dpcPlusScrollDivider} from './bbasic/background';
 import bit from './bbasic/bit';
-import {reservePfDrawVars, pfDrawKindsUsed, generatePfDrawStep, PFD_TERRAIN_DONE_FAMILY, PFD_TERRAIN_DONE_BITS} from './bbasic/pf-draw';
+import {reservePfDrawVars, pfDrawKindsUsed, generatePfDrawStep, PFD_TERRAIN_DONE_FAMILY, PFD_TERRAIN_DONE_BITS, PFD_SPEED_FAMILY, PFD_SPEED_BITS} from './bbasic/pf-draw';
 import collision from './bbasic/collision';
 import color from './bbasic/color';
 import colour from './bbasic/colour';

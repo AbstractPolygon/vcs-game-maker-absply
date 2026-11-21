@@ -9,6 +9,15 @@ import {flagPoolVar, flagPoolBit} from './flag-pool';
 // playfield gravity (When playfield gravity is done). Set when the work is finished, cleared at the end of the frame after.
 export const PFD_TERRAIN_DONE_FAMILY = 'pfdTerrainDone';
 export const PFD_TERRAIN_DONE_BITS = [0, 1, 2, 3, 4, 5];
+// The Set playfield draw speed block: the steps a frame, 1 to 15 (0: as many as the time left allows), four bits of the flag pool (a frame never has time for
+// many more steps than 15 anyway, see STEP_TIMER_COUNTS).
+export const PFD_SPEED_FAMILY = 'pfdSpeed';
+export const PFD_SPEED_BITS = [0, 1, 2, 3];
+export const PFD_SPEED_MAX = 15;
+const speedName = (Blockly) => Blockly.BBasic.nameDB_.getName(flagPoolVar(PFD_SPEED_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+const speedBase = () => flagPoolBit(PFD_SPEED_FAMILY, 0);
+// The asm that leaves the speed in A (0 to 15), the zero flag set when it is 0.
+const speedLoad = (Blockly) => [`lda ${speedName(Blockly)}`, ...Array(speedBase()).fill('lsr'), `and #${PFD_SPEED_MAX}`];
 const terrainDoneName = (Blockly) => Blockly.BBasic.nameDB_.getName(flagPoolVar(PFD_TERRAIN_DONE_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
 const terrainDoneMask = (index) => 1 << flagPoolBit(PFD_TERRAIN_DONE_FAMILY, index);
 const terrainDoneAllMask = () => PFD_TERRAIN_DONE_BITS.reduce((mask, index) => mask | terrainDoneMask(index), 0);
@@ -123,24 +132,26 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
   });
   const workOf = (kind) => {
     if ((kind === 'circle' && armCircle && !circleSpread) || (kind === 'terrain' && armTerrain)) return 0;
-    if (kind === 'gravity') return armGravity ? (gravityAnim ? 5 : 0) : (gravityAnim ? 7 : 6);
-    // (The circle that is kept round also keeps the distance of its row (bit 7: it is) and the row.)
-    if (kind === 'circle' && circleStretch) return WORK_BYTES.circle + 2;
+    // (Over time, the frames left before its next step are its last work byte: see gravityTick below.)
+    if (kind === 'gravity') return armGravity ? (gravityAnim ? 6 : 0) : (gravityAnim ? 8 : 6);
+    // (The circle that is kept round also keeps the distance of its row, bit 7 set: it is.)
+    if (kind === 'circle' && circleStretch) return WORK_BYTES.circle + 1;
     return WORK_BYTES[kind];
   };
   const workBytes = Math.max(kinds.has('fill') ? FILL_KEEPS + 2 * seeds : 0, ...[...kinds].map(workOf));
   const recordBytes = 1 + Math.max(...[...kinds].map((kind) => RECORD_NUMBERS[kind]));
   const records = queueRecordsFor(config, superchip, displayRam);
-  const gravityTick = gravityAnim ? reserveDevVarRW('pfdGravTick', 'playfield gravity: the frames left before its next step') : null;
   const state = reserveDevVarRW('pfdState', 'playfield drawing: the kind of work being drawn, its operation and its steps');
-  // The Set playfield draw speed block: the steps a frame (0: as many as the time left allows) and the steps the frame has left.
-  const speed = blocks.some((block) => block.type === 'background_draw_speed') ? {
-    steps: reserveDevVarRW('pfdSpeed', 'playfield drawing: the steps of drawing a frame may take (0: as many as the time left allows)'),
-    left: reserveDevVarRW('pfdBudget', 'playfield drawing: the steps this frame has left')} : null;
+  // The Set playfield draw speed block: the steps a frame (see PFD_SPEED_FAMILY; the byte is reserved with the flag pool). The steps the frame has left are
+  // counted on the stack (see _pfd_step).
+  const speed = blocks.some((block) => block.type === 'background_draw_speed');
   // 1 for the one frame after terrain was finished (see Playfield terrain done).
   const terrainDone = blocks.some((block) => ['background_generate_terrain_done', 'background_when_terrain_done', 'background_when_gravity_done'].includes(block.type)) ?
     {family: PFD_TERRAIN_DONE_FAMILY} : null;
   const work = Array.from({length: workBytes}, (_, i) => reserveDevVarRW(`pfdWork${i}`, 'playfield drawing: what the work being drawn keeps'));
+  // The playfield gravity over time: the frames left before its next step, a work byte (after the ones of its area), counted down once a frame only while the
+  // gravity is the work being drawn (see generatePfDrawStep).
+  const gravityTick = gravityAnim ? work[armGravity ? 5 : 7] : null;
   const queue = displayRam ? null : Array.from({length: records}, (_, r) => Array.from({length: recordBytes}, (_, i) =>
     reserveDevVarRW(`pfdQueue${r}_${i}`, 'playfield drawing: a waiting Draw block\'s record')));
   const seedBytes = Array.from({length: seeds}, (_, s) => [work[FILL_KEEPS + 2 * s], work[FILL_KEEPS + 2 * s + 1]]);
@@ -212,8 +223,8 @@ const buildEngine = (Blockly) => {
   // coprocessor runs the program much faster than a 6502 would).
   if (config.pxe) {
     add(label('step'),
-        // (With a speed set, that many steps (24 at the most).)
-        ['asm', ...(speed ? [`lda ${speed.steps.read}`, 'beq _pfd_stfull', `cmp #${PXE_STEPS_A_FRAME}`, 'bcc _pfd_stspd', '@_pfd_stfull'] : []), `lda #${PXE_STEPS_A_FRAME}`, ...(speed ? ['@_pfd_stspd'] : []), 'pha', '@end'].join('\n'),
+        // (With a speed set, that many steps.)
+        ['asm', ...(speed ? [...speedLoad(Blockly), 'bne _pfd_stspd'] : []), `lda #${PXE_STEPS_A_FRAME}`, ...(speed ? ['@_pfd_stspd'] : []), 'pha', '@end'].join('\n'),
         label('stl'),
         `if ${S.read} >= 32 then goto _pfd_stu`,
         ...header(0),
@@ -229,8 +240,10 @@ const buildEngine = (Blockly) => {
     if (circleSpread) need[6] = STEP_TIMER_COUNTS.standard[6];
     // (A row of a circle that is kept round takes a multiplication more.)
     if (circleStretch && (circleSpread || !armCircle)) need[6] = STEP_TIMER_COUNTS.standard[6] + 2;
+    const timeLeft = (enough) => ['asm', `lda ${S.read}`, 'lsr', 'lsr', 'lsr', 'lsr', 'lsr', 'tax', 'lda INTIM', 'cmp _pfd_need,x', enough, '@end'].join('\n');
     add(label('step'),
-        ['asm', `lda ${S.read}`, 'lsr', 'lsr', 'lsr', 'lsr', 'lsr', 'tax', 'lda INTIM', 'cmp _pfd_need,x', 'bcs ._pfd_stgo', '@end'].join('\n'),
+        ...(speed ? [['asm', `lda ${speedName(Blockly)}`, `and #${PFD_SPEED_MAX << speedBase()}`, 'bne ._pfd_sps', '@end'].join('\n')] : []),
+        timeLeft('bcs ._pfd_stgo'),
         'return',
         label('stgo'),
         `if ${S.read} >= 32 then goto _pfd_stu`,
@@ -238,12 +251,18 @@ const buildEngine = (Blockly) => {
         'if temp1 = 0 then goto _pfd_stz',
         label('stu'),
         'gosub _pfd_unit',
-        // (A speed set: the steps of the frame are counted down, and the frame is done at 0.)
-        ...(speed ? [`if ${speed.steps.read} = 0 then goto _pfd_step`, set(speed.left, `${speed.left.read} - 1`), `if ${speed.left.read} = 0 then return`] : []),
         'goto _pfd_step',
         label('stz'),
         set(S, 0),
         'return',
+        // With a speed set: the same, the steps left counted down on the stack (no byte for it); the frame is done at 0 or when its time is.
+        ...(speed ? [label('sps'), ['asm', ...speedLoad(Blockly), 'pha', '@end'].join('\n'),
+          label('spl'), timeLeft('bcc ._pfd_spx'),
+          `if ${S.read} >= 32 then goto _pfd_spu`, ...header(0), 'if temp1 = 0 then goto _pfd_spz',
+          label('spu'), 'gosub _pfd_unit',
+          ['asm', 'pla', 'sec', 'sbc #1', 'pha', 'bne ._pfd_spl', '@end'].join('\n'),
+          label('spx'), ['asm', 'pla', '@end'].join('\n'), 'return',
+          label('spz'), set(S, 0), ['asm', 'pla', '@end'].join('\n'), 'return'] : []),
         ['asm', '@_pfd_need', `.byte ${need.map((counts) => 128 + counts).join(',')}`, '@end'].join('\n'));
   }
   // Every step until nothing is left.
@@ -483,6 +502,9 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         'temp2 = temp2 + 1',
         // (The ledge is thicker where it leaves the hill and thinner toward its tip: the positions the overhang goes on for are added to it.)
         `temp3 = ${over.read} & 15`,
+        // (An overhang to the left, the high bits of over 2 or more (its length less 1): thicker toward the hill, at its end.)
+        `temp4 = ${over.read} / 16`,
+        'if temp4 >= 2 then temp3 = temp4 - temp3',
         'temp2 = temp2 + temp3',
         'temp2 = temp1 - temp2',
         'if temp2 > temp1 then temp2 = 0',
@@ -603,11 +625,12 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         'temp1 = temp1 + temp1 + temp1',
         'temp2 = ' + seed.read + ' & 15',
         'if temp2 >= temp1 then goto _pfd_u3v',
-        // An overhang starts where the ground is getting shallower, at the height it has: the ledge over what the ground drops to.
-        `if ${S.read}{2} then goto _pfd_u3v`,
+        // An overhang starts where the ground is getting shallower, at the height it has: the ledge over what the ground drops to (to the right); where it is
+        // getting higher, one to the left (see _pfd_u3lo).
         'temp4 = ' + seed.read + ' / 4',
         'temp4 = temp4 & 3',
         'temp4 = temp4 + 3',
+        `if ${S.read}{2} then goto _pfd_u3lo`,
         // The ground drops under the ledge by more than the ledge is thick (its thickness at the start, plus a quarter of the height less a little, held inside the range), so a
         // void shows under it; where the range has no room for that there is no overhang.
         `if ${depth.read} <= ${least.read} then goto _pfd_u3v`,
@@ -622,6 +645,23 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         set(ledge, depth.read),
         set(depth, `${depth.read} - temp2`),
         set(over, 'temp4 + 16'),
+        'goto _pfd_u3r',
+        // To the left: the ground stays low for the length of the overhang, under a ledge at the height it goes up to (thin at its tip, thicker toward the hill), and goes
+        // up there at the end (see _pfd_u3r). The high bits of over are the length less 1 (2 or more: to the left).
+        label('u3lo'),
+        `if ${depth.read} >= ${most.read} then goto _pfd_u3v`,
+        `temp1 = ${depth.read} / 16`,
+        'temp1 = temp1 + temp4',
+        `temp2 = ${depth.read} / 8`,
+        'temp2 = temp2 + temp1',
+        'temp2 = temp2 + 2',
+        `temp3 = ${most.read} - ${depth.read}`,
+        'if temp2 > temp3 then temp2 = temp3',
+        'if temp2 <= temp1 then goto _pfd_u3v',
+        set(ledge, `${depth.read} + temp2`),
+        'temp1 = temp4 - 1',
+        'temp1 = temp1 * 16',
+        set(over, 'temp4 + temp1'),
         'goto _pfd_u3r',
         // A cave starts instead, with the same chance from the caves value, where the ground is 8 or more high: the gap is in the middle of the line.
         label('u3v'),
@@ -646,6 +686,11 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         set(over, 'temp4'),
         label('u3r'),
         `if (${over.read} & 15) <> 0 then goto _pfd_u3q`,
+        // (The end of an overhang to the left: the ground goes up to the ledge.)
+        `if ${params.read}{7} then goto _pfd_u3re`,
+        `temp1 = ${over.read} / 16`,
+        `if temp1 >= 2 then ${depth.write} = ${ledge.read}`,
+        label('u3re'),
         set(over, 0),
         set(ledge, 0),
         set(params, `${params.read} & 127`),
@@ -734,7 +779,7 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
     // Elsewhere (as the circle block always drew it, row by row from the center row outwards, the row below and then the row above): the center,
     // the radius (low nibble) and the distance of the row from the center (high nibble), the padding (as the record has it), the column being
     // drawn and the last column of the row. State bit 2: a row is being drawn; bit 1: the row above.
-    const [cx, cy, rd, padLR, padT, column, end, padB, dist, rowy] = W;
+    const [cx, cy, rd, padLR, padT, column, end, padB, dist] = W;
     const squares = Array.from({length: 16}, (_, i) => i * i).join(',');
     add(label(armCircle ? 'a6s' : 'a6'), ...fromRecord(5), ...store.read(0, 6, 'temp2'), set(padB, 'temp2'),
         ...(circleStretch ? [`if ${rd.read} >= 128 then goto _pfd_a6x`, set(dist, 0)] : []),
@@ -775,7 +820,6 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         'if temp6 > temp1 then temp6 = temp1',
         'if temp4 > temp6 then goto _pfd_u6n',
         set(column, 'temp4'), set(end, 'temp6'), set(S, `${S.read} | 4`),
-        ...(circleStretch ? [`if ${dist.read}{7} then ${rowy.write} = temp5`] : []),
         'return thisbank',
         label('u6p'),
         ...(circleStretch ? [`if ${dist.read}{7} then goto _pfd_u6pq`] : []),
@@ -804,7 +848,7 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         ...(circleStretch ? [
           // The row of the distance in dist (bits 6-0): the circle's row of distance (d * S / 256), below the center and then above. The circle is done at the first distance past its radius.
           label('u6dx'), set(dist, `${dist.read} + 1`), 'return thisbank',
-          label('u6pq'), `temp2 = ${rowy.read}`, 'goto _pfd_u6pc',
+          label('u6pq'), `temp1 = ${dist.read} & 127`, `if ${S.read}{1} then temp2 = ${cy.read} - temp1 else temp2 = ${cy.read} + temp1`, 'goto _pfd_u6pc',
           label('u6x'),
           ['asm', `lda ${dist.read}`, 'and #127', 'sta temp4', 'sta temp2', 'lda #0', 'ldx #8', 'lsr temp2', '@_pfd_xm', 'bcc _pfd_xn', 'clc', `adc #${circleStretch}`,
             '@_pfd_xn', 'ror', 'ror temp2', 'dex', 'bne _pfd_xm', 'sta temp3', '@end'].join('\n'),
@@ -1097,9 +1141,7 @@ export const generatePfDrawStep = (Blockly) => {
   const done = Blockly.BBasic.pfDraw.terrainDone;
   // (The pulse of Playfield terrain done is cleared here, at the end of the frame that saw it, before the steps that may set it again.)
   const tick = Blockly.BBasic.pfDraw.gravityTick;
-  const speed = Blockly.BBasic.pfDraw.speed;
-  return [...(done ? [` ${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} & ${255 ^ terrainDoneAllMask()}`] : []), ...(tick ? [` if ${tick.read} > 0 then ${tick.write} = ${tick.read} - 1`] : []), ` if ${Blockly.BBasic.pfDraw.state.read} = 0 then goto _pfd_idle`,
-    ...(speed && !Blockly.BBasic.pfDraw.config.pxe ? [` ${speed.left.write} = ${speed.steps.read}`] : []),
+  return [...(done ? [` ${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} & ${255 ^ terrainDoneAllMask()}`] : []), ...(tick ? [` temp1 = ${Blockly.BBasic.pfDraw.state.read} / 8`, ` if temp1 = 30 && ${tick.read} > 0 then ${tick.write} = ${tick.read} - 1`] : []), ` if ${Blockly.BBasic.pfDraw.state.read} = 0 then goto _pfd_idle`,
     ` gosub _pfd_step${Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.primaryBank ? Blockly.BBasic.primaryBank() : 1,
         Blockly.BBasic.getSubroutineBank(PF_DRAW_SUBROUTINE))}`, '_pfd_idle'].join('\n');
 };
@@ -1146,7 +1188,14 @@ export const pfDrawCenteredAreaCode = (Blockly, operation, cx, cy, width, height
 // The Set playfield draw speed block: the steps of drawing a frame may take (0: as many as the time left allows).
 export const pfDrawSpeedCode = (Blockly, steps) => {
   if (!ensurePfDraw(Blockly) || !Blockly.BBasic.pfDraw.speed) return '';
-  return `${Blockly.BBasic.pfDraw.speed.steps.write} = ${steps}\n`;
+  // (Held to 15; the other bits of the byte are kept.)
+  const name = speedName(Blockly);
+  const base = speedBase();
+  const keep = 255 ^ (PFD_SPEED_MAX << base);
+  const number = /^\d+$/.test(String(steps).trim()) ? Math.min(PFD_SPEED_MAX, Number(steps)) : null;
+  if (number !== null) return [`${name} = ${name} & ${keep}`, ...(number ? [`${name} = ${name} | ${number << base}`] : [])].join('\n') + '\n';
+  return [`temp1 = ${steps}`, `if temp1 > ${PFD_SPEED_MAX} then temp1 = ${PFD_SPEED_MAX}`, ...(base ? [`temp1 = temp1 * ${1 << base}`] : []),
+    `${name} = ${name} & ${keep}`, `${name} = ${name} | temp1`].join('\n') + '\n';
 };
 
 export const pfDrawStopFillCode = (Blockly) => (ensurePfDraw(Blockly) ? callEngine(Blockly, 'stopfill') + '\n' : '');
