@@ -139,6 +139,15 @@
                     @confirm="handleDeleteEntry(entry)"
                   />
                   <v-btn
+                    icon
+                    small
+                    title="Duplicate this message"
+                    class="text-play-btn text-icon-btn-size"
+                    @click.stop="() => handleDuplicateEntry(entry)"
+                  >
+                    <v-icon>mdi-content-duplicate</v-icon>
+                  </v-btn>
+                  <v-btn
                     v-if="atariVoxOn"
                     icon
                     small
@@ -250,7 +259,7 @@ import {tryRedoReorder, tryUndoReorder} from '../hooks/reorder-history';
 import {undoRedoKind} from '../utils/undo-hotkey';
 import {useDragReorder} from '../hooks/drag-reorder';
 import {useCardFolders} from '../hooks/card-folders';
-import {removeCards} from '../utils/card-refs';
+import {insertCardAfter, removeCards} from '../utils/card-refs';
 import {useCardSelection} from '../hooks/card-selection';
 import {useConfigurationStorage, useTextStringsStorage, useTextColumnsStorage} from '../hooks/project';
 import {DEFAULT_TEXT_JUSTIFY, DEFAULT_TEXT_STRINGS, DEFAULT_TEXT_MAX_DISPLAY_WIDTH,
@@ -534,6 +543,17 @@ export default defineComponent({
       instance.proxy.$forceUpdate();
     };
 
+    // A copy of a message (text, justify, wrap, folder) put right after it: the messages after it are numbered again.
+    const handleDuplicateEntry = (entry) => {
+      const copy = JSON.parse(JSON.stringify(entry));
+      copy.name = `${entry.name || 'Message'} copy`;
+      const idMap = insertCardAfter('text', state.value.textStrings, entry, copy);
+      if (idMap) renumbered(idMap);
+      ensureExpanded(copy);
+      handleChildChange();
+      instance.proxy.$forceUpdate();
+    };
+
     const handleDeleteEntry = (entry) => {
       if (state.value.textStrings.length <= 1) return;
       // (At least one message is kept: the ids are of the cards listed, so the whole list is counted here.)
@@ -570,7 +590,7 @@ export default defineComponent({
 
     return {
       selectedCardId, selectedCardIds, selectCard, deselectCard, deleteQuestion,
-      state, handleChildChange, handleAddEntry, handleDeleteEntry, handleTextChange,
+      state, handleChildChange, handleAddEntry, handleDeleteEntry, handleDuplicateEntry, handleTextChange,
       isCollapsed, toggleCollapsed, textBkColor, enableTextScrollCursor,
       textScrollCursorBlinkSpeed, BLINK_SPEED_OPTIONS, textMaxDisplayWidth,
       TEXT_MAX_DISPLAY_WIDTH_OPTIONS, TEXT_CARD_MAX_LENGTH, textColumns,

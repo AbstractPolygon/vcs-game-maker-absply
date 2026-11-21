@@ -204,8 +204,12 @@ export default (Blockly) => {
     // problem entirely rather than working around it.
     const labelBase = `_wait_frames_${Blockly.BBasic.blockNumbers.next('waitFrames')}`;
     // Every frame of the wait also runs the "When ... collide" blocks (a copy of each, sharing its bits with the original, so a collision is told once), right after
-    // the screen is drawn, as the main loop would. Not those with a Wait block inside (the wait would be inside itself, and use its counter).
-    const collideCode = (Blockly.BBasic.collisionWhenBlocks || [])
+    // the screen is drawn, as the main loop would. Not those with a Wait block inside (the wait would be inside itself, and use its counter), and not in a Wait inside a
+    // Subroutine or Function: it can run before the code that follows the call has started what the collision is for (a Start gravity block), and a collision the copy has
+    // told is not told again by the block after the call.
+    const root = block.getRootBlock();
+    const inDefinition = !!root && /^(subroutine|function)_define$/.test(root.type);
+    const collideCode = (inDefinition ? [] : (Blockly.BBasic.collisionWhenBlocks || []))
         .filter((collide) => !(collide.getInputTargetBlock('DO') ? collide.getInputTargetBlock('DO').getDescendants(false) : [])
             .some((inside) => inside.type === 'wait_frames'))
         .map((collide) => Blockly.BBasic['collision_when'](collide))

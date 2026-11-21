@@ -1706,7 +1706,7 @@ Blockly.defineBlocksWithJsonArray([
       {'type': 'field_label', 'text': ' '},
       {'type': 'input_value', 'name': 'ANGLE', 'check': 'Number'},
     ],
-    'message3': '%1 %2 stop on the playfield %3 %4 use the sprite width, not 8 pixels',
+    'message3': '%1 %2 stop at playfield %3 %4 use pixel width',
     'args3': [
       {'type': 'field_label', 'text': ' '},
       {'type': 'field_checkbox', 'name': 'LAND', 'checked': false},
@@ -1718,7 +1718,7 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': 'purple',
     'extensions': ['object_seek_colour_sync', 'object_gravity_defaults'],
-    'tooltip': 'Makes an object fall, or be pulled in a direction, faster and faster. Start/Stop: turns the gravity on, or off with the fall speed 0. Gravity: eighths of a pixel the fall speed grows each frame (1 to 16). Max fall speed: pixels a frame. Bounce keeps: how much of its speed a Bounce block leaves. Pull toward direction: a full turn of 256 (128 is down). Stop on the playfield (down only): lands on the first lit pixel and stops falling. Use the sprite width: the landing box is as wide as the lit pixels of the player, not 8 pixels.',
+    'tooltip': 'Makes an object fall, or be pulled in a direction, faster and faster. Start/Stop: turns the gravity on, or off with the fall speed 0. Gravity: eighths of a pixel the fall speed grows each frame (1 to 16). Max fall speed: pixels a frame. Bounce keeps: how much of its speed a Bounce block leaves. Pull toward direction: a full turn of 256 (128 is down). Stop at playfield (down only): lands on the first lit pixel and stops falling. Use pixel width: the landing box is as wide as the lit pixels of the player, not 8 pixels.',
   },
   // Starts or stops the gravity of an object, with the numbers a Gravity block gave it (the Start and Stop of the Gravity block, without its numbers).
   {

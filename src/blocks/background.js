@@ -879,13 +879,15 @@ Blockly.Blocks['background_fill_circle'] = {
     this.appendValueInput('PAD_BOTTOM').setCheck('Number').appendField('bottom');
     this.appendDummyInput('SPREAD_ROW')
         .appendField(new Blockly.FieldCheckbox(false), 'SPREAD')
-        .appendField('over several frames');
+        .appendField('over several frames')
+        .appendField(new Blockly.FieldCheckbox(false), 'STRETCH')
+        .appendField('keep it round on short rows');
     this.setInputsInline(true);
     this.setPreviousStatement(true, null);
     this.setNextStatement(true, null);
     this.setColour(BACKGROUND_COLOR);
     Blockly.Extensions.apply('background_circle_padding_sync', this, false);
-    this.setTooltip(`Sets, clears or flips every playfield pixel within the radius (up to 15) of the center column and row, the same numbers as "Playfield get pixel". Parts outside the playfield are ignored. Padding is how many columns at each side and rows at the top and bottom are left alone (0 draws to the edges): one number for all sides or one for each. ${DRAW_QUEUE_TOOLTIP} Can't be used inside a custom function.`);
+    this.setTooltip(`Sets, clears or flips every playfield pixel within the radius (up to 15) of the center column and row, the same numbers as "Playfield get pixel". Parts outside the playfield are ignored. Padding is how many columns (up to 15) at each side and rows at the top and bottom are left alone (0 draws to the edges): one number for all sides or one for each. Keep it round on short rows: the circle gets more rows so it looks round when the rows are short (a high pfres). ${DRAW_QUEUE_TOOLTIP} Can't be used inside a custom function.`);
   },
 };
 
@@ -1477,6 +1479,16 @@ Blockly.defineBlocksWithJsonArray([
     'nextStatement': null,
     'colour': BACKGROUND_COLOR,
     'tooltip': 'Runs the blocks inside once, in the frame after the terrain of that side is finished (all: after no terrain is left to draw). Put it in code that runs every frame.',
+  },
+  {
+    'type': 'background_draw_speed',
+    'message0': `${BACKGROUND_ICON} Set playfield draw speed to %1 steps per frame`,
+    'args0': [{'type': 'input_value', 'name': 'STEPS', 'check': 'Number'}],
+    'inputsInline': true,
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': BACKGROUND_COLOR,
+    'tooltip': 'How many steps of drawing the Draw blocks that run over several frames (a big circle, fill, line, area, terrain) take each frame: a step is a pixel or a row. 0 draws as fast as the frame allows. Lower is slower, so the picture builds up over more frames.',
   },
   {
     'type': 'background_flood_fill_stop',

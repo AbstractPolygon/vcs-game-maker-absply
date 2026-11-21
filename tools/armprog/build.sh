@@ -29,6 +29,8 @@ compile() {
 # kept when both are the same; when they are not, a third time, and the one two of them agree on is kept, with a warning.)
 n=0
 for mask in $(seq "${FROM:-1}" 1023); do
+  # (NEED: only the programs that have all of these sets, as a mask of the letters' bits, o 1 b 2 c 4 p 8 f 16 a 32 t 64 n 128 r 256 k 512.)
+  [ -n "$NEED" ] && [ $(( mask & NEED )) -ne "$NEED" ] && continue
   # (n is only built with t, r never with t.)
   [ $(( mask & 192 )) -eq 128 ] && continue
   [ $(( mask & 320 )) -eq 320 ] && continue

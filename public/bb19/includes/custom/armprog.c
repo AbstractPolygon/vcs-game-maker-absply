@@ -234,28 +234,32 @@ static u box(volatile b8 *p)
 
 #ifndef NOCIRCLE
 // "Playfield set/clear/flip circle" (function 96 plus the operation: 0 set, 1 clear, 2 flip). C_function[1..8]: the center column and row, the radius
-// (15 at most), the padding of the left, right, top and bottom (15 at most: the columns and rows at the edges the block leaves alone) and the last row
+// (15 at most), the padding of the left and right (15 at most) and of the top and bottom (a byte each): the columns and rows at the edges the block leaves alone and the last row
 // of the playfield. A row of the circle is as wide as the biggest d with d * d <= r * r less the square of the row's distance from the center.
+// A radius with bit 7 set is kept round on short rows: C_function[9] is the scale q, and a row of distance d is as wide as the row of distance d * q / 256.
 static void circle(volatile b8 *p)
 {
-  int op=CF[0]&3,cx=CF[1],cy=CF[2],r=CF[3],pl=CF[4],pr=CF[5],pt=CF[6],pb=CF[7],last=CF[8];
+  int op=CF[0]&3,cx=CF[1],cy=CF[2],r=CF[3],pl=CF[4],pr=CF[5],pt=CF[6],pb=CF[7],last=CF[8],q=0,dm,e;
   int lo,hi,top,bot,d,y,v,h,x1,x2,bi,a,b;
   u m;
+  if (r&128) { q=CF[9]; r&=127; }
   if (r>15) r=15;
   if (pl>15) pl=15;
   if (pr>15) pr=15;
-  if (pt>15) pt=15;
-  if (pb>15) pb=15;
   lo=pl;
   hi=31-pr;
   top=pt;
   bot=last-pb;
   if (lo>hi||top>bot) return;
-  for (d=-r;d<=r;d++)
+  dm=r;
+  if (q) { dm=0; while ((((dm+1)*q)>>8)<=r) dm++; }
+  for (d=-dm;d<=dm;d++)
   {
     y=cy+d;
     if (y<top||y>bot) continue;
-    v=r*r-d*d;
+    e=d<0?-d:d;
+    if (q) e=(e*q)>>8;
+    v=r*r-e*e;
     for (h=0;(h+1)*(h+1)<=v;h++);
     x1=cx-h;
     x2=cx+h;

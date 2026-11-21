@@ -154,10 +154,11 @@ export const buildGravityStepCall = ({x1, y1, x2, y2}) => [
   '@end',
 ].join(String.fromCharCode(10));
 
-export const buildCircleArmCall = ({operation, cx, cy, radius, padLeft, padRight, padTop, padBottom, last}) => [
+// stretch: the scale of the rows of a circle kept round (see circleStretchScale in pf-draw.js), the tenth byte; a radius with bit 7 set takes it.
+export const buildCircleArmCall = ({operation, cx, cy, radius, padLeft, padRight, padTop, padBottom, last, stretch = 0}) => [
   'asm',
   'lda #<C_function', 'sta DF0LOW', 'lda #(>C_function) & $0F', 'sta DF0HI',
-  ...[`#${OFFSET_ARM_CIRCLE_FUNCTION[operation]}`, cx, cy, radius, padLeft, padRight, padTop, padBottom, last].flatMap((operand) => [`lda ${operand}`, 'sta DF0WRITE']),
+  ...[`#${OFFSET_ARM_CIRCLE_FUNCTION[operation]}`, cx, cy, radius, padLeft, padRight, padTop, padBottom, last, ...(stretch ? [`#${stretch}`] : [])].flatMap((operand) => [`lda ${operand}`, 'sta DF0WRITE']),
   'lda #255', 'sta CALLFUNCTION',
   '@end',
 ].join('\n');

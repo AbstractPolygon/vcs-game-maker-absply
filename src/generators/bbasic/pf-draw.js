@@ -1,6 +1,7 @@
 'use strict';
 
-import {pfMaxColumn} from '../../utils/playfield-coords';
+import {pfMaxColumn, pfRowDivisorFor} from '../../utils/playfield-coords';
+import {CLOCK_ASPECT} from '../../utils/pixel-aspect';
 import {buildCircleArmCall, buildGravityArmCall, buildGravityStepCall, buildTerrainArmCall, ensureArmProgram} from './offset-arm';
 import {flagPoolVar, flagPoolBit} from './flag-pool';
 
@@ -57,12 +58,20 @@ const KINDS_BY_NUMBER = ['none', 'pixel', 'sline', 'terrain', 'area', 'line', 'c
 // (The playfield gravity shares the fill's kind number, 7, with the operation 2, flip: its steps flip the pixels they move.)
 const OPERATION_NUMBER = {on: 0, off: 1, flip: 2};
 // The numbers a kind's record holds and the work bytes it keeps while it is drawn (at most five numbers: the record is read into temp1 to temp6).
-const RECORD_NUMBERS = {pixel: 2, hline: 3, vline: 3, terrain: 5, area: 4, carea: 4, line: 4, circle: 5, fill: 2, gravity: 5};
-const WORK_BYTES = {pixel: 0, hline: 3, vline: 3, terrain: 10, area: 5, carea: 5, line: 7, circle: 7, fill: 3, gravity: 6};
+const RECORD_NUMBERS = {pixel: 2, hline: 3, vline: 3, terrain: 5, area: 4, carea: 4, line: 4, circle: 6, fill: 2, gravity: 5};
+const WORK_BYTES = {pixel: 0, hline: 3, vline: 3, terrain: 10, area: 5, carea: 5, line: 7, circle: 8, fill: 3, gravity: 6};
 // The records of the queue and the seeds of the fill. The standard kernel without Superchip has the least RAM: one record waiting and two seeds.
 const queueRecordsFor = (config, superchip, displayRam) => (displayRam ? 4 : superchip ? 3 : config.pxe ? 2 : 1);
 const seedSlotsFor = (config, superchip) => (superchip || config.pxe ? 4 : 2);
 const FILL_KEEPS = 3;
+// "Keep it round on short rows" (the circle block): a playfield pixel is 4 color clocks wide (4 * CLOCK_ASPECT scanlines on the screen) and a row only a few scanlines tall,
+// so a circle of radius r is r pixels either way and looks flat. The circle gets the rows it needs: a row of distance d from the center is as wide as the circle's row of
+// distance d * S / 256 (S: the scanlines of a row over the width of a pixel, in 256ths). 0 when the rows are not short (no change). A circle record has bit 7 of its radius set
+// when its block asks for it. The distance of a row is at most 127 (S is at least 35, the rows of a circle of 15 going to 117).
+export const circleStretchScale = (config) => {
+  const scale = Math.round(256 * 2 * pfRowDivisorFor(config) / (4 * CLOCK_ASPECT));
+  return scale >= 255 ? 0 : Math.max(35, scale);
+};
 const DISPLAY_RAM_PAGE = '$0F';
 const RECORD_OFFSET = 64;
 const SEEDS_DPC_PLUS = 64;
@@ -105,6 +114,7 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
   const armGravity = displayRam;
   // A circle block with "over several frames" ticked on DPC+ is drawn by the steps, row by row from the center, as on the other kernels (flag bit 0 of its header).
   const circleSpread = armCircle && blocks.some((block) => block.type === 'background_fill_circle' && block.getFieldValue('SPREAD') === 'TRUE');
+  const circleStretch = blocks.some((block) => block.type === 'background_fill_circle' && block.getFieldValue('STRETCH') === 'TRUE') ? circleStretchScale(config) : 0;
   const seeds = kinds.has('fill') && !displayRam ? seedSlotsFor(config, superchip) : 0;
   // The playfield gravity falls over time (a block with a number of frames above 0, see background_gravity): it keeps the area, the frames between its steps and a byte counting the frames.
   const gravityAnim = kinds.has('gravity') && blocks.some((block) => {
@@ -114,6 +124,8 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
   const workOf = (kind) => {
     if ((kind === 'circle' && armCircle && !circleSpread) || (kind === 'terrain' && armTerrain)) return 0;
     if (kind === 'gravity') return armGravity ? (gravityAnim ? 5 : 0) : (gravityAnim ? 7 : 6);
+    // (The circle that is kept round also keeps the distance of its row (bit 7: it is) and the row.)
+    if (kind === 'circle' && circleStretch) return WORK_BYTES.circle + 2;
     return WORK_BYTES[kind];
   };
   const workBytes = Math.max(kinds.has('fill') ? FILL_KEEPS + 2 * seeds : 0, ...[...kinds].map(workOf));
@@ -121,6 +133,10 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
   const records = queueRecordsFor(config, superchip, displayRam);
   const gravityTick = gravityAnim ? reserveDevVarRW('pfdGravTick', 'playfield gravity: the frames left before its next step') : null;
   const state = reserveDevVarRW('pfdState', 'playfield drawing: the kind of work being drawn, its operation and its steps');
+  // The Set playfield draw speed block: the steps a frame (0: as many as the time left allows) and the steps the frame has left.
+  const speed = blocks.some((block) => block.type === 'background_draw_speed') ? {
+    steps: reserveDevVarRW('pfdSpeed', 'playfield drawing: the steps of drawing a frame may take (0: as many as the time left allows)'),
+    left: reserveDevVarRW('pfdBudget', 'playfield drawing: the steps this frame has left')} : null;
   // 1 for the one frame after terrain was finished (see Playfield terrain done).
   const terrainDone = blocks.some((block) => ['background_generate_terrain_done', 'background_when_terrain_done', 'background_when_gravity_done'].includes(block.type)) ?
     {family: PFD_TERRAIN_DONE_FAMILY} : null;
@@ -128,7 +144,7 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
   const queue = displayRam ? null : Array.from({length: records}, (_, r) => Array.from({length: recordBytes}, (_, i) =>
     reserveDevVarRW(`pfdQueue${r}_${i}`, 'playfield drawing: a waiting Draw block\'s record')));
   const seedBytes = Array.from({length: seeds}, (_, s) => [work[FILL_KEEPS + 2 * s], work[FILL_KEEPS + 2 * s + 1]]);
-  Blockly.BBasic.pfDraw = {kinds, state, terrainDone, work, queue, records, recordBytes, seeds: seedBytes, displayRam, armCircle, armTerrain, armGravity, gravityAnim, gravityTick, circleSpread, config, superchip};
+  Blockly.BBasic.pfDraw = {kinds, state, terrainDone, work, queue, records, recordBytes, seeds: seedBytes, displayRam, armCircle, armTerrain, armGravity, gravityAnim, gravityTick, circleSpread, circleStretch, speed, config, superchip};
   // (The operations the blocks use: the plotting routine and the circle's calls have only those.)
   const drawBlocks = blocks.filter((block) => pfDrawKindOf(block));
   Blockly.BBasic.pfDrawOperations = new Set(drawBlocks.map((block) => block.getFieldValue('OPERATION') || 'on'));
@@ -147,7 +163,7 @@ const recordStore = (pfDraw) => {
       // byte i of record r into a temp
       read: (r, i, temp) => [`${temp} = ${Q[r][i].read}`],
       // the record r into temp1 to temp(size)
-      load: (r) => Q[r].map((byte, i) => `temp${i + 1} = ${byte.read}`),
+      load: (r) => Q[r].slice(0, 6).map((byte, i) => `temp${i + 1} = ${byte.read}`),
       // record `from` copied to `to`
       copy: (from, to) => Q[to].map((byte, i) => `${byte.write} = ${Q[from][i].read}`),
       // the records after r moved down by one, the last one freed
@@ -164,7 +180,7 @@ const recordStore = (pfDraw) => {
   const asm = (lines) => ['asm', ...lines, '@end'].join('\n');
   return {
     read: (r, i, temp) => [asm([...aim(0, offset(r, i)), 'lda DF0DATA', `sta ${temp}`])],
-    load: (r) => [asm([...aim(0, offset(r, 0)), ...Array.from({length: size}, (_, i) => ['lda DF0DATA', `sta temp${i + 1}`]).flat()])],
+    load: (r) => [asm([...aim(0, offset(r, 0)), ...Array.from({length: Math.min(size, 6)}, (_, i) => ['lda DF0DATA', `sta temp${i + 1}`]).flat()])],
     copy: (from, to) => [asm([...aim(0, offset(from, 0)), ...aim(1, offset(to, 0)), ...Array.from({length: size}, () => ['lda DF0DATA', 'sta DF1WRITE']).flat()])],
     remove: (r) => [asm([...(r < last ? [...aim(0, offset(r + 1, 0)), ...aim(1, offset(r, 0)),
       ...Array.from({length: (last - r) * size}, () => ['lda DF0DATA', 'sta DF1WRITE']).flat()] : []),
@@ -177,7 +193,7 @@ const recordStore = (pfDraw) => {
 // The engine, one subroutine with its entries (see the comment at the top).
 const buildEngine = (Blockly) => {
   const pfDraw = Blockly.BBasic.pfDraw;
-  const {kinds, state: S, work: W, records, seeds: P, displayRam, armCircle, armTerrain, armGravity, circleSpread, config} = pfDraw;
+  const {kinds, state: S, work: W, records, seeds: P, displayRam, armCircle, armTerrain, armGravity, circleSpread, circleStretch, speed, config} = pfDraw;
   const store = recordStore(pfDraw);
   const maxRow = Blockly.BBasic.maxRowText(config);
   const maxColumn = pfMaxColumn(config);
@@ -196,7 +212,8 @@ const buildEngine = (Blockly) => {
   // coprocessor runs the program much faster than a 6502 would).
   if (config.pxe) {
     add(label('step'),
-        ['asm', `lda #${PXE_STEPS_A_FRAME}`, 'pha', '@end'].join('\n'),
+        // (With a speed set, that many steps (24 at the most).)
+        ['asm', ...(speed ? [`lda ${speed.steps.read}`, 'beq _pfd_stfull', `cmp #${PXE_STEPS_A_FRAME}`, 'bcc _pfd_stspd', '@_pfd_stfull'] : []), `lda #${PXE_STEPS_A_FRAME}`, ...(speed ? ['@_pfd_stspd'] : []), 'pha', '@end'].join('\n'),
         label('stl'),
         `if ${S.read} >= 32 then goto _pfd_stu`,
         ...header(0),
@@ -210,6 +227,8 @@ const buildEngine = (Blockly) => {
   } else {
     const need = [startCounts(config, kinds), ...STEP_TIMER_COUNTS[config.kernel === 'dpcplus' ? 'dpcplus' : 'standard'].slice(1)];
     if (circleSpread) need[6] = STEP_TIMER_COUNTS.standard[6];
+    // (A row of a circle that is kept round takes a multiplication more.)
+    if (circleStretch && (circleSpread || !armCircle)) need[6] = STEP_TIMER_COUNTS.standard[6] + 2;
     add(label('step'),
         ['asm', `lda ${S.read}`, 'lsr', 'lsr', 'lsr', 'lsr', 'lsr', 'tax', 'lda INTIM', 'cmp _pfd_need,x', 'bcs ._pfd_stgo', '@end'].join('\n'),
         'return',
@@ -219,6 +238,8 @@ const buildEngine = (Blockly) => {
         'if temp1 = 0 then goto _pfd_stz',
         label('stu'),
         'gosub _pfd_unit',
+        // (A speed set: the steps of the frame are counted down, and the frame is done at 0.)
+        ...(speed ? [`if ${speed.steps.read} = 0 then goto _pfd_step`, set(speed.left, `${speed.left.read} - 1`), `if ${speed.left.read} = 0 then return`] : []),
         'goto _pfd_step',
         label('stz'),
         set(S, 0),
@@ -701,9 +722,10 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
     // (Set has neither bit of the operation: its call is the last one, which the others' tests fall through to.)
     const circleOperations = ['flip', 'off', 'on'].filter((operation) => Blockly.BBasic.pfDrawCircleOperations.has(operation));
     const call = (operation) => buildCircleArmCall({operation, cx: 'temp2', cy: 'temp3', radius: 'temp4',
-      padLeft: 'temp5\nand #15', padRight: 'temp5\nlsr\nlsr\nlsr\nlsr', padTop: 'temp6\nand #15', padBottom: 'temp6\nlsr\nlsr\nlsr\nlsr',
-      last: `#${groupRows ? '191' : maxRow}`});
-    add(label('a6'), ...(circleSpread ? [`if ${S.read}{0} then goto _pfd_a6s`] : []));
+      padLeft: 'temp5\nand #15', padRight: 'temp5\nlsr\nlsr\nlsr\nlsr', padTop: 'temp6', padBottom: 'temp1',
+      last: `#${groupRows ? '191' : maxRow}`, stretch: circleStretch});
+    // (The record's 7th byte, the padding of the bottom, is read into temp1: the header there is done with.)
+    add(label('a6'), ...(circleSpread ? [`if ${S.read}{0} then goto _pfd_a6s`] : []), ...store.read(0, 6, 'temp1'));
     circleOperations.slice(0, -1).forEach((operation) => add(
         `if !${S.read}{${operation === 'flip' ? 4 : 3}} then goto _pfd_a6${operation}`, call(operation), 'goto _pfd_anone', label(`a6${operation}`)));
     add(call(circleOperations[circleOperations.length - 1]), 'goto _pfd_anone');
@@ -712,12 +734,15 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
     // Elsewhere (as the circle block always drew it, row by row from the center row outwards, the row below and then the row above): the center,
     // the radius (low nibble) and the distance of the row from the center (high nibble), the padding (as the record has it), the column being
     // drawn and the last column of the row. State bit 2: a row is being drawn; bit 1: the row above.
-    const [cx, cy, rd, padLR, padTB, column, end] = W;
+    const [cx, cy, rd, padLR, padT, column, end, padB, dist, rowy] = W;
     const squares = Array.from({length: 16}, (_, i) => i * i).join(',');
-    add(label(armCircle ? 'a6s' : 'a6'), ...fromRecord(5),
+    add(label(armCircle ? 'a6s' : 'a6'), ...fromRecord(5), ...store.read(0, 6, 'temp2'), set(padB, 'temp2'),
+        ...(circleStretch ? [`if ${rd.read} >= 128 then goto _pfd_a6x`, set(dist, 0)] : []),
         `if ${rd.read} > 15 then ${rd.write} = 15`, 'goto _pfd_shift',
+        ...(circleStretch ? [label('a6x'), set(rd, `${rd.read} & 127`), `if ${rd.read} > 15 then ${rd.write} = 15`, set(dist, 128), 'goto _pfd_shift'] : []),
         label('u6'),
         `if ${S.read}{2} then goto _pfd_u6p`,
+        ...(circleStretch ? [`if ${dist.read}{7} then goto _pfd_u6x`] : []),
         `temp1 = ${rd.read} / 16`,
         `if ${S.read}{1} then goto _pfd_u6u`,
         `temp5 = ${cy.read} + temp1`,
@@ -729,12 +754,13 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         label('u6r'),
         `temp1 = ${rd.read} / 16`,
         `temp2 = ${rd.read} & 15`,
+        label('u6h'),
         ['asm', 'ldx temp1', 'lda _pfd_sq,x', 'sta temp1', 'ldx temp2', 'lda _pfd_sq,x', 'sec', 'sbc temp1',
           'sta temp1', 'ldx temp2', '@_pfd_find', 'lda _pfd_sq,x', 'cmp temp1',
           'beq _pfd_found', 'bcc _pfd_found', 'dex', 'bne _pfd_find', '@_pfd_found', 'stx temp3', '@end'].join('\n'),
-        `temp1 = ${padTB.read} & 15`,
+        `temp1 = ${padT.read}`,
         'if temp5 < temp1 then goto _pfd_u6n',
-        `temp1 = ${padTB.read} / 16`,
+        `temp1 = ${padB.read}`,
         `if temp1 > ${maxRow} then goto _pfd_u6n`,
         `temp1 = ${maxRow} - temp1`,
         'if temp5 > temp1 then goto _pfd_u6n',
@@ -749,10 +775,13 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         'if temp6 > temp1 then temp6 = temp1',
         'if temp4 > temp6 then goto _pfd_u6n',
         set(column, 'temp4'), set(end, 'temp6'), set(S, `${S.read} | 4`),
+        ...(circleStretch ? [`if ${dist.read}{7} then ${rowy.write} = temp5`] : []),
         'return thisbank',
         label('u6p'),
+        ...(circleStretch ? [`if ${dist.read}{7} then goto _pfd_u6pq`] : []),
         `temp1 = ${rd.read} / 16`,
         `if ${S.read}{1} then temp2 = ${cy.read} - temp1 else temp2 = ${cy.read} + temp1`,
+        label('u6pc'),
         `temp1 = ${column.read}`,
         'gosub _pfd_plot',
         `if ${column.read} >= ${end.read} then goto _pfd_u6e`,
@@ -766,11 +795,34 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         'return thisbank',
         label('u6d'),
         set(S, `${S.read} & 253`),
+        ...(circleStretch ? [`if ${dist.read}{7} then goto _pfd_u6dx`] : []),
         `temp1 = ${rd.read} / 16`,
         `temp2 = ${rd.read} & 15`,
         'if temp1 >= temp2 then goto _pfd_unone',
         set(rd, `${rd.read} + 16`),
         'return thisbank',
+        ...(circleStretch ? [
+          // The row of the distance in dist (bits 6-0): the circle's row of distance (d * S / 256), below the center and then above. The circle is done at the first distance past its radius.
+          label('u6dx'), set(dist, `${dist.read} + 1`), 'return thisbank',
+          label('u6pq'), `temp2 = ${rowy.read}`, 'goto _pfd_u6pc',
+          label('u6x'),
+          ['asm', `lda ${dist.read}`, 'and #127', 'sta temp4', 'sta temp2', 'lda #0', 'ldx #8', 'lsr temp2', '@_pfd_xm', 'bcc _pfd_xn', 'clc', `adc #${circleStretch}`,
+            '@_pfd_xn', 'ror', 'ror temp2', 'dex', 'bne _pfd_xm', 'sta temp3', '@end'].join('\n'),
+          `temp2 = ${rd.read} & 15`,
+          'if temp3 > temp2 then goto _pfd_unone',
+          `if ${S.read}{1} then goto _pfd_u6xu`,
+          `if ${cy.read} > ${maxRow} then goto _pfd_u6n`,
+          `temp1 = ${maxRow} - ${cy.read}`,
+          'if temp4 > temp1 then goto _pfd_u6n',
+          `temp5 = ${cy.read} + temp4`,
+          'temp1 = temp3',
+          'goto _pfd_u6h',
+          label('u6xu'),
+          'if temp4 = 0 then goto _pfd_u6n',
+          `if ${cy.read} < temp4 then goto _pfd_u6n`,
+          `temp5 = ${cy.read} - temp4`,
+          'temp1 = temp3',
+          'goto _pfd_u6h'] : []),
         ['asm', '@_pfd_sq', `.byte ${squares}`, '@end'].join('\n'));
   }
   // The fill (the bucket of the graphic editors: every pixel joined to the start up, down, left or right that is off, or on to erase): x, y and the
@@ -1045,7 +1097,9 @@ export const generatePfDrawStep = (Blockly) => {
   const done = Blockly.BBasic.pfDraw.terrainDone;
   // (The pulse of Playfield terrain done is cleared here, at the end of the frame that saw it, before the steps that may set it again.)
   const tick = Blockly.BBasic.pfDraw.gravityTick;
+  const speed = Blockly.BBasic.pfDraw.speed;
   return [...(done ? [` ${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} & ${255 ^ terrainDoneAllMask()}`] : []), ...(tick ? [` if ${tick.read} > 0 then ${tick.write} = ${tick.read} - 1`] : []), ` if ${Blockly.BBasic.pfDraw.state.read} = 0 then goto _pfd_idle`,
+    ...(speed && !Blockly.BBasic.pfDraw.config.pxe ? [` ${speed.left.write} = ${speed.steps.read}`] : []),
     ` gosub _pfd_step${Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.primaryBank ? Blockly.BBasic.primaryBank() : 1,
         Blockly.BBasic.getSubroutineBank(PF_DRAW_SUBROUTINE))}`, '_pfd_idle'].join('\n');
 };
@@ -1062,13 +1116,17 @@ export const pfDrawBlockCode = (Blockly, kind, operation, numbers, flags = 0) =>
 };
 
 // The circle: the center and the radius as numbers, the padding packed two to a byte (left and right, top and bottom, 15 at the most each).
-export const pfDrawCircleCode = (Blockly, operation, cx, cy, radius, padLeft, padRight, padTop, padBottom, spread = false) => {
+export const pfDrawCircleCode = (Blockly, operation, cx, cy, radius, padLeft, padRight, padTop, padBottom, spread = false, stretch = false) => {
   if (!ensurePfDraw(Blockly)) return '';
   const store = recordStore(Blockly.BBasic.pfDraw);
+  // (Kept round: the radius, 15 at the most, with bit 7 set.)
+  const radiusCode = stretch && Blockly.BBasic.pfDraw.circleStretch ? [`temp3 = ${radius}`, 'if temp3 > 15 then temp3 = 15', 'temp3 = temp3 | 128', ...store.write(3, 'temp3')] : store.write(3, radius);
   const pack = (low, high, i) => [`temp3 = ${low}`, `temp4 = ${high}`, 'if temp3 > 15 then temp3 = 15', 'if temp4 > 15 then temp4 = 15',
     'temp4 = temp4 * 16', ...store.write(i, 'temp3 | temp4')];
-  return [callEngine(Blockly, 'room'), ...store.write(1, cx), ...store.write(2, cy), ...store.write(3, radius),
-    ...pack(padLeft, padRight, 4), ...pack(padTop, padBottom, 5), ...store.write(0, headerOf('circle', operation, spread ? 1 : 0)), callEngine(Blockly, 'submit')].join('\n') + '\n';
+  // (The top and the bottom: a row each, a byte, as many rows as a high pfres has.)
+  const row = (code, i) => [`temp3 = ${code}`, ...store.write(i, 'temp3')];
+  return [callEngine(Blockly, 'room'), ...store.write(1, cx), ...store.write(2, cy), ...radiusCode,
+    ...pack(padLeft, padRight, 4), ...row(padTop, 5), ...row(padBottom, 6), ...store.write(0, headerOf('circle', operation, spread ? 1 : 0)), callEngine(Blockly, 'submit')].join('\n') + '\n';
 };
 
 // The centered area: each side worked out by _pfd_axis into the corners of an area record (nothing is submitted when a side has nothing left).
@@ -1083,6 +1141,12 @@ export const pfDrawCenteredAreaCode = (Blockly, operation, cx, cy, width, height
     ...side(cx, width, padLeft, padRight, pfMaxColumn(config), 1, 3),
     ...side(cy, height, padTop, padBottom, Blockly.BBasic.maxRowText(config), 2, 4),
     ...store.write(0, headerOf('area', operation)), callEngine(Blockly, 'submit'), `@ ${skip}`].join('\n') + '\n';
+};
+
+// The Set playfield draw speed block: the steps of drawing a frame may take (0: as many as the time left allows).
+export const pfDrawSpeedCode = (Blockly, steps) => {
+  if (!ensurePfDraw(Blockly) || !Blockly.BBasic.pfDraw.speed) return '';
+  return `${Blockly.BBasic.pfDraw.speed.steps.write} = ${steps}\n`;
 };
 
 export const pfDrawStopFillCode = (Blockly) => (ensurePfDraw(Blockly) ? callEngine(Blockly, 'stopfill') + '\n' : '');

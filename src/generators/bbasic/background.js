@@ -7,7 +7,7 @@ import {flagPoolVar, flagPoolBit} from './flag-pool';
 import {NARROW_TILE_WIDTH, STANDARD_TILE_LOAD_NAME, TILE_SET_FUNCTION} from './pf-tiles';
 import {OFFSET_ARM_FUNCTION, buildOffsetArmCall, ensureArmProgram, ARM_FIND_PIXEL_FUNCTION, buildPixArmCall} from './offset-arm';
 import {fireObjectName} from '../../utils/fire-object';
-import {pfDrawBlockCode, pfDrawCircleCode, pfDrawCenteredAreaCode, pfDrawStopFillCode, pfDrawFillDoneCode, pfDrawGravityDoneCode, pfDrawGravityPulseCode, pfDrawTerrainDoneCode} from './pf-draw';
+import {pfDrawBlockCode, pfDrawCircleCode, pfDrawCenteredAreaCode, pfDrawStopFillCode, pfDrawSpeedCode, pfDrawFillDoneCode, pfDrawGravityDoneCode, pfDrawGravityPulseCode, pfDrawTerrainDoneCode} from './pf-draw';
 import {EXTRA_PLAYER_NAME} from '../../utils/pxe';
 import {effectiveBackgroundRows, backgroundDataRows, backgroundFadeTimerVarName, backgroundFadePaceVarName,
   backgroundFadeTargetVarName, fadeFlagsVarName, FADE_STEPS, rowFadeStartColor, multicolorFadeVarName,
@@ -1709,7 +1709,7 @@ export default (Blockly) => {
   };
 
   Blockly.BBasic['background_fill_circle'] = function(block) {
-    return pfDrawCircleCode(Blockly, block.getFieldValue('OPERATION'), drawArg(block, 'X'), drawArg(block, 'Y'), drawArg(block, 'RADIUS'), ...drawPadding(block), block.getFieldValue('SPREAD') === 'TRUE');
+    return pfDrawCircleCode(Blockly, block.getFieldValue('OPERATION'), drawArg(block, 'X'), drawArg(block, 'Y'), drawArg(block, 'RADIUS'), ...drawPadding(block), block.getFieldValue('SPREAD') === 'TRUE', block.getFieldValue('STRETCH') === 'TRUE');
   };
 
   Blockly.BBasic['background_flood_fill'] = function(block) {
@@ -1758,6 +1758,9 @@ ${body}
   };
   Blockly.BBasic['background_gravity_done'] = function() {
     return [pfDrawGravityDoneCode(Blockly), Blockly.BBasic.ORDER_ATOMIC];
+  };
+  Blockly.BBasic['background_draw_speed'] = function(block) {
+    return pfDrawSpeedCode(Blockly, drawArg(block, 'STEPS', '0'));
   };
   Blockly.BBasic['background_flood_fill_stop'] = function() {
     return pfDrawStopFillCode(Blockly);
