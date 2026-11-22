@@ -590,13 +590,15 @@ static u less(u v) { return v>0?v-1:v; }
 // C_function[1..9]: x, the top line, the height in lines (0 for none), the size bits ($30 mask), the direction, 8 or 16 directions (bit 7: the row is the line /
 // the increment, see rowat), the last row,
 // the column offset (x less this over 4 is the column), the row increment (a line * it / 256 is the row). Gives back the column and the row in [1] and [2].
-static void findpixel(volatile b8 *p)
+// (Those numbers as arguments, see pixops; the column and the row go in [o] and [o+1].)
+static void findpixel(volatile b8 *p,u x,u top,u height,u size,u dir,u stepbits,u maxrow,u off,u inc,u o)
 {
-  u x=CF[1],top=CF[2],height=CF[3],size=CF[4]&0x30,dir=CF[5],steps=CF[6]&0x7F,div=CF[6]&0x80,maxrow=CF[7],off=CF[8],inc=CF[9];
+  u steps=stepbits&0x7F,div=stepbits&0x80;
+  size&=0x30;
   u xs=xstep(dir,steps),ys=ystep(dir,steps);
   u col,right,row,bottom,cb,rb,w,t;
   col=cellcol(x,off);
-  w=size==0?0:(size==0x10?1:(size==0x20?3:7));
+  w=(1u<<(size>>4))-1;
   right=cellcol(x+w,off);
   row=cellrow(top,inc,maxrow,div);
   bottom=row;
@@ -621,8 +623,8 @@ static void findpixel(volatile b8 *p)
     col=i<8?cs[i]:cb;
     row=i<8?rs[i]:rb;
   }
-  CF[1]=col;
-  CF[2]=row;
+  CF[o]=col;
+  CF[o+1]=row;
 }
 
 // The whole of a Bounce block's frame (the stage code of object_bounce in generators/bbasic/sprites.js, with the reflect routine in it) for an object with a Fire
@@ -630,7 +632,7 @@ static void findpixel(volatile b8 *p)
 // direction and the stage byte in [1] and [2]. The first frame of a bounce turns the heading from the pixels around the cell the object is in: a straight vertical
 // heading flips the vertical, a straight horizontal one the horizontal, a diagonal one looks at the cells (stepping back out of the wall first when it is inside it)
 // and flips what they say was hit. The next ones wait, and the fourth gives up on the new heading and turns the old one right round.
-static void bouncepix(volatile b8 *p)
+static void __attribute__((noinline)) bouncepix(volatile b8 *p)
 {
   u x=CF[1],top=CF[2],dir=CF[3],steps=CF[4]&0x7F,div=CF[4]&0x80,maxrow=CF[5],off=CF[6],inc=CF[7],stage=CF[8];
   u half=steps>>1,col,row,t,xs,ys,left,up,mostly_y,flip,bcol,brow,mark=stage&48,grav=CF[9],gsp=CF[10];
@@ -697,22 +699,22 @@ static void bouncepix(volatile b8 *p)
   CF[2]=(stage&207)|16|((grav && flip>1)?128:0);
 }
 
-// A Bounce block and the Find playfield pixel collided with block right after it, for the same object by its Fire angle (bounceFind in
-// generators/bbasic/sprites.js), in one call: C_function[1..10] as bouncepix's, then the finder's top line, height and size bits. The pixel is looked for
-// with the heading the bounce started from (the low 4 bits of the stage byte), as the Find block does while a bounce goes on. Gives back the direction,
-// the stage byte, the column and the row in [1] to [4].
-static void bouncefind(volatile b8 *p)
+// Functions 99 (findpixel), 100 (bouncepix) and 101: a Bounce block and the Find playfield pixel collided with block right after it, for the same object by
+// its Fire angle (bounceFind in generators/bbasic/sprites.js), in one call: C_function[1..10] as bouncepix's, then the finder's top line, height and size
+// bits. The pixel is looked for with the heading the bounce started from (the low 4 bits of the stage byte), as the Find block does while a bounce goes on.
+// Gives back the direction, the stage byte (from bouncepix), the column and the row in [1] to [4]. (The three in one function, so findpixel and bouncepix
+// have one call each and are put inline, and the numbers go to findpixel as arguments, not written to C_function again: the program was 268 bytes longer.)
+static void pixops(volatile b8 *p,u op)
 {
-  u x=CF[1],steps=CF[4],maxrow=CF[5],off=CF[6],inc=CF[7],top=CF[11],height=CF[12],size=CF[13],dir,stage;
-  bouncepix(p);
-  dir=CF[1];
-  stage=CF[2];
-  CF[1]=x; CF[2]=top; CF[3]=height; CF[4]=size; CF[5]=stage&15; CF[6]=steps; CF[7]=maxrow; CF[8]=off; CF[9]=inc;
-  findpixel(p);
-  CF[3]=CF[1];
-  CF[4]=CF[2];
-  CF[1]=dir;
-  CF[2]=stage;
+  // (Function 101 has the numbers of findpixel from [4] on two places lower, and its top line, height and size bits in [11] to [13].)
+  u b=op==99?0:2,k=op==99?0:9,x=CF[1],top=CF[2+k],height=CF[3+k],size=CF[4+k],dir=CF[5];
+  if (op!=99)
+  {
+    bouncepix(p);
+    if (op==100) return;
+    dir=CF[2]&15;
+  }
+  findpixel(p,x,top,height,size,dir,CF[6-b],CF[7-b],CF[8-b],CF[9-b],op==99?1:3);
 }
 #endif
 
@@ -1048,9 +1050,7 @@ void __attribute__((section(".text.entry"))) run(void)
   else if (op==115) pfgravstep(p);
 #endif
 #ifndef NOPIX
-  else if (op==99) findpixel(p);
-  else if (op==100) bouncepix(p);
-  else if (op==101) bouncefind(p);
+  else if (op>=99&&op<=101) pixops(p,op);
 #endif
 #ifndef NOFIRE
   else if (op==102) firebatch(p);

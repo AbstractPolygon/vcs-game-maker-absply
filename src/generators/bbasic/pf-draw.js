@@ -19,7 +19,15 @@ const speedBase = () => flagPoolBit(PFD_SPEED_FAMILY, 0);
 // The asm that leaves the speed in A (0 to 15), the zero flag set when it is 0.
 const speedLoad = (Blockly) => [`lda ${speedName(Blockly)}`, ...Array(speedBase()).fill('lsr'), `and #${PFD_SPEED_MAX}`];
 const terrainDoneName = (Blockly) => Blockly.BBasic.nameDB_.getName(flagPoolVar(PFD_TERRAIN_DONE_FAMILY), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
-const terrainDoneMask = (index) => 1 << flagPoolBit(PFD_TERRAIN_DONE_FAMILY, index);
+// The bits the blocks read (see pfDrawTerrainDoneBits): only those are in the flag pool, a bit no block reads is 0 (nothing is set).
+export const TERRAIN_DONE_WHICH = {ALL: 4, BOTTOM: 0, TOP: 1, LEFT: 2, RIGHT: 3};
+export const pfDrawTerrainDoneBits = (blocks) => [...new Set(blocks.flatMap((block) => {
+  if (block.type === 'background_when_gravity_done') return [5];
+  if (block.type === 'background_generate_terrain_done' || block.type === 'background_when_terrain_done') return [TERRAIN_DONE_WHICH[block.getFieldValue('WHICH')] ?? 4];
+  return [];
+}))].sort((a, b) => a - b);
+let terrainDoneBits = PFD_TERRAIN_DONE_BITS;
+const terrainDoneMask = (index) => (terrainDoneBits.includes(index) ? 1 << flagPoolBit(PFD_TERRAIN_DONE_FAMILY, index) : 0);
 const terrainDoneAllMask = () => PFD_TERRAIN_DONE_BITS.reduce((mask, index) => mask | terrainDoneMask(index), 0);
 
 // The Draw blocks of Playfield > Utility (a pixel, a straight line, a line, an area, a circle and the fill) share one drawing engine: a block puts
@@ -112,6 +120,9 @@ const isDpcPlus = (config) => config.kernel === 'dpcplus' && !config.pxe;
 export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, kinds, blocks) => {
   if (!kinds) {
     Blockly.BBasic.pfDraw = null;
+    // (Not left from the build before.)
+    Blockly.BBasic.pfDrawTerrainDone = false;
+    Blockly.BBasic.pfDrawTerrainDoneBits = terrainDoneBits = [];
     return;
   }
   const displayRam = isDpcPlus(config);
@@ -163,6 +174,7 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
   Blockly.BBasic.pfDrawCircleOperations = new Set(drawBlocks.filter((block) => block.type === 'background_fill_circle').map((block) => block.getFieldValue('OPERATION')));
   Blockly.BBasic.pfDrawFillControls = blocks.some((block) => block.type === 'background_flood_fill_stop' || block.type === 'background_flood_fill_done');
   Blockly.BBasic.pfDrawTerrainDone = blocks.some((block) => ['background_generate_terrain_done', 'background_when_terrain_done', 'background_when_gravity_done'].includes(block.type));
+  Blockly.BBasic.pfDrawTerrainDoneBits = terrainDoneBits = pfDrawTerrainDoneBits(blocks);
 };
 
 // Where the records are: the lines that read and write them (byte i of record r), for separate bytes or the display RAM.
@@ -390,11 +402,12 @@ const buildEngine = (Blockly) => {
   // The part of a finished terrain that makes Terrain done true (the side that finished sets its bit, and bit 16 is for every terrain finished, when no other terrain waits).
   const terrainDoneLines = () => [label('tzdone'),
     // The side that finished sets its bit (1 bottom, 2 top, 4 left, 8 right); bit 16 is for every terrain finished.
-    `temp1 = ${S.read} & 3`, `temp2 = ${terrainDoneMask(0)}`, `if temp1 = 1 then temp2 = ${terrainDoneMask(1)}`, `if temp1 = 2 then temp2 = ${terrainDoneMask(2)}`,
-    `if temp1 = 3 then temp2 = ${terrainDoneMask(3)}`,
-    `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | temp2`,
-    ...Array.from({length: pfDraw.records}, (_, i) => [...header(i), 'temp1 = temp1 / 32', `if temp1 = ${KIND_NUMBER.terrain} then return thisbank`]).flat(),
-    `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | ${terrainDoneMask(4)}`, 'return thisbank'];
+    // (Only the bits a block reads: a side no block asks about sets nothing.)
+    ...([0, 1, 2, 3].some((side) => terrainDoneMask(side)) ? [`temp1 = ${S.read} & 3`, `temp2 = ${terrainDoneMask(0)}`,
+      ...[1, 2, 3].filter((side) => terrainDoneMask(side) !== terrainDoneMask(0)).map((side) => `if temp1 = ${side} then temp2 = ${terrainDoneMask(side)}`),
+      `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | temp2`] : []),
+    ...(terrainDoneMask(4) ? [...Array.from({length: pfDraw.records}, (_, i) => [...header(i), 'temp1 = temp1 / 32', `if temp1 = ${KIND_NUMBER.terrain} then return thisbank`]).flat(),
+      `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | ${terrainDoneMask(4)}`] : []), 'return thisbank'];
   // Terrain on DPC+: the coprocessor draws it all in one call as the record starts (the side is the state's low bits, the numbers of the record are in temp2 to temp6),
   // then the record leaves the queue and the state stays the terrain's: the next step (at the start of the next frame, as it is for the other kinds) tells Terrain done and the
   // next record waiting starts, so that Terrain done is true in the frame after the terrain, not at once while the frame's blocks may have gone by (the pulse is cleared at the start of the frame after).
@@ -984,8 +997,8 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
   const gdoneCall = pfDraw.terrainDone ? ['gosub _pfd_gdone'] : [];
   // The part of a finished gravity that makes the bit 5 of Terrain done true (when no other gravity waits), and the empty area that has nothing to make fall.
   const gravityDoneLines = () => (pfDraw.terrainDone ? [label('a7gz'), 'gosub _pfd_gdone', 'goto _pfd_anone', label('gdone'),
-    ...Array.from({length: pfDraw.records}, (_, i) => [...header(i), 'temp1 = temp1 / 8', 'if temp1 = 30 then return thisbank']).flat(),
-    `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | ${terrainDoneMask(5)}`, 'return thisbank'] : []);
+    ...(terrainDoneMask(5) ? [...Array.from({length: pfDraw.records}, (_, i) => [...header(i), 'temp1 = temp1 / 8', 'if temp1 = 30 then return thisbank']).flat(),
+      `${terrainDoneName(Blockly)} = ${terrainDoneName(Blockly)} | ${terrainDoneMask(5)}`] : []), 'return thisbank'] : []);
   const gravityClamp = [`if temp4 > ${maxColumn} then temp4 = ${maxColumn}`, `if temp5 > ${maxRow} then temp5 = ${maxRow}`,
     `if temp2 > temp4 then goto ${gz}`, `if temp3 > temp5 then goto ${gz}`];
   if (has('gravity') && armGravity) {

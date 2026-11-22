@@ -1457,6 +1457,8 @@ Blockly.BBasic.init = function(workspace) {
   this.titleStartDrawBlock = null;
   // The While title screen is showing blocks: their blocks run every frame of the Title Screen loop (see generateGameLoopEvent).
   this.titleShowingBlocks = codeBlocks(['titlescreen_while_showing']);
+  // A Draw title screen block inside one: it picks the page, and the loop draws the page picked (see titlescreen_draw).
+  this.titleShowingDrawUsed = codeBlocks(['titlescreen_draw']).some((block) => isInsideTitleShowing(block));
   // (An event block can follow another one in the stack, so the root block is not the event: the surrounding event_block is.)
   const eventOf = (block) => {
     let up = block;
@@ -2814,7 +2816,7 @@ Blockly.BBasic.init = function(workspace) {
     {family: SCORE_LAYOUT_FLAGS_FAMILY, bits: this.scoreLayoutKeys().slice(1).map((_, i) => i)},
     {family: TITLE_TEXT_FLAG_FAMILY, bits: this.isTitleTextUsed() ? [0] : [], first: true},
     {family: TEXT_BLINK_DONE_FAMILY, bits: this.textBlinkDoneUsed ? [0] : []},
-    {family: PFD_TERRAIN_DONE_FAMILY, bits: Blockly.BBasic.pfDrawTerrainDone ? PFD_TERRAIN_DONE_BITS : []},
+    {family: PFD_TERRAIN_DONE_FAMILY, bits: Blockly.BBasic.pfDrawTerrainDone ? Blockly.BBasic.pfDrawTerrainDoneBits : []},
     {family: PFD_SPEED_FAMILY, bits: Blockly.BBasic.pfDraw && Blockly.BBasic.pfDraw.speed ? PFD_SPEED_BITS : []},
     {family: TITLE_KERNEL_ENDED_FAMILY, bits: this.titleEndUsed ? [0] : []},
     {family: TITLE_KERNEL_LOOP_FAMILY, bits: this.titleScreenDrawUsed ? [0] : []},
@@ -6221,10 +6223,12 @@ Blockly.BBasic.generateGameLoopEvent = function(eventName) {
     if (startDrawBlock) {
       const before = Blockly.BBasic.currentEventName;
       Blockly.BBasic.currentEventName = eventName;
+      Blockly.BBasic.titleLoopDraw = true;
       try {
         innerCode += '\n' + Blockly.BBasic.blockToCode(startDrawBlock, true);
       } finally {
         Blockly.BBasic.currentEventName = before;
+        Blockly.BBasic.titleLoopDraw = false;
       }
     }
     const suffix = Blockly.BBasic.bankJumpSuffix(
@@ -10026,7 +10030,7 @@ Blockly.BBasic.generateAnimations = function() {
 import background, {backgroundGetPixelDevVarsNeeded,
   reserveShakeScreenDevVar, reserveOffsetAreaDevVars, offsetArmSharedVars, offsetByteRange, bgColorFlagBits, rainbowBackgroundBits, rainbowIdBits, BG_COLOR_FLAGS_FAMILY, BG_RAINBOW_ID_FAMILY, BG_COLOR_STEP_FAMILY, BG_SCROLL_EDGE_FAMILY, reserveBackgroundColorFlagsDevVar, bgColorFlagRef, generateShakeScreenChecks, dpcPlusScrollDivider} from './bbasic/background';
 import bit from './bbasic/bit';
-import {reservePfDrawVars, pfDrawKindsUsed, generatePfDrawStep, PFD_TERRAIN_DONE_FAMILY, PFD_TERRAIN_DONE_BITS, PFD_SPEED_FAMILY, PFD_SPEED_BITS} from './bbasic/pf-draw';
+import {reservePfDrawVars, pfDrawKindsUsed, generatePfDrawStep, PFD_TERRAIN_DONE_FAMILY, PFD_SPEED_FAMILY, PFD_SPEED_BITS} from './bbasic/pf-draw';
 import collision from './bbasic/collision';
 import color from './bbasic/color';
 import colour from './bbasic/colour';
@@ -10057,7 +10061,7 @@ import spriteOverlap from './bbasic/sprite-overlap-block';
 import subroutine from './bbasic/subroutine';
 import text from './bbasic/text';
 import textMinikernel from './bbasic/text-minikernel';
-import titlescreen, {TITLE_SCREEN_SUBROUTINE_NAME, TITLE_FADE_CHECKS_NAME} from './bbasic/titlescreen';
+import titlescreen, {TITLE_SCREEN_SUBROUTINE_NAME, TITLE_FADE_CHECKS_NAME, isInsideTitleShowing} from './bbasic/titlescreen';
 import variables from './bbasic/variables';
 import {findGameplayOnlyNames} from '../utils/title-liveness';
 import {dpcTileMarker} from '../utils/dpc-tile';

@@ -7,7 +7,7 @@ import {flagPoolVar, flagPoolBit} from './flag-pool';
 import {NARROW_TILE_WIDTH, STANDARD_TILE_LOAD_NAME, TILE_SET_FUNCTION} from './pf-tiles';
 import {OFFSET_ARM_FUNCTION, buildOffsetArmCall, ensureArmProgram, ARM_FIND_PIXEL_FUNCTION, buildPixArmCall} from './offset-arm';
 import {fireObjectName} from '../../utils/fire-object';
-import {pfDrawBlockCode, pfDrawCircleCode, pfDrawCenteredAreaCode, pfDrawStopFillCode, pfDrawSpeedCode, pfDrawFillDoneCode, pfDrawGravityDoneCode, pfDrawGravityPulseCode, pfDrawTerrainDoneCode} from './pf-draw';
+import {pfDrawBlockCode, pfDrawCircleCode, pfDrawCenteredAreaCode, pfDrawStopFillCode, pfDrawSpeedCode, pfDrawFillDoneCode, pfDrawGravityDoneCode, pfDrawGravityPulseCode, pfDrawTerrainDoneCode, TERRAIN_DONE_WHICH} from './pf-draw';
 import {EXTRA_PLAYER_NAME} from '../../utils/pxe';
 import {effectiveBackgroundRows, backgroundDataRows, backgroundFadeTimerVarName, backgroundFadePaceVarName,
   backgroundFadeTargetVarName, fadeFlagsVarName, FADE_STEPS, rowFadeStartColor, multicolorFadeVarName,
@@ -1749,11 +1749,11 @@ export default (Blockly) => {
     return pfDrawBlockCode(Blockly, 'terrain', 'on', [drawArg(block, 'MIN', '3'), drawArg(block, 'MAX', '6'), drawArg(block, 'ROUGH', '2'), `((${drawArg(block, 'OVER', '0')}) & 15) + ((${drawArg(block, 'CAVES', '0')}) & 7) * 16${block.getFieldValue('TILE') === 'TRUE' ? ' + 128' : ''}`, 'rand'], TERRAIN_SIDES[block.getFieldValue('SIDE')] || 0);
   };
   Blockly.BBasic['background_generate_terrain_done'] = function(block) {
-    return [pfDrawTerrainDoneCode(Blockly, {ALL: 4, BOTTOM: 0, TOP: 1, LEFT: 2, RIGHT: 3}[block.getFieldValue('WHICH')] ?? 4), Blockly.BBasic.ORDER_ATOMIC];
+    return [pfDrawTerrainDoneCode(Blockly, TERRAIN_DONE_WHICH[block.getFieldValue('WHICH')] ?? 4), Blockly.BBasic.ORDER_ATOMIC];
   };
   // The same as the condition block, with the blocks to run inside: they run in the one frame the condition is true.
   Blockly.BBasic['background_when_terrain_done'] = function(block) {
-    const condition = pfDrawTerrainDoneCode(Blockly, {ALL: 4, BOTTOM: 0, TOP: 1, LEFT: 2, RIGHT: 3}[block.getFieldValue('WHICH')] ?? 4);
+    const condition = pfDrawTerrainDoneCode(Blockly, TERRAIN_DONE_WHICH[block.getFieldValue('WHICH')] ?? 4);
     const body = Blockly.BBasic.statementToCode(block, 'DO').trim();
     if (condition === '0') return '';
     const number = Blockly.BBasic.blockNumbers.next();

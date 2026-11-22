@@ -1593,7 +1593,10 @@ const pickNextBank = (banks, maxBanks, textMinikernelActive, excludeBanks, minBa
     const top = textMinikernelActive ? maxBanks - 1 : maxBanks;
     const titleBank = (banks.subroutineBanks || {})[TITLE_SCREEN_SUBROUTINE_NAME];
     const fitting = [];
-    for (let bank = lowestBank; bank <= top; bank++) {
+    // (The main bank too, below the lowest bank of the others, when the assembler says it has room: in an 8K ROM it is the only other bank, and the units
+    // moved out of it all at once, by estimates, could not come back when the bank they went to was then over.)
+    const fitBanks = [...(primaryBank && primaryBank < lowestBank ? [primaryBank] : []), ...Array.from({length: Math.max(0, top - lowestBank + 1)}, (_, i) => lowestBank + i)];
+    for (const bank of fitBanks) {
       if ((excludeBanks && excludeBanks.has(bank)) || (bank === titleBank && !titleBankLastResort)) continue;
       if (knownFree[bank] !== undefined && knownFree[bank] >= unitBytes * FIT_MARGIN_RATIO + FIT_MARGIN_BYTES) fitting.push(bank);
     }
@@ -2515,7 +2518,7 @@ const buildRomInner = async () => {
             // the banks): it is left where it is, and the other units go.
             const isTitleKernel = (unit) => unit.kind === 'subroutineBanks' && unit.name === TITLE_SCREEN_SUBROUTINE_NAME;
             // (A unit that no bank is known to have room for goes after the ones that fit somewhere.)
-            const roomiest = Math.max(-1, ...Object.keys(knownFree).map(Number).filter((b) => b !== stuckBank && b >= minRelocationBankFor(config) &&
+            const roomiest = Math.max(-1, ...Object.keys(knownFree).map(Number).filter((b) => b !== stuckBank && (b >= minRelocationBankFor(config) || b === primaryBankFor(config)) &&
               b !== reservedMusicBank).map((b) => knownFree[b]));
             const fitsSomewhere = (unit) => roomiest < 0 || Object.keys(knownFree).length === 0 || sizeOf(unit.unitKey, unit.size) * FIT_MARGIN_RATIO + FIT_MARGIN_BYTES <= roomiest;
             coResidents.sort((a, b) => (isTitleKernel(a) - isTitleKernel(b)) || (!fitsSomewhere(a) - !fitsSomewhere(b)) || (b.size - a.size));

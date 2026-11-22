@@ -1140,6 +1140,9 @@ const buildDriverAsm = (selectedIdVarName, screenPlans, usedKernelKeys, playerKe
       '\tsta VBLANK',
       '\tsta ENAM0',
       '\tsta ENABL',
+      // (The game's kernel sets VDELBL every frame; left on, an ENABL write waited for the next GRP1 write, and the ball of a 48x2 graphic, turned
+      // off after the graphic's last GRP1 write, stayed on down to the next graphic.)
+      '\tsta VDELBL',
       '',
       '@title_playfield',
       `\tlda #${230 + extraTicks}`,
@@ -1432,10 +1435,11 @@ const generateTitleScreenAnimationChecks = (Blockly, cardAnimationByRef) => {
     const tick = forwardConditions.length ? ` if ${forwardConditions.join(' && ')} then ${counterVar} = ${counterVar} + 1` :
       ` ${counterVar} = ${counterVar} + 1`;
     const notReverse = reverseBit ? ` && !${reverseBit}` : '';
-    // After "play once" the counter stays on the last frame instead of starting again.
+    // After "play once" the counter stays on the last frame instead of starting again (only on a pass that counted: a counter a block put one tick before the
+    // start, 255, that has not counted yet goes round to 0 below).
     const onceIndex = (Blockly.BBasic.titleCardOnceRefs || []).indexOf(ref);
     const stopOnLast = onceIndex === -1 ? [] :
-      [` if ${counterVar} >= ${totalDuration} && ${titleCardOnceVar()}{${titleCardOnceBit(onceIndex)}}${notReverse} then ${counterVar} = ${totalDuration - 1}`];
+      [` if ${[`${counterVar} >= ${totalDuration}`, `${titleCardOnceVar()}{${titleCardOnceBit(onceIndex)}}`, ...forwardConditions].join(' && ')} then ${counterVar} = ${totalDuration - 1}`];
     // A block watching for the animation to finish: the first time the counter runs off the end, until it is
     // back at the start.
     const finishedIndex = (Blockly.BBasic.titleCardFinishedRefs || []).indexOf(ref);
@@ -1464,7 +1468,8 @@ const generateTitleScreenAnimationChecks = (Blockly, cardAnimationByRef) => {
       ...detectFinish,
       ...stopOnLast,
       ...reverseLines,
-      ` if ${counterVar} >= ${totalDuration}${notReverse} then ${counterVar} = 0`,
+      // (Only on a pass that counted: a counter put on 255 while its page is not drawn or it is held stays there, on the last frame, until it counts.)
+      ` if ${[`${counterVar} >= ${totalDuration}`, ...forwardConditions].join(' && ')} then ${counterVar} = 0`,
       ...(finishedIndex === -1 ? [] : [` if ${counterVar} = 0${notReverse} then ${finishedLatch} = 0`]),
     ];
     // The picture's frame offset and the row color list's offset and page are worked out from the counter, every pass; where those
@@ -1801,6 +1806,14 @@ const titlePlayerPageSwitch = (Blockly, screenId) => {
     ...titlePlayerCardStartLines(page.card), ...oneCopy, `@ ${skip}`].join('\n') + '\n';
 };
 
+// Whether a block is inside a While title screen is showing block.
+export const isInsideTitleShowing = (block) => {
+  for (let up = block.getSurroundParent(); up; up = up.getSurroundParent()) {
+    if (up.type === 'titlescreen_while_showing') return true;
+  }
+  return false;
+};
+
 export default (Blockly) => {
   Blockly.BBasic['titlescreen_draw'] = function(block) {
     const screenId = block.getFieldValue('SCREEN');
@@ -1829,9 +1842,30 @@ export default (Blockly) => {
     // "player0y = 24" or "temp1 = 17" after it got other numbers, and the players of Blammo were placed off the screen now and then): it is turned off
     // after the kernel. (ldx: fast fetch never changes it.)
     const callKernel = ` gosub ${TITLE_SCREEN_SUBROUTINE_NAME}${suffix}\n asm\n ifconst FASTFETCH\n ldx #255\n stx FASTFETCH\n endif\n@end\n`;
-    let draw = `${titlePlayerPageSwitch(Blockly, screenId)}${selectPage}${derive}` + (barsUsed ?
-      ' asm\n lda pfscore1\n pha\n lda pfscore2\n pha\n@end\n' + callKernel + ' asm\n pla\n sta pfscore2\n pla\n sta pfscore1\n@end\n' :
-      callKernel);
+    const kernelLines = barsUsed ?
+      ' asm\n lda pfscore1\n pha\n lda pfscore2\n pha\n@end\n' + callKernel + ' asm\n pla\n sta pfscore2\n pla\n sta pfscore1\n@end\n' : callKernel;
+    // Inside While title screen is showing the Title Screen loop draws (see generateGameLoopEvent): the block picks the page it draws from then on
+    // (its number, the players and the background color of that page) and draws nothing itself, so a frame is not drawn twice.
+    const showing = isInsideTitleShowing(block);
+    // The loop's draw when a While title screen is showing block has a Draw block: the page the blocks picked (not this block's page), with the
+    // frame offsets and the background color of whichever page that is.
+    if (Blockly.BBasic.titleLoopDraw && Blockly.BBasic.titleShowingDrawUsed) {
+      const pages = processTitleScreenStorageForBuild(useTitleScreenStorage()).screens;
+      const byPage = (lines) => (selectedIdVarName ? pages.map((page) => lines(page).map((line) => `if ${selectedIdVarName} = ${page.id} then ${line}`)).flat() :
+        lines(pages.find(({id}) => String(id) === String(screenId)) || pages[0] || {id: screenId}));
+      const bgVar = Blockly.BBasic.titleBgUsed ? Blockly.BBasic.nameDB_.getName(TITLE_BG_COLOR_VAR_NAME, Blockly.Names.DEVELOPER_VARIABLE_TYPE) : null;
+      const bgSkip = `_titleloopbg_${Blockly.BBasic.blockNumbers.next('titleloopbg')}`;
+      const bgLines = bgVar ? [`if ${titleBgOverrideVar()}{${titleBgOverrideBit()}} then goto ${bgSkip}`,
+        ...byPage((page) => [`${bgVar} = ${toColorHexByte(Number(page.backgroundColor) || 0)}`]), `@ ${bgSkip}`] : [];
+      const deriveLines = byPage((page) => (Blockly.BBasic.subroutines[titleDeriveSubroutineName(page.id)] ?
+        [`gosub ${titleDeriveSubroutineName(page.id)}${Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(),
+            Blockly.BBasic.getSubroutineBank(titleDeriveSubroutineName(page.id)))}`] : []));
+      const loopDraw = [...bgLines, ...deriveLines].map((line) => `${line}\n`).join('') + kernelLines;
+      if (!Blockly.BBasic.titleEndUsed) return loopDraw;
+      const loopSkip = `_titledraw_${Blockly.BBasic.blockNumbers.next('titledraw')}_skip`;
+      return `if ${titleKernelEndedVar()}{${titleKernelEndedBit()}} then goto ${loopSkip}\n${loopDraw}@ ${loopSkip}\n`;
+    }
+    let draw = `${titlePlayerPageSwitch(Blockly, screenId)}${selectPage}${derive}` + (showing ? '' : kernelLines);
     if (Blockly.BBasic.titleBgUsed) {
       // The driver draws the background color in this variable: the page's color, unless "Set
       // title screen background color" has taken over.
@@ -1920,19 +1954,25 @@ export default (Blockly) => {
     const counterVar = Blockly.BBasic.nameDB_.getName(
         titleCardFrameCounterVarName(ref), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
     const durations = animation.frameDurations;
-    const total = durations.reduce((sum, duration) => sum + duration, 0) || durations.length;
     // Where each frame starts. Without a hold the counter goes up before the frame is chosen, so
-    // it is set one tick early (the first frame wraps from the end).
+    // it is set one tick early (the first frame from 255, which goes round to 0: from the last tick of the count a graphic that plays once
+    // would stay on its last frame).
     const starts = durations.map((_, index) => durations.slice(0, index).reduce((sum, d) => sum + d, 0));
-    const counterFor = (index) => (hold ? starts[index] : (starts[index] + total - 1) % total);
+    const counterFor = (index) => (hold ? starts[index] : starts[index] ? starts[index] - 1 : 255);
+    // A block watching for the animation to finish sees it again: the latch is cleared, except from 255 (it is cleared at 0, and 255 has not
+    // finished anything).
+    const finishedIndex = (Blockly.BBasic.titleCardFinishedRefs || []).indexOf(ref);
+    const finishLines = (index) => (finishedIndex === -1 ? [] : [`${titleCardFinishedVar()}{${titleCardFinishedBit(finishedIndex)}} = 0`,
+      `${titleCardFinishedVar()}{${titleCardFinishedLatchBit(finishedIndex)}} = ${counterFor(index) === 255 ? 1 : 0}`]);
     const value = Blockly.BBasic.valueToCode(block, 'VALUE', Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
     const lines = [];
     const literal = /^\s*\d+\s*$/.test(value) ? Number(value) : null;
     if (literal !== null) {
-      lines.push(`${counterVar} = ${counterFor(Math.min(literal, durations.length - 1))}`);
+      lines.push(`${counterVar} = ${counterFor(Math.min(literal, durations.length - 1))}`, ...finishLines(Math.min(literal, durations.length - 1)));
     } else {
       lines.push(`temp1 = ${value}`, `if temp1 >= ${durations.length} then temp1 = ${durations.length - 1}`);
-      durations.forEach((_, index) => lines.push(`if temp1 = ${index} then ${counterVar} = ${counterFor(index)}`));
+      durations.forEach((_, index) => lines.push(`if temp1 = ${index} then ${counterVar} = ${counterFor(index)}`,
+          ...finishLines(index).map((line) => `if temp1 = ${index} then ${line}`)));
     }
     if (holdIndex !== -1) {
       lines.push(`${titleCardHoldVar()}{${titleCardHoldBit(holdIndex)}} = ${hold ? 1 : 0}`);
@@ -1949,7 +1989,8 @@ export default (Blockly) => {
   };
 
   // Starts a graphic's animation again from the beginning (or from the last frame, in reverse): the frame counter
-  // is put one tick before the start, since it moves before the frame is chosen.
+  // is put one tick before the start, since it moves before the frame is chosen (255, which goes round to 0: from the last tick of the
+  // count a graphic that plays once would stay on its last frame).
   Blockly.BBasic['titlescreen_card_animate'] = function(block) {
     const ref = block.getFieldValue('CARD');
     const animation = ref && Blockly.BBasic.titleScreenCardAnimations && Blockly.BBasic.titleScreenCardAnimations[ref];
@@ -1968,7 +2009,7 @@ export default (Blockly) => {
         `${titleAnimateVar()}{${titleAnimateRanBit(triggerIndex)}} = 1`,
         `if ${titleAnimateVar()}{${titleAnimatePreviousBit(triggerIndex)}} then goto ${skipLabel}`,
       ]),
-      `${counterVar} = ${reverse ? total : total - 1}`];
+      `${counterVar} = ${reverse ? total : 255}`];
     const holdIndex = (Blockly.BBasic.titleCardHoldRefs || []).indexOf(ref);
     if (holdIndex !== -1) lines.push(`${titleCardHoldVar()}{${titleCardHoldBit(holdIndex)}} = 0`);
     const onceIndex = (Blockly.BBasic.titleCardOnceRefs || []).indexOf(ref);
@@ -2190,12 +2231,14 @@ export default (Blockly) => {
     const slot = {...pageSlot, once: shared.once};
     if (slot.frameCount > 1) {
       // The animation plays by itself: jump its counter to where the frame starts, and it carries on from
-      // there (the counter goes up before the frame is chosen, so it is set one tick early).
+      // there (the counter goes up before the frame is chosen, so it is set one tick early; the first frame from 255, which goes round to 0: from the
+      // last tick of the count a player that plays once would stay on its last frame).
       const counterVar = Blockly.BBasic.nameDB_.getName(
           titlePlayerFrameVarName(playerIndex), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
-      const total = slot.durations.reduce((sum, duration) => sum + duration, 0);
-      const counterFor = (index) =>
-        (slot.durations.slice(0, index).reduce((sum, duration) => sum + duration, 0) + total - 1) % total;
+      const counterFor = (index) => {
+        const start = slot.durations.slice(0, index).reduce((sum, duration) => sum + duration, 0);
+        return start ? start - 1 : 255;
+      };
       const number = Blockly.BBasic.valueToCode(block, 'VALUE', Blockly.BBasic.ORDER_ASSIGNMENT) || '0';
       const literal = /^\s*\d+\s*$/.test(number) ? Number(number) : null;
       const onceLines = slot.once ?
