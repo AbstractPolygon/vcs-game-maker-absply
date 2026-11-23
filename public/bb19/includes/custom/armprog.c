@@ -298,12 +298,12 @@ static void tplot(volatile b8 *p,u c,u y)
 }
 static u tslope(u caves,u least,u most,u seed)
 {
-  u t1=B(most-least)>>3,t2=(seed>>3)&3;
+  u t1=(most-least)>>3,t2=(seed>>3)&3;
   if (t2==0) t1>>=1;
-  if (t2==3) t1=B(t1+t1);
+  if (t2==3) t1=t1+t1;
   if (t1==0) t1=1;
   if (t1>15) t1=15;
-  return B((caves&15)+B(t1*16));
+  return (caves&15)+t1*16;
 }
 static void terrain(volatile b8 *p)
 {
@@ -336,56 +336,60 @@ static void terrain(volatile b8 *p)
       {
         if (params&128) break;
         t1=ledge;
-        if (t1==0||pixel>=t1) break;
-        // (An overhang to the right gets thinner toward its tip, one to the left (high nibble of over 2 or more: its length less 1) thicker toward the hill.)
+        if (t1==0) break;
+        // (An overhang to the right gets thinner toward its tip, one to the left (high nibble of over 2 or more: its length less 1) thicker toward the hill: t4 is the
+        // positions from the tip.) The top sinks toward the tip, half a pixel a position, a pixel more half the time, where the ledge stays a pixel over the ground
+        // with its thickness (see _pfd_u3x in pf-draw.js). (Small numbers: no byte wraps here.)
         t3=over>>4;
-        t2=B(B((ledge>>4)+1)+(t3>=2?B(t3-(over&15)):(over&15)));
-        t2=B(t1-t2);
-        if (t2>t1) t2=0;
-        if (pixel<t2) pixel=t2;
+        t4=t3>=2?t3-(over&15):(over&15);
+        t2=(ledge>>4)+1+t4;
+        t4=((6-t4)>>1)+((seed>>5)&1);
+        if (t4<t1&&t1-t4>depth+t2) t1-=t4;
+        if (pixel>=t1) break;
+        if (t2<t1&&pixel<t1-t2) pixel=t1-t2;
       }
-      if (!horiz) { x=pos; y=first?pixel:B(maxRow-pixel); }
-      else { y=pos; x=first?B(maxCol-pixel):pixel; }
+      if (!horiz) { x=pos; y=first?pixel:maxRow-pixel; }
+      else { y=pos; x=first?maxCol-pixel:pixel; }
       tplot(p,x,y);
-      pixel=B(pixel+1);
+      pixel=pixel+1;
       if (params&128)
       {
         t1=over>>4;
-        t3=B(B(ledge-t1)>>1);
-        t3=B((depth>>1)+t3);
-        if (pixel==t3) pixel=B(pixel+t1);
+        t3=(ledge-t1)>>1;
+        t3=(depth>>1)+t3;
+        if (pixel==t3) pixel=pixel+t1;
       }
     }
     // The next position.
-    pos=B(pos+1);
+    pos=pos+1;
     if (pos>last) return;
     t5=B(seed*2); seed^=t5;
     t5=seed>>1; seed^=t5;
     t5=B(seed*4); seed^=t5;
     if (caves&8)
     {
-      t1=B(last-pos);
+      t1=last-pos;
       t3=caves>>4;
       if (t3>=2) t1=B(t1+t1);
       if (t3>=4) t1=B(t1+t1);
       if (t3>=8) t1=B(t1+t1);
       t4=B(least+most)>>1;
-      t5=depth>t4?B(depth-t4):B(t4-depth);
+      t5=depth>t4?depth-t4:t4-depth;
       if (t5>t1)
       {
-        t5=B(t5-t1);
-        if (depth>t4) { depth=B(depth-t5); deeper=0; }
-        else { depth=B(depth+t5); deeper=1; }
+        t5=t5-t1;
+        if (depth>t4) { depth=depth-t5; deeper=0; }
+        else { depth=depth+t5; deeper=1; }
         goto k;
       }
     }
     t5=seed>>5;
-    t6=B(((params&127)>>3)*2);
+    t6=((params&127)>>3)*2;
     if (t5==0) goto f;
     if (t6>=6)
     {
       t1=seed&7;
-      t2=B((t6>>1)-2);
+      t2=(t6>>1)-2;
       if (t1<t2) goto f;
     }
   q2:
@@ -399,9 +403,9 @@ static void terrain(volatile b8 *p)
     if (t1==0) t1=1;
     if (deeper) goto d;
     if (depth<=least) goto t;
-    t2=B(depth-least);
+    t2=depth-least;
     if (t2<t1) t1=t2;
-    depth=B(depth-t1);
+    depth=depth-t1;
     goto k;
   t:
     if (least>=most) goto k;
@@ -410,9 +414,9 @@ static void terrain(volatile b8 *p)
     goto mv;
   d:
     if (depth>=most) goto b;
-    t2=B(most-depth);
+    t2=most-depth;
     if (t2<t1) t1=t2;
-    depth=B(depth+t1);
+    depth=depth+t1;
     goto k;
   b:
     if (least>=most) goto k;
@@ -420,8 +424,8 @@ static void terrain(volatile b8 *p)
     caves=tslope(caves,least,most,seed);
     goto mv;
   f:
-    t1=B((caves>>4)*2);
-    if (deeper) t2=B(depth-least); else t2=B(most-depth);
+    t1=(caves>>4)*2;
+    if (deeper) t2=depth-least; else t2=most-depth;
     if (t2<t1)
     {
       if (t5==0) goto k;
@@ -435,47 +439,44 @@ static void terrain(volatile b8 *p)
     t1=params&7;
     if (t1==0) goto v;
     if (depth<=3) continue;
-    t1=B(t1*3);
+    t1=t1*3;
     t2=seed&15;
     if (t2>=t1) goto v;
-    t4=B(((seed>>2)&3)+3);
-    if (deeper) goto lo;
-    // The ground drops under the ledge by more than the ledge is thick (see the overhang start in pf-draw.js), so a void shows under it.
-    if (depth<=least) goto v;
-    t1=B((depth>>4)+t4);
-    t2=B(B((depth>>3)+t1)+2);
-    t3=B(depth-least);
+    t4=((seed>>2)&3)+3;
+    // The ground drops under the ledge by more than the ledge is thick (see the overhang start in pf-draw.js), so a void shows under it. Where the ground is rising,
+    // an overhang to the left: the ground stays low for the length of it, under a ledge at the height it goes up to (thin at its tip, thicker toward the hill), and
+    // goes up there at the end (see r).
+    if (deeper?depth>=most:depth<=least) goto v;
+    t1=(depth>>4)+t4;
+    t2=(depth>>3)+t1+2;
+    t3=deeper?most-depth:depth-least;
     if (t2>t3) t2=t3;
     if (t2<=t1) goto v;
-    ledge=depth;
-    depth=B(depth-t2);
-    over=B(t4+16);
-    goto r;
-  lo:
-    // Where the ground is rising, an overhang to the left: the ground stays low for the length of it, under a ledge at the height it goes up to (thin at its tip,
-    // thicker toward the hill), and goes up there at the end (see r).
-    if (depth>=most) goto v;
-    t1=B((depth>>4)+t4);
-    t2=B(B((depth>>3)+t1)+2);
-    t3=B(most-depth);
-    if (t2>t3) t2=t3;
-    if (t2<=t1) goto v;
-    ledge=B(depth+t2);
-    over=B(t4+B((t4-1)*16));
+    if (deeper)
+    {
+      ledge=depth+t2;
+      over=t4+(t4-1)*16;
+    }
+    else
+    {
+      ledge=depth;
+      depth=depth-t2;
+      over=t4+16;
+    }
     goto r;
   v:
     t1=caves&7;
     if (t1==0) continue;
     if (depth<8) continue;
-    t1=B(t1*4);
+    t1=t1*4;
     t2=seed>>4;
     if (t2>=t1) continue;
     params|=128;
-    t3=B((depth>>2)+((seed>>4)&1));
+    t3=(depth>>2)+((seed>>4)&1);
     if (t3>15) t3=15;
     if (t3==0) t3=1;
     ledge=t3;
-    t4=B(((seed>>2)&3)+2);
+    t4=((seed>>2)&3)+2;
     over=t4;
   r:
     if ((over&15)==0)
@@ -486,7 +487,7 @@ static void terrain(volatile b8 *p)
       params&=127;
       continue;
     }
-    over=B(over-1);
+    over=over-1;
     if (!(params&128)) continue;
     t1=over&15;
     t2=ledge;
@@ -496,7 +497,7 @@ static void terrain(volatile b8 *p)
       t2>>=1;
       if (t2==0) t2=1;
     }
-    over=B(t1+B(t2*16));
+    over=t1+t2*16;
   }
 }
 

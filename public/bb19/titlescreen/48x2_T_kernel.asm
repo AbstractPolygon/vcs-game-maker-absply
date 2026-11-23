@@ -75,7 +75,9 @@ draw_bmp_48x2_T
 	SLEEP 32		;   (65)
 	jmp pf48x2_T_loop	;3 (68)
 
- if >. != >[.+$50]
+ ; (The loop is $6D bytes: its start and the byte after its bne on one page, or the branch takes a cycle more and every row starts a cycle later than
+ ; the one before, which smears the graphic to the right.)
+ if >. != >[.+$6D]
 	align 256
  endif
 pf48x2_T_loop
@@ -136,6 +138,10 @@ pf48x2_T_loop
 	sta.w COLUPF		;4 (63)
 	tsx			;2 (65)
 	bne pf48x2_T_loop	;3 (68)
+ if >pf48x2_T_loop != >.
+	echo "ERROR: the two-tone 48x2 loop crosses a page"
+	err
+ endif
 
 	ldx #255
 	stx FASTFETCH

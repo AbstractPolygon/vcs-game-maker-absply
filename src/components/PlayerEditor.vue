@@ -257,6 +257,20 @@
                     >16px</v-btn>
                   </v-btn-toggle>
 
+                  <!-- DPC+ and PXE: each row of the animation 2 lines tall (the standard kernel's look) or 1 line (twice the rows in the same
+                       height). The grid shows a 1 line row half as tall. See utils/sprite-lines.js. -->
+                  <v-btn-toggle
+                    v-if="!isCollapsed(animation) && isDpcPlus"
+                    :value="animation.singleHeight ? 1 : 2"
+                    class="animation-preview-scale-toggle"
+                    dense
+                    mandatory
+                    @change="(lines) => handleSetSingleHeight(animation, lines === 1)"
+                  >
+                    <v-btn :value="2" x-small title="Each row 2 lines tall (as on the standard kernel)">2 lines</v-btn>
+                    <v-btn :value="1" x-small title="Each row 1 line tall: twice the rows in the same height (DPC+ and PXE)">1 line</v-btn>
+                  </v-btn-toggle>
+
                   <div class="animation-corner-toolbar">
                     <confirm-delete-menu
                       v-if="state.animations.length > 1"
@@ -377,7 +391,7 @@
                         :key="widthOfAnimation(animation)"
                         :width="widthOfAnimation(animation)"
                         :height="frame.pixels.length || 1"
-                        :aspectRatio="(widthOfAnimation(animation) / (frame.pixels.length || 1)) * (animation.previewWidthScale || 1) * CLOCK_ASPECT_PER_LINE_PAIR"
+                        :aspectRatio="(widthOfAnimation(animation) / (frame.pixels.length || 1)) * (animation.previewWidthScale || 1) * CLOCK_ASPECT_PER_LINE_PAIR * (isDpcPlus && animation.singleHeight ? 2 : 1)"
                         v-model="frame.pixels"
                         :fgColor="fgColor"
                         :rowColors="editorRowColors(frame)"
@@ -1374,6 +1388,13 @@ export default defineComponent({
       instance.proxy.$forceUpdate();
     };
 
+    // DPC+ and PXE: the animation's rows a line tall each, or 2 (see utils/sprite-lines.js).
+    const handleSetSingleHeight = (animation, single) => {
+      Vue.set(animation, 'singleHeight', single);
+      handleChildChange();
+      instance.proxy.$forceUpdate();
+    };
+
     const handleSetPreviewScale = (animation, scale) => {
       animation.previewWidthScale = scale;
       handleChildChange();
@@ -1482,7 +1503,7 @@ export default defineComponent({
       handleAddFrame, handleDeleteFrame,
       handleImportAnimationFrames, replaceFramesOnImport, keepColorsOnImport, importMenuOpenAnimationId,
       handleImportAsepriteSheet, asepriteReplaceAnimations, asepriteImportMenuOpen,
-      handleAddAnimation, handleDeleteAnimation, handleDuplicateAnimation, handleSetPreviewScale, handleSetWide, handleImportSpriteFiles,
+      handleAddAnimation, handleDeleteAnimation, handleDuplicateAnimation, handleSetPreviewScale, handleSetWide, handleSetSingleHeight, handleImportSpriteFiles,
       widthOfAnimation, isDpcPlus, CLOCK_ASPECT_PER_LINE_PAIR,
       testingId, buildInProgress, handleTestAnimation,
       handleRowColorsInput, handleMoveRows, handleFlipRowColors, handleClearRowColors, editorRowColors, spriteColorsEnabled,

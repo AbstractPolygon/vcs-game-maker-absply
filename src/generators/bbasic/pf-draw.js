@@ -146,7 +146,7 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
   const workOf = (kind) => {
     if ((kind === 'circle' && armCircle && !circleSpread) || (kind === 'terrain' && armTerrain)) return 0;
     // (Over time, the frames left before its next step are its last work byte: see gravityTick below.)
-    if (kind === 'gravity') return armGravity ? (gravityAnim ? 6 : 0) : (gravityAnim ? 8 : 6);
+    if (kind === 'gravity') return armGravity ? (gravityAnim ? 6 : 0) : (gravityAnim ? 7 : 6);
     // (The circle that is kept round also keeps the distance of its row, bit 7 set: it is.)
     if (kind === 'circle' && circleStretch) return WORK_BYTES.circle + 1;
     return WORK_BYTES[kind];
@@ -164,7 +164,7 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
   const work = Array.from({length: workBytes}, (_, i) => reserveDevVarRW(`pfdWork${i}`, 'playfield drawing: what the work being drawn keeps'));
   // The playfield gravity over time: the frames left before its next step, a work byte (after the ones of its area), counted down once a frame only while the
   // gravity is the work being drawn (see generatePfDrawStep).
-  const gravityTick = gravityAnim ? work[armGravity ? 5 : 7] : null;
+  const gravityTick = gravityAnim ? work[armGravity ? 5 : 6] : null;
   const queue = displayRam ? null : Array.from({length: records}, (_, r) => Array.from({length: recordBytes}, (_, i) =>
     reserveDevVarRW(`pfdQueue${r}_${i}`, 'playfield drawing: a waiting Draw block\'s record')));
   const seedBytes = Array.from({length: seeds}, (_, s) => [work[FILL_KEEPS + 2 * s], work[FILL_KEEPS + 2 * s + 1]]);
@@ -528,7 +528,6 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         `if ${params.read}{7} then goto _pfd_u3n`,
         `temp1 = ${ledge.read}`,
         'if temp1 = 0 then goto _pfd_u3n',
-        `if ${pixel.read} >= temp1 then goto _pfd_u3n`,
         `temp2 = ${ledge.read} / 16`,
         'temp2 = temp2 + 1',
         // (The ledge is thicker where it leaves the hill and thinner toward its tip: the positions the overhang goes on for are added to it.)
@@ -537,6 +536,18 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         `temp4 = ${over.read} / 16`,
         'if temp4 >= 2 then temp3 = temp4 - temp3',
         'temp2 = temp2 + temp3',
+        // The top of the ledge is not flat: it sinks toward the tip, half a pixel for each position from the tip under 6 (temp3), a pixel more half the time, where the
+        // ledge stays more than a pixel over the ground under it with its thickness (as the coprocessor's terrain does on DPC+, armprog.c).
+        'if temp3 > 6 then goto _pfd_u3xt',
+        'temp5 = 6 - temp3',
+        'temp5 = temp5 / 2',
+        `if ${seed.read}{5} then temp5 = temp5 + 1`,
+        'if temp5 >= temp1 then goto _pfd_u3xt',
+        `temp6 = ${depth.read} + temp2`,
+        'temp3 = temp1 - temp5',
+        'if temp3 > temp6 then temp1 = temp3',
+        label('u3xt'),
+        `if ${pixel.read} >= temp1 then goto _pfd_u3n`,
         'temp2 = temp1 - temp2',
         'if temp2 > temp1 then temp2 = 0',
         `if ${pixel.read} < temp2 then ${pixel.write} = temp2`,
@@ -999,10 +1010,11 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
   // All at once: the columns go one after the other, each from its lowest row up: a pixel that is on moves down to the lowest row not taken (it and that row are
   // flipped), and the row after is the one above. A pixel a step. Kept: the column, the row, the row the next pixel lands on, the last column, the first row and
   // the last row. On DPC+ the coprocessor does it all in one call as the record starts (function 114 of armprog.c).
-  // Over time (state bit 0): every row from the one above the last up to the first, a pixel a step left to right: a pixel that is on with a pixel that is off under
-  // it moves down one row. After a whole pass the wait is the number of frames (the byte counted down once a frame, see generatePfDrawStep), and the passes go on
-  // until one moves nothing (state bit 1 is set when a pixel moves). Kept: the column, the row (the upper one of the two), the first column, the last column, the
-  // first row, the last row and the frames; on DPC+ (the coprocessor's function 115 does a whole pass) the four of the area and the frames.
+  // Over time (state bit 0): every row from the one above the last up to the first, a row a step (the standard kernel a byte of 8 columns at a time, PXE a
+  // pixel at a time through the coprocessor's functions): a pixel that is on with a pixel that is off under it moves down one row. After a whole pass the wait is
+  // the number of frames (the byte counted down once a frame, see generatePfDrawStep), and the passes go on until one moves nothing (state bit 1 is set when a
+  // pixel moves). Kept: the frames (in the column's byte), the row (the upper one of the two), the first column, the last column, the first row and the last
+  // row; on DPC+ (the coprocessor's function 115 does a whole pass) the four of the area and the frames.
   const anim = pfDraw.gravityAnim;
   const tick = pfDraw.gravityTick;
   const gz = pfDraw.terrainDone ? '_pfd_a7gz' : '_pfd_anone';
@@ -1040,7 +1052,9 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
           'if temp1 = 0 then goto _pfd_u7gf', set(tick, adl.read), 'return'] : []),
         ...gravityDoneLines());
   } else if (has('gravity')) {
-    const [gc, gr, gl, gx, gt, gb, gd] = W;
+    // (Over time the column byte keeps the frames between passes: a step does a whole row.)
+    const [gc, gr, gl, gx, gt, gb] = W;
+    const gd = gc;
     // A pixel is cleared and another set (not flipped: the pixel's place is the same code for each).
     add(label('gclr'),
         ...(ownPlayfield ? [['asm', ...place, 'lda _pfd_bit,x', 'eor #255', 'and playfield,y', `sta ${writeBase},y`, 'rts', '@end'].join('\n')] : ['pfpixel temp1 temp2 off', 'return thisbank']),
@@ -1051,7 +1065,7 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         ...(anim ? ['if temp6 > 0 then goto _pfd_a7ga'] : []),
         set(gc, 'temp2'), set(gr, 'temp5'), set(gl, 'temp5'), set(gx, 'temp4'), set(gt, 'temp3'), set(gb, 'temp5'),
         'goto _pfd_shift',
-        ...(anim ? [label('a7ga'), 'if temp3 >= temp5 then goto ' + gz, set(gc, 'temp2'), set(gr, 'temp5 - 1'), set(gl, 'temp2'), set(gx, 'temp4'), set(gt, 'temp3'), set(gb, 'temp5'),
+        ...(anim ? [label('a7ga'), 'if temp3 >= temp5 then goto ' + gz, set(gr, 'temp5 - 1'), set(gl, 'temp2'), set(gx, 'temp4'), set(gt, 'temp3'), set(gb, 'temp5'),
           set(gd, 'temp6'), set(tick, 0), set(S, `${S.read} | 1`), 'goto _pfd_shift'] : []),
         ...(has('fill') ? [] : [label('u7')]), label('u7g'),
         ...(anim ? [`if ${S.read}{0} then goto _pfd_u7ga`] : []),
@@ -1072,22 +1086,41 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         set(gr, gb.read), set(gl, gb.read),
         'return thisbank',
         ...(pfDraw.terrainDone ? [label('u7gz'), 'gosub _pfd_gdone', 'goto _pfd_unone'] : []),
-        // Over time: the pixel (column, row) with the one under it.
+        // Over time: the row (the upper one of the two) with the one under it, the whole row in a step.
         ...(anim ? [label('u7ga'),
           `if ${tick.read} > 0 then return thisbank`,
-          `temp1 = ${gc.read}`, `temp2 = ${gr.read}`, 'gosub _pfd_test',
-          'if temp4 = 0 then goto _pfd_u7an',
-          `temp1 = ${gc.read}`, `temp2 = ${gr.read} + 1`, 'gosub _pfd_test',
-          'if temp4 <> 0 then goto _pfd_u7an',
-          `temp1 = ${gc.read}`, `temp2 = ${gr.read}`, 'gosub _pfd_gclr',
-          `temp1 = ${gc.read}`, `temp2 = ${gr.read} + 1`, 'gosub _pfd_gset',
-          set(S, `${S.read} | 2`),
-          label('u7an'),
-          `if ${gc.read} >= ${gx.read} then goto _pfd_u7ar`,
-          set(gc, `${gc.read} + 1`),
-          'return thisbank',
+          ...(ownPlayfield ? [
+            // The standard kernel: a byte (8 columns) at a time, the pixels that fall the ones on above off: m = upper & ~lower & the area's columns;
+            // lower | m, upper & ~m. The columns of byte k (k * 8 to k * 8 + 7) in the area give the mask from two tables (the bytes 1 and 3 go the other
+            // way round: the second half of each table). temp3: k * 8; temp4: the first column of the area in the byte; temp5: the mask; temp6: the half.
+            ['asm', `lda ${gr.read}`, 'asl', 'asl', 'tay', 'lda #0', 'sta temp3',
+              '@_pfd_grk', `lda ${gl.read}`, 'sec', 'sbc temp3', 'bcs _pfd_gra', 'lda #0', '@_pfd_gra', 'cmp #8', 'bcs _pfd_grn', 'sta temp4',
+              'lda temp3', 'and #8', 'sta temp6',
+              `lda ${gx.read}`, 'sec', 'sbc temp3', 'bcc _pfd_grn', 'cmp #8', 'bcc _pfd_grb', 'lda #7', '@_pfd_grb',
+              'ora temp6', 'tax', 'lda _pfd_gR,x', 'sta temp5', 'lda temp4', 'ora temp6', 'tax', 'lda _pfd_gL,x', 'and temp5', 'sta temp5',
+              'lda playfield+4,y', 'eor #255', 'and playfield,y', 'and temp5', 'beq _pfd_grn',
+              'sta temp5', 'ora playfield+4,y', `sta ${writeBase}+4,y`, 'lda temp5', 'eor #255', 'and playfield,y', `sta ${writeBase},y`,
+              `lda ${S.read}`, 'ora #2', `sta ${S.write}`,
+              '@_pfd_grn', 'iny', 'lda temp3', 'clc', 'adc #8', 'sta temp3', 'cmp #32', 'bcc _pfd_grk',
+              'jmp ._pfd_u7ar',
+              // (From the first column of the byte on, and up to its last: bytes 0 and 2 have column 0 in bit 7, bytes 1 and 3 in bit 0.)
+              '@_pfd_gL', '.byte $FF,$7F,$3F,$1F,$0F,$07,$03,$01,$FF,$FE,$FC,$F8,$F0,$E0,$C0,$80',
+              '@_pfd_gR', '.byte $80,$C0,$E0,$F0,$F8,$FC,$FE,$FF,$01,$03,$07,$0F,$1F,$3F,$7F,$FF', '@end'].join('\n')] : [
+                // PXE: a pixel at a time through the coprocessor's functions, the column in temp6 (the test, the clear and the set leave it alone).
+                `temp6 = ${gl.read}`,
+                label('u7ac'),
+                'temp1 = temp6', `temp2 = ${gr.read}`, 'gosub _pfd_test',
+                'if temp4 = 0 then goto _pfd_u7an',
+                'temp1 = temp6', `temp2 = ${gr.read} + 1`, 'gosub _pfd_test',
+                'if temp4 <> 0 then goto _pfd_u7an',
+                'temp1 = temp6', `temp2 = ${gr.read}`, 'gosub _pfd_gclr',
+                'temp1 = temp6', `temp2 = ${gr.read} + 1`, 'gosub _pfd_gset',
+                set(S, `${S.read} | 2`),
+                label('u7an'),
+                `if temp6 >= ${gx.read} then goto _pfd_u7ar`,
+                'temp6 = temp6 + 1',
+                'goto _pfd_u7ac']),
           label('u7ar'),
-          set(gc, gl.read),
           `if ${gr.read} = ${gt.read} then goto _pfd_u7ap`,
           set(gr, `${gr.read} - 1`),
           'return thisbank',
