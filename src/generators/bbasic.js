@@ -93,7 +93,7 @@ import {processPlayerAnimationsStorageDefaults, generateRomNoiseChecks, generate
   generateRainbowColorGraphics, rainbowColorNeedsPlayerColors, rainbowColorNeedsPlayer1Colors,
   reserveRomNoiseDevVars, reserveRainbowColorDevVars, reserveBackgroundRainbowDevVars,
   ROM_NOISE_FLAGS_FAMILY, MISSILE_FIRE_FLAGS_FAMILY, FIRE_OFFSCREEN_FLAGS_FAMILY, fireOffscreenFlagsVarName, SEEK_FLAGS_FAMILY, SEEK_AXIS_FAMILY, SEEK_ARRIVED_FLAGS_FAMILY,
-  SPRITE_SCROLL_FLAGS_FAMILY, SPRITE_HIDDEN_FLAGS_FAMILY, hasHiddenFlag, hiddenFlagRef, INERTIA_ACCEL_FLAGS_FAMILY, INERTIA_DECEL_FLAGS_FAMILY, OBJECT_GRAVITY_FLAGS_FAMILY, OBJECT_GRAVITY_RAN_FAMILY, OBJECT_GRAVITY_RAN_LAST_FAMILY,
+  SPRITE_SCROLL_FLAGS_FAMILY, SPRITE_HIDDEN_FLAGS_FAMILY, hasHiddenFlag, hiddenFlagRef, INERTIA_ACCEL_FLAGS_FAMILY, INERTIA_DECEL_FLAGS_FAMILY, OBJECT_GRAVITY_FLAGS_FAMILY, OBJECT_GRAVITY_RAN_FAMILY, OBJECT_GRAVITY_RAN_LAST_FAMILY, OBJECT_GRAVITY_BACKOUT_FAMILY, stopGravityBackOutNames,
   romNoiseOwnBit, rainbowColorOwnBit, BACKGROUND_RAINBOW_OWN_BIT, BACKGROUND_RAINBOW_LOADED_BIT, backgroundRainbowLoadedBit, romNoiseFlagsVarName, RAINBOW_EXTRA_FAMILY, missileFireOwnBit, spriteOwnBit,
   backgroundColorTableLoVarName, backgroundColorTableHiVarName, BACKGROUND_RAINBOW_RESTORE_NAME,
   missileFireDirVarName, generateMissileFireChecks, generateBounceStageChecks, reserveMissileFireDevVars, reserveMissileBounceDevVars,
@@ -1293,6 +1293,13 @@ Blockly.BBasic.init = function(workspace) {
       params.angle.add(numberOf('ANGLE', (n) => ((Math.round(n) % 256) + 256) % 256));
     }
   });
+  // The objects pulled down that a Stop gravity block in a When ... collides with playfield block can stop: taken back out of the playfield (see OBJECT_GRAVITY_BACKOUT_FAMILY), with
+  // the box test.
+  this.objectGravityBackOut = new Set(workspace.getAllBlocks(false).filter((block) => block.isEnabled() && !block.getInheritedDisabled())
+      .flatMap((block) => stopGravityBackOutNames(block)).filter((name) => this.objectGravityUsedFor.has(name) &&
+      // (Pulled down: taken back up. A pull in another direction is left as it is.)
+      this.objectGravityParams[name].angle.size === 1 && this.objectGravityParams[name].angle.has(128)));
+  this.objectGravityBackOut.forEach((name) => this.pfBoxPlayers.add(name));
 
   // Same early block-type pre-scan reasoning as above, for CTRLPF's  RAM
   // shadow (see reserveCtrlpfShadowDevVar's  comment in generators/
@@ -2811,6 +2818,7 @@ Blockly.BBasic.init = function(workspace) {
     {family: INERTIA_ACCEL_FLAGS_FAMILY, bits: ownBits(this.inertiaAccelUsedFor, spriteOwnBit, INERTIA_ACCEL_FLAGS_FAMILY, 'this.inertiaAccelUsedFor'), phase: 'game'},
     {family: INERTIA_DECEL_FLAGS_FAMILY, bits: ownBits(this.inertiaDecelUsedFor, spriteOwnBit, INERTIA_DECEL_FLAGS_FAMILY, 'this.inertiaDecelUsedFor'), phase: 'game'},
     {family: OBJECT_GRAVITY_FLAGS_FAMILY, bits: ownBits(this.objectGravityUsedFor, spriteOwnBit, OBJECT_GRAVITY_FLAGS_FAMILY, 'this.objectGravityUsedFor'), phase: 'game'},
+    {family: OBJECT_GRAVITY_BACKOUT_FAMILY, bits: ownBits(this.objectGravityBackOut, spriteOwnBit, OBJECT_GRAVITY_BACKOUT_FAMILY, 'this.objectGravityBackOut'), phase: 'game'},
     {family: OBJECT_GRAVITY_RAN_FAMILY, bits: ownBits(this.objectGravityUsedFor, spriteOwnBit, OBJECT_GRAVITY_RAN_FAMILY, 'this.objectGravityUsedFor'), phase: 'game'},
     {family: OBJECT_GRAVITY_RAN_LAST_FAMILY, bits: ownBits(this.objectGravityUsedFor, spriteOwnBit, OBJECT_GRAVITY_RAN_LAST_FAMILY, 'this.objectGravityUsedFor'), phase: 'game'},
     {family: SCORE_LAYOUT_FLAGS_FAMILY, bits: this.scoreLayoutKeys().slice(1).map((_, i) => i)},

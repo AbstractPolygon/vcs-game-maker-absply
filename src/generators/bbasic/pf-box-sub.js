@@ -156,7 +156,9 @@ export const callPfBox = (Blockly, player, feet = false, quick = false, narrow =
     const frac = geometry.dpcPlusRows ? geometry.dpcPlusRows.frac : 0;
     const shiftRows = frac > 0 && Number.isInteger(256 / frac) && ((256 / frac) & (256 / frac - 1)) === 0;
     let armBox = false;
-    if (armPlayer && (frac > 0 || groupRows)) {
+    // (pfBoxArmOff: the program with the box test is too big for a bank, see armProgramOf in rom.js; the 6502 tests the box then, but not with groups of
+    // columns that have separate rows, which only the coprocessor knows.)
+    if (armPlayer && (frac > 0 || groupRows) && !(Blockly.BBasic.pfBoxArmOff && !groupRows)) {
       armBox = true;
       ensureArmProgram(Blockly, {inc: frac, maxRow: geometry.maxRow, clamp: groupRows || !shiftRows, groups: groupRows}, 'b');
       Blockly.BBasic.pfBoxArm = true;

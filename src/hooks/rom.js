@@ -22,7 +22,7 @@ import BlocklyBB, {RELOCATABLE_EVENT_NAMES, SYSTEM_VARIABLES} from '../generator
 import {processPlayerAnimationsStorageDefaults} from '../generators/bbasic/sprites';
 import {getFastMathSiblingFiles, getPxeMathSiblingFiles, fastMathOn} from '../utils/fast-math';
 import {getDpcPlusProgramSiblingFile} from '../utils/dpc-program';
-import {patchArmProgramAddress, fillArmProgram} from '../generators/bbasic/offset-arm';
+import {patchArmProgramAddress, fillArmProgram, armProgramOf, ARM_PROGRAM_BANK_ROOM} from '../generators/bbasic/offset-arm';
 import {getDpcPlusNoScoreSiblingFiles} from '../utils/dpc-noscore';
 import {getDpcPlusSquishSiblingFiles} from '../utils/dpc-squish';
 import {getDpcPlusAudioSiblingFiles} from '../generators/bbasic/dpcplus-audio';
@@ -1804,6 +1804,7 @@ const buildRomInner = async () => {
   // How many bytes over a bank the Titlescreen Kernel was when it was moved by itself (0 when it never overflowed one).
   let titleOverBytes = 0;
   BlocklyBB.displayRamExcludedSeed = null;
+  BlocklyBB.pfBoxArmOff = false;
 
   // Tracks every bank each unit has already been tried in during THIS
   // build (keyed by "kind:name"), so the fallback below (see its
@@ -1939,7 +1940,15 @@ const buildRomInner = async () => {
     // pair a ROM built for one standard with the emulator spec of the other.
     let buildTvSpec;
     try {
-      code = await fillArmProgram(regenerateCode());
+      let generated = regenerateCode();
+      // A coprocessor program with the playfield box test that is too big for a bank (it is data alone in a bank): the box tests are done by the 6502.
+      const program = await armProgramOf(generated);
+      if (program && program.size > ARM_PROGRAM_BANK_ROOM && program.key.includes('b') && !BlocklyBB.pfBoxArmOff) {
+        BlocklyBB.pfBoxArmOff = true;
+        appendCompileLog(`The coprocessor program (${program.size} bytes) is too big for a bank: the playfield box tests are done by the 6502.`);
+        generated = regenerateCode();
+      }
+      code = await fillArmProgram(generated);
       buildTvSpec = emulatorTvSpec(useConfigurationStorage().value || {});
       useGeneratedBasic().value = code;
       markGeneratedFresh();

@@ -57,6 +57,16 @@ const loadProgram = (key) => {
   return programFiles[key];
 };
 
+// The most a program can be: it is data alone in a bank, and an empty DPC+ bank has 3915 bytes of room (less the align and a statement before it).
+export const ARM_PROGRAM_BANK_ROOM = 3900;
+
+// The name and size of the program the generated code asks for (null when it has none).
+export const armProgramOf = async (code) => {
+  const match = ARM_PROGRAM_LINE.exec(code);
+  if (!match) return null;
+  return {key: match[1], size: (await loadProgram(match[1])).length};
+};
+
 // The generated code with the line of the program put over by its bytes.
 export const fillArmProgram = async (code) => {
   const match = ARM_PROGRAM_LINE.exec(code);

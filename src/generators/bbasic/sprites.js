@@ -35,6 +35,7 @@ const rawAsmLines = (lines) => {
 const pfRowDivisorFor = (config) => Math.max(1, Math.round(exactRowDivisorFor(config)));
 import {flagPoolVar, flagPoolBit} from './flag-pool';
 import {PF_BOX_X, PF_BOX_Y, PF_BOX_HIT, callPfBox} from './pf-box-sub';
+import {ANY_SPRITE_NAMES} from './collision-names';
 import {fadeFlagsVarName, fadeActiveBit, effectiveBackgroundRows} from '../../blocks/background';
 
 // The high byte of the pointers of the noise (memory read as graphics or colors): DPC+ reads the display memory at $04xx; PXE reads a page of
@@ -580,6 +581,23 @@ export const objectGravityBit = (name) => flagPoolBit(OBJECT_GRAVITY_FLAGS_FAMIL
 // Start gravity turns the gravity on in the first frame it runs and not while it keeps running every frame: a Start sets the "ran" bit of the object, and
 // turns the gravity on when the bit was not set at the end of the last frame (once a frame, in generateGravityChecks, the bits move from "ran" to "ran last frame").
 export const OBJECT_GRAVITY_RAN_FAMILY = 'objectGravityRan';
+// A Stop gravity block inside a "When ... collides with playfield" block: the hardware collision is only seen once the object is in the playfield (by up to its fall
+// speed), so the Stop sets the object's bit here and the gravity checks of the next pass through commongamelogic take it back up out of the playfield (see backOutLines).
+export const OBJECT_GRAVITY_BACKOUT_FAMILY = 'objectGravityBackOut';
+// The Stop gravity blocks that do that: in a When ... collide block with the playfield, for an object of that collision.
+export const stopGravityBackOutNames = (block) => {
+  if (block.type !== 'object_gravity_control' || block.getFieldValue('ACTION') !== 'stop') return [];
+  for (let up = block.getSurroundParent(); up; up = up.getSurroundParent()) {
+    if (up.type !== 'collision_when') continue;
+    const playfieldFirst = up.getFieldValue('VAR0') === 'playfield';
+    if (!playfieldFirst && up.getFieldValue('VAR1') !== 'playfield') return [];
+    const sprites = playfieldFirst ? [up.getFieldValue('VAR1')] : up.getFieldValue('VAR0') === 'any' ? ANY_SPRITE_NAMES.filter((name) => name !== 'playfield') :
+      [up.getFieldValue('VAR0')];
+    const object = block.getFieldValue('OBJECT');
+    return object === 'colliding' ? sprites : sprites.filter((name) => name === object);
+  }
+  return [];
+};
 export const OBJECT_GRAVITY_RAN_LAST_FAMILY = 'objectGravityRanLast';
 const gravityRanRef = (Blockly, family, name) => `${Blockly.BBasic.nameDB_.getName(flagPoolVar(family), Blockly.Names.DEVELOPER_VARIABLE_TYPE)}{${flagPoolBit(family, spriteOwnBit(name))}}`;
 export const objectGravitySpeedVarName = (name) => `${name}GravitySpeed`;
@@ -2388,6 +2406,9 @@ export const reserveGravityDevVars = (Blockly, reserveDevVar, reserveDevVarRW, u
   reserveDevVar(objectGravityFlagsVarName(), undefined, 'shared active-bit byte for objects with gravity');
   reserveDevVar(flagPoolVar(OBJECT_GRAVITY_RAN_FAMILY), undefined, 'a Start gravity block ran for the object in this frame (a bit for each object)');
   reserveDevVar(flagPoolVar(OBJECT_GRAVITY_RAN_LAST_FAMILY), undefined, 'a Start gravity block ran for the object in the last frame (a bit for each object)');
+  if (Blockly.BBasic.objectGravityBackOut && Blockly.BBasic.objectGravityBackOut.size) {
+    reserveDevVar(flagPoolVar(OBJECT_GRAVITY_BACKOUT_FAMILY), undefined, 'a Stop gravity block stopped the object in the playfield: taken back out (a bit for each object)');
+  }
   usedFor.forEach((name) => {
     reserveDevVarRW(objectGravitySpeedVarName(name), 'fall speed of this object with gravity (signed, whole pixels a frame)');
     reserveDevVarRW(objectGravityFineVarName(name), 'gravity of this object: the eighths of a pixel of its fall speed (bits 0-2) and of its position (bits 3-5)');
@@ -2497,6 +2518,34 @@ const gravityLandLines = (Blockly, name) => {
     done];
 };
 
+const gravityBackOutRef = (Blockly, name) => gravityRanRef(Blockly, OBJECT_GRAVITY_BACKOUT_FAMILY, name);
+
+// An object a Stop gravity block stopped in the playfield (its bit, see OBJECT_GRAVITY_BACKOUT_FAMILY) is taken back up a line at a time (at most 16) until its box
+// (the software box test, the sprite's drawn columns for a player) is clear of lit pixels, as "stop on the playfield" does.
+const backOutLines = (Blockly, name) => {
+  if (!Blockly.BBasic.objectGravityBackOut || !Blockly.BBasic.objectGravityBackOut.has(name)) return [];
+  const resolveVar = (canonicalName) => Blockly.BBasic.nameDB_.getName(canonicalName, Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+  const [bx, by, hit] = [PF_BOX_X, PF_BOX_Y, PF_BOX_HIT].map(resolveVar);
+  const box = ` ${callPfBox(Blockly, name, false, false, true)}`;
+  const up = `_gravout_${name}_up`;
+  const out = `_gravout_${name}_out`;
+  const done = `_gravout_${name}_done`;
+  const bit = gravityBackOutRef(Blockly, name);
+  return [` rem ${name} stopped in the playfield is taken back out:`,
+    ` if !${bit} then goto ${done}`, ` ${bit} = 0`,
+    ` ${bx} = ${name}x`, ` ${by} = ${name}y`, box,
+    ` if ${hit} = 0 then goto ${done}`,
+    ' asm', '       lda #16', '       pha', 'end',
+    up,
+    ` if ${name}y = 0 then goto ${out}`,
+    ` ${name}y = ${name}y - 1`, ` ${by} = ${name}y`, box,
+    ` if ${hit} = 0 then goto ${out}`,
+    ' asm', '       pla', '       sec', '       sbc #1', '       pha', `       bne .${up}`, 'end',
+    out,
+    ' asm', '       pla', 'end',
+    done];
+};
+
 // A Wait block runs the frame's work again and again: a Start gravity block that ran just before it must not look as if it had stopped running (and start the gravity
 // again after the wait), so each frame of the wait keeps the "ran" bit of an object that ran in the last frame.
 export const generateGravityWaitKeep = (Blockly) => [...(Blockly.BBasic.objectGravityUsedFor || [])].map((name) =>
@@ -2549,7 +2598,8 @@ export const generateGravityChecks = (Blockly) => {
         ]),
         'end',
         ...gravityLandLines(Blockly, name),
-        skip);
+        skip,
+        ...backOutLines(Blockly, name));
   });
   return lines.join(String.fromCharCode(10)) + String.fromCharCode(10);
 };
@@ -3679,7 +3729,11 @@ ${fine.write} = 0
     const flagsVar = Blockly.BBasic.nameDB_.getName(objectGravityFlagsVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
     const speed = Blockly.BBasic.superchipRwPairs[objectGravitySpeedVarName(name)];
     if (block.getFieldValue('ACTION') !== 'stop') return gravityStartLines(name);
-    return `${speed.write} = 0\n${Blockly.BBasic.superchipRwPairs[objectGravityFineVarName(name)].write} = 0\n${flagsVar}{${objectGravityBit(name)}} = 0\n`;
+    // (Taken back out of the playfield by the gravity checks, see OBJECT_GRAVITY_BACKOUT_FAMILY; only an object that was falling.)
+    const backOut = Blockly.BBasic.objectGravityBackOut && Blockly.BBasic.objectGravityBackOut.has(name) && stopGravityBackOutNames(block).includes(name) ?
+      `if ${speed.read} < 128 then ${gravityBackOutRef(Blockly, name)} = 1
+` : '';
+    return `${backOut}${speed.write} = 0\n${Blockly.BBasic.superchipRwPairs[objectGravityFineVarName(name)].write} = 0\n${flagsVar}{${objectGravityBit(name)}} = 0\n`;
   };
 
   // Reflects whichever movement system(s) the chosen object actually uses
