@@ -6,7 +6,7 @@
 export const isSingleHeight = (animation, config) => !!(animation && animation.singleHeight) && (config || {}).kernel === 'dpcplus';
 
 // The lines a row of the animation takes on screen under DPC+ and PXE.
-export const linesPerRow = (animation, config) => (isSingleHeight(animation, config) ? 1 : 2);
+const linesPerRow = (animation, config) => (isSingleHeight(animation, config) ? 1 : 2);
 
 // The lines of the animation's tallest picture under DPC+ and PXE.
 export const animationLines = (animation, config) => linesPerRow(animation, config) *

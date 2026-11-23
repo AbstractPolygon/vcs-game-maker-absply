@@ -444,11 +444,15 @@
                                   class="titlescreen-player-window-field"
                                   @change="handleChildChange"
                                 />
+                                <!-- (A card with an animation set to 1 line in the Sprites tab draws 1 line a row, see playerCardLayout in
+                                     generators/bbasic/titlescreen.js: the setting is kept but not used.) -->
                                 <v-select
                                   label="Scanlines per pixel row"
-                                  title="1 = half-height pixels (sharper), 2 = roughly square pixels."
+                                  :title="playerCardOneLine(card) ? 'An animation of this card is set to 1 line (Sprites tab): the card draws 1 line a row, and a 2 line animation on it has each row drawn twice, as in the game.' : '1 = half-height pixels (sharper), 2 = roughly square pixels.'"
                                   :items="[{text: '1 (sharper)', value: 1}, {text: '2 (square pixels)', value: 2}]"
-                                  v-model.number="card.kernelLines"
+                                  :value="playerCardOneLine(card) ? 1 : card.kernelLines"
+                                  :disabled="playerCardOneLine(card)"
+                                  @input="(lines) => { card.kernelLines = Number(lines); }"
                                   hide-details
                                   class="titlescreen-player-window-field"
                                   @change="handleChildChange"
@@ -900,7 +904,8 @@ import {insertCardAfter, REMOVED, remapCardReferences, removeCards} from '../uti
 import {useCardSelection} from '../hooks/card-selection';
 import {recordFieldsChange, recordRowColorsChange} from '../utils/row-color-history';
 import {useTitleScreenStorage, useErrorStorage, usePixelGridOverlayStorage,
-  usePlayerAnimationsStorage, useColorPaletteStorage, useTitleCardColumnsStorage} from '../hooks/project';
+  usePlayerAnimationsStorage, useColorPaletteStorage, useTitleCardColumnsStorage, useConfigurationStorage} from '../hooks/project';
+import {isSingleHeight} from '../utils/sprite-lines';
 import {useEditorZoom, ZOOM_LEVELS} from '../hooks/zoom';
 
 // A 96-wide card at 50% (the lowest level every other tab offers) can still
@@ -1183,6 +1188,13 @@ export default defineComponent({
     // draw just one of the two players, falling back to a single blank row
     // for the other (see resolvePlayerSlotFrames in generators/bbasic/
     // titlescreen.js).
+    // Whether a Player sprites card draws a line a row because one of its animations is set to 1 line (see playerCardLayout in generators/bbasic/titlescreen.js).
+    const playerCardOneLine = (card) => {
+      const animations = processPlayerAnimationsStorageDefaults(usePlayerAnimationsStorage()).animations || [];
+      return [card.player0Animation, card.player1Animation].some((index) => index !== undefined && index !== null && index !== '' &&
+        isSingleHeight(animations[Number(index)], useConfigurationStorage().value));
+    };
+
     const playerAnimationOptions = () => {
       const player = processPlayerAnimationsStorageDefaults(usePlayerAnimationsStorage());
       return [
@@ -2233,7 +2245,7 @@ export default defineComponent({
       testingScreenId, buildInProgress, handleTestTitleScreen,
       screenDragAttrs, screenDragCardClass, screenDragHandleListeners, screenDragTargetListeners,
       TITLE_GRAPHIC_MAX_HEIGHT, cardWidth, editorWidth, cardAspectRatio, cardHasRowColors, editorRowColors, editorFgColor, cardTypeLabel,
-      addCardOptions, canAddCardType, maxCopies, maxCopiesForType, playerAnimationOptions, textCardOptions,
+      addCardOptions, canAddCardType, maxCopies, maxCopiesForType, playerAnimationOptions, playerCardOneLine, textCardOptions,
       ballModeOn, toggleBallMode, handleFrameEditorInput, ballColorCss, ballCellColors, twoToneCellColors, twoToneRightColors, handleTwoToneRightInput, handleTwoToneToggle, ballCaption, TITLE_BALL_WIDTHS, handleWindowFieldFocus, windowPreviewShown,
       handleAddCard, handleDeleteCard, handleToggleCardHidden, handleDuplicateCard, titleScrollStartOf, handleScrollStartInput,
       showPictureBackgroundControls, frameBoxColor, frameBoxCells, handleSetFrameBoxColor, handleToggleFrameBoxCell, cardBackdrop, handleFitBox,

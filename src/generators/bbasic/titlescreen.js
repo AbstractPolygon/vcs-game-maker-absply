@@ -16,6 +16,7 @@ import {useTitleScreenStorage, usePlayerAnimationsStorage,
   useConfigurationStorage, appendCompileLog} from '../../hooks/project';
 import {processPlayerAnimationsStorageDefaults, ctrlpfShadowVarName} from './sprites';
 import {clampFrameDuration} from '../../utils/duration';
+import {isSingleHeight} from '../../utils/sprite-lines';
 import {flagPoolVar, flagPoolBit} from './flag-pool';
 import {resolveScoreDigitBytes} from '../../utils/score-font';
 import {tvColorByte} from '../../utils/palette';
@@ -479,7 +480,8 @@ const titlePlayerCenterLines = (card, heights) => {
 // blank (all-zero) row - GRP0/GRP1 draw nothing for a zero byte regardless
 // of position or color, so a slot nobody configured is always safe to leave
 // wherever the game happens to have last positioned that player.
-const resolvePlayerSlotFrames = (animationIndex) => {
+// doubled: each row is kept twice (a 2 line animation on a card that draws a line a row, see playerCardLayout).
+const resolvePlayerSlotFrames = (animationIndex, doubled = false) => {
   const blank = {height: 1, frames: [[{pixels: new Array(8).fill(0)}]], hasRowColors: false, durations: [1]};
   if (animationIndex === undefined || animationIndex === null || animationIndex === '') return blank;
   const player = processPlayerAnimationsStorageDefaults(usePlayerAnimationsStorage());
@@ -504,8 +506,21 @@ const resolvePlayerSlotFrames = (animationIndex) => {
     }
     return rows;
   });
-  return {height, frames, hasRowColors,
+  return {height: doubled ? 2 * height : height, frames: doubled ? frames.map((rows) => rows.flatMap((row) => [row, row])) : frames, hasRowColors,
     durations: animation.frames.map((frame) => clampFrameDuration(frame.duration))};
+};
+
+// A Player sprites card's lines a row and its two players' frames. A card with an animation set to 1 line (the Player editor's toggle, DPC+ and PXE: see
+// utils/sprite-lines.js) draws a line a row, whatever its Scanlines per pixel row says, and a 2 line animation on it has each row kept twice: both look as they do
+// in the game. Other cards are as their setting says.
+export const playerCardLayout = (card) => {
+  const config = useConfigurationStorage().value;
+  const animations = processPlayerAnimationsStorageDefaults(usePlayerAnimationsStorage()).animations || [];
+  const indexes = [card.player0Animation, card.player1Animation];
+  const single = indexes.map((index) => (index === undefined || index === null || index === '' ? false : isSingleHeight(animations[Number(index)], config)));
+  const anySingle = single.some(Boolean);
+  return {kernelLines: anySingle ? 1 : (Number(card.kernelLines) === 2 ? 2 : 1), anySingle,
+    slots: indexes.map((index, i) => resolvePlayerSlotFrames(index, anySingle && !single[i]))};
 };
 
 // The Player sprites card's two players as the build sees them: the height of a frame, how many frames the
@@ -516,8 +531,9 @@ const resolvePlayerSlotFrames = (animationIndex) => {
 export const resolveTitlePlayerSlots = () => {
   const pages = titlePlayerPages(processTitleScreenStorageForBuild(useTitleScreenStorage()).screens).map(({screen, card}) => {
     const slots = {};
+    const layout = playerCardLayout(card);
     [0, 1].forEach((playerIndex) => {
-      const slot = resolvePlayerSlotFrames(playerIndex === 0 ? card.player0Animation : card.player1Animation);
+      const slot = layout.slots[playerIndex];
       slots[playerIndex] = {height: slot.height, frameCount: slot.frames.length, durations: slot.durations};
     });
     return {screenId: screen.id, slots};
@@ -554,7 +570,8 @@ const windowVarValue = (key, rows) => (key.startsWith('96x2') ? rows : rows - 1)
 // (draw_player_display_<page>) and goes on to the kernel's drawing (see player_kernel.asm).
 const buildPlayerDataAsm = (card, Blockly, pageId) => {
   const windowHeight = Math.max(1, Math.round(Number(card.windowHeight) || 50));
-  const kernelLines = Number(card.kernelLines) === 2 ? 2 : 1;
+  const layout = playerCardLayout(card);
+  const kernelLines = layout.kernelLines;
   const lines = [];
   const setup = [
     `draw_player_display_${pageId}`,
@@ -570,10 +587,9 @@ const buildPlayerDataAsm = (card, Blockly, pageId) => {
   const heights = {};
 
   [0, 1].forEach((playerIndex) => {
-    const animationIndex = playerIndex === 0 ? card.player0Animation : card.player1Animation;
     const rawFallbackColor = playerIndex === 0 ? card.player0Color : card.player1Color;
     const fallbackColor = rawFallbackColor != null ? rawFallbackColor : 0x0e;
-    const {height, frames, hasRowColors} = resolvePlayerSlotFrames(animationIndex);
+    const {height, frames, hasRowColors} = layout.slots[playerIndex];
     heights[playerIndex] = height;
     // The frame's address is the picture's plus the player's frame offset when it has one: a RAM byte that the
     // checks (or the "Set title screen player sprite frame" block) write.
@@ -702,9 +718,9 @@ export const estimateTitleScreenGraphicsBytes = (storage) => {
       }
       if (card.type === 'player' && !countedPlayerPages.has(screen.id)) {
         countedPlayerPages.add(screen.id);
+        const layout = playerCardLayout(card);
         [0, 1].forEach((playerIndex) => {
-          const animationIndex = playerIndex === 0 ? card.player0Animation : card.player1Animation;
-          const {height, frames, hasRowColors} = resolvePlayerSlotFrames(animationIndex);
+          const {height, frames, hasRowColors} = layout.slots[playerIndex];
           // (The colors are stored once when they are the same in every frame: see buildPlayerDataAsm.)
           const colorsOf = (rows) => rows.map((row) => (hasRowColors ? row.color : 0)).join(',');
           const sameColors = frames.length > 1 && frames.every((rows) => colorsOf(rows) === colorsOf(frames[0]));

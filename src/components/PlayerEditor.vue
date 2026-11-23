@@ -391,7 +391,7 @@
                         :key="widthOfAnimation(animation)"
                         :width="widthOfAnimation(animation)"
                         :height="frame.pixels.length || 1"
-                        :aspectRatio="(widthOfAnimation(animation) / (frame.pixels.length || 1)) * (animation.previewWidthScale || 1) * CLOCK_ASPECT_PER_LINE_PAIR * (isDpcPlus && animation.singleHeight ? 2 : 1)"
+                        :aspectRatio="(widthOfAnimation(animation) / (frame.pixels.length || 1)) * (animation.previewWidthScale || 1) * CLOCK_ASPECT_PER_LINE_PAIR * (singleHeightOf(animation) ? 2 : 1)"
                         v-model="frame.pixels"
                         :fgColor="fgColor"
                         :rowColors="editorRowColors(frame)"
@@ -550,6 +550,7 @@ import {clampFrameDuration} from '../utils/duration';
 import {REMOVED, removeCards} from '../utils/card-refs';
 import {parseSpriteFile, resizeRowsToWidth, setAnimationWide, widthOfAnimation} from '../utils/wide-sprite';
 import {CLOCK_ASPECT_PER_LINE_PAIR} from '../utils/pixel-aspect';
+import {isSingleHeight} from '../utils/sprite-lines';
 
 // Width of one frame editor at 100% zoom. The container is normally sized by
 // its  contents, so this pins it before the zoom factor is applied.
@@ -650,6 +651,8 @@ export default defineComponent({
 
     const configurationStorage = useConfigurationStorage();
     const isDpcPlus = computed(() => (configurationStorage.value || {}).kernel === 'dpcplus');
+    // (A 1 line animation's grid rows are half as tall: the build's rule, utils/sprite-lines.js.)
+    const singleHeightOf = (animation) => isSingleHeight(animation, configurationStorage.value);
     // Per-row SPRITE colors (batari Basic playercolors/player1colors) - see
     // the Options tab's "Enable per-row Player 0/1 sprite colors"
     // toggles (still two independent, per-hardware-player toggles - see
@@ -1336,8 +1339,9 @@ export default defineComponent({
           minX = Math.min(minX, x); maxX = Math.max(maxX, x);
         })));
         const rows = Math.max(...animation.frames.map((frame) => (frame.pixels || []).length), 1);
+        // (The preview takes the height in rows of 2 lines: a 1 line animation's rows are half of that.)
         await buildPlayerAnimationPreviewRom(state.value.animations.indexOf(animation),
-            maxX < 0 ? widthOfAnimation(animation) / 2 : (minX + maxX + 1) / 2, rows,
+            maxX < 0 ? widthOfAnimation(animation) / 2 : (minX + maxX + 1) / 2, singleHeightOf(animation) ? rows / 2 : rows,
             animation.previewWidthScale || 1,
             // The animation's row colors show even when the Options tab's per-row sprite colors are off.
             animation.frames.some((f) => f.rowColors && f.rowColors.some((c) => c != null && c !== DEFAULT_ROW_COLOR)),
@@ -1504,7 +1508,7 @@ export default defineComponent({
       handleImportAnimationFrames, replaceFramesOnImport, keepColorsOnImport, importMenuOpenAnimationId,
       handleImportAsepriteSheet, asepriteReplaceAnimations, asepriteImportMenuOpen,
       handleAddAnimation, handleDeleteAnimation, handleDuplicateAnimation, handleSetPreviewScale, handleSetWide, handleSetSingleHeight, handleImportSpriteFiles,
-      widthOfAnimation, isDpcPlus, CLOCK_ASPECT_PER_LINE_PAIR,
+      widthOfAnimation, isDpcPlus, singleHeightOf, CLOCK_ASPECT_PER_LINE_PAIR,
       testingId, buildInProgress, handleTestAnimation,
       handleRowColorsInput, handleMoveRows, handleFlipRowColors, handleClearRowColors, editorRowColors, spriteColorsEnabled,
       copiedFrameRowColors, handleCopyRowColors, handlePasteRowColors,

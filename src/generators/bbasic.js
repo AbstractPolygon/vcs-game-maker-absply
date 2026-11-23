@@ -834,12 +834,14 @@ Blockly.BBasic.init = function(workspace) {
     let pictureRows = 0;
     let pictureLines = 0;
     try {
-      (processPlayerAnimationsStorageDefaults(usePlayerAnimationsStorage()).animations || []).forEach((animation) => (animation.frames || []).forEach((frame) => {
-        pictureRows = Math.max(pictureRows, Array.isArray(frame.pixels) ? frame.pixels.length : 0);
-      }));
-      // (In lines under DPC+ and PXE: a single height animation's rows are a line each, the others 2.)
-      pictureLines = Math.max(0, ...(processPlayerAnimationsStorageDefaults(usePlayerAnimationsStorage()).animations || [])
-          .map((animation) => animationLines(animation, useConfigurationStorage().value)));
+      // (In lines under DPC+ and PXE too: a single height animation's rows are a line each, the others 2.)
+      const config = useConfigurationStorage().value;
+      (processPlayerAnimationsStorageDefaults(usePlayerAnimationsStorage()).animations || []).forEach((animation) => {
+        (animation.frames || []).forEach((frame) => {
+          pictureRows = Math.max(pictureRows, Array.isArray(frame.pixels) ? frame.pixels.length : 0);
+        });
+        pictureLines = Math.max(pictureLines, animationLines(animation, config));
+      });
     } catch (e) {
       pictureRows = 255;
       pictureLines = 255;
@@ -6422,7 +6424,8 @@ Blockly.BBasic.dpcPlusSpriteLines = function(player, ownHeight = false) {
     const reachable = ownHeight && player && this.usedPlayerAnimations ? this.usedPlayerAnimations[player] : null;
     const animations = reachable && reachable.size ? allAnimations.filter((animation, index) => reachable.has(index)) : allAnimations;
     // (A single height animation's rows are a line each, see utils/sprite-lines.js.)
-    const lines = Math.max(0, ...animations.map((animation) => animationLines(animation, useConfigurationStorage().value)));
+    const config = useConfigurationStorage().value;
+    const lines = Math.max(0, ...animations.map((animation) => animationLines(animation, config)));
     return Math.max(lines || 16, noiseLines);
   } catch (e) {
     return Math.max(16, noiseLines);
@@ -9296,7 +9299,8 @@ Blockly.BBasic.generateAnimations = function() {
   // variable says whether the picture and colors are loaded: it is cleared by whatever changes the animation or
   // the color (see assignAndReload in generators/bbasic/sprites.js), and a picture is also loaded again whenever the
   // frame counter reaches the first frame of one.
-  const isDpcPlus = (useConfigurationStorage().value || {}).kernel === 'dpcplus';
+  const animConfig = useConfigurationStorage().value || {};
+  const isDpcPlus = animConfig.kernel === 'dpcplus';
   // A hidden player loads the blank picture once, not every pass: the blank has no height (a picture of an animation has at least one row), so a player whose
   // height is 0 has it loaded already. DPC+ and PXE (the standard kernel hides a player with a flag, never with frame 255, so its handler is never entered).
   // The lines that come before the load of the blank: nothing to load when the height is 0; the loaded flag of the animation's picture is cleared otherwise (bit 7 is left
@@ -9321,7 +9325,7 @@ Blockly.BBasic.generateAnimations = function() {
   // picture.
   // (members: the sprites that run the code made for `name`, see poolAnimationGroups: each starts with a different default color, which gets a table too.)
   const colorSectionFor = (name, playerData, slaveOf, members = []) => {
-    const rows = Math.max(2, ...playerData.animations.map((animation) => animationLines(animation, useConfigurationStorage().value)));
+    const rows = Math.max(2, ...playerData.animations.map((animation) => animationLines(animation, animConfig)));
     const colorVar = poolRefs ? poolRefs.color : `${name}realcolor`;
     const sizeRef = poolRefs ? poolRefs.size : `${name}size`;
     // The sprite showing the right half of a wide player is colored like the player is.
@@ -9400,7 +9404,10 @@ Blockly.BBasic.generateAnimations = function() {
     // An animation of several pictures finds the one to show in a table and loads it from tables (see pictureTables below), instead of a test
     // and the instructions that load it for every picture; an animation of one picture keeps the statements.
     const tableMode = animation.frames.length > 1;
-    const singleHeight = isSingleHeight(animation, useConfigurationStorage().value);
+    const singleHeight = isSingleHeight(animation, animConfig);
+    // DPC+ and PXE read a sprite's rows top to bottom, a row each scanline: each row is written twice (the standard kernel's look) unless the animation is single
+    // height; the standard kernel reads them from the bottom up, a row each 2 scanlines. For the graphic and the row colors.
+    const orderRows = (rows) => (isDpcPlus ? (singleHeight ? rows.slice() : rows.flatMap((row) => [row, row])) : rows.slice().reverse());
     const stateMachine = (tableMode ? [] : animation.frames).map((frame, frameIndex) => {
       frameLimit += clampFrameDuration(frame.duration);
       const endLabel = `${animationLabel}frame${frameIndex}End`;
@@ -9426,12 +9433,7 @@ Blockly.BBasic.generateAnimations = function() {
       // playfield's pfres-based row-count math, not this 1:1 per-scanline
       // indexing, which the graphic pointer already relies on working
       // correctly.
-      // DPC+ kernel reads sprite rows top-to-bottom at 1 scanline per row
-      // (the standard kernel reads bottom-to-top at 2), so rows keep editor
-      // order and each is doubled to keep the standard kernel's look.
-      // (A single height animation keeps each row once: see utils/sprite-lines.js.)
-      const orderRows = (rows) => (isDpcPlus ?
-        (singleHeight ? rows.slice() : rows.flatMap((row) => [row, row])) : rows.slice().reverse());
+      // (The rows in the kernel's order: orderRows above.)
       // Without per-row colors, DPC+ players get their color from the table chosen before the animations (see
       // colorSectionFor).
       const colorSource = this.useAnimationRowColors(slaveOf || name) ? (() => {
@@ -9524,9 +9526,6 @@ Blockly.BBasic.generateAnimations = function() {
       const nextRef = !slaveOf && this.animNextPlayers && this.animNextPlayers.has(name) ?
         (poolRefs ? poolRefs.animnext : this.nameDB_.getName(animNextVarName(name), Blockly.Names.DEVELOPER_VARIABLE_TYPE)) : null;
       const at = (suffix) => `.${animationLabel}${suffix}`;
-      // The kernel reads the rows of a DPC+ sprite top to bottom, a row for each scanline (so each row is doubled), and the standard
-      // kernel from the bottom up.
-      const orderGraphicRows = (rows) => (isDpcPlus ? (singleHeight ? rows.slice() : rows.flatMap((row) => [row, row])) : rows.slice().reverse());
       const symbols = {g: new Map(), c: new Map()};
       const stubs = [];
       const stubFor = (kind, key, lines) => {
@@ -9536,7 +9535,7 @@ Blockly.BBasic.generateAnimations = function() {
         stubs.push(`${symbol}_s`, ...lines, `${symbol}_e`);
         return symbol;
       };
-      const graphicLines = (rows) => [`  ${name}:`, ...orderGraphicRows(rows).map((row) => '  %' + row.join('')), 'end'];
+      const graphicLines = (rows) => [`  ${name}:`, ...orderRows(rows).map((row) => '  %' + row.join('')), 'end'];
       const rowColored = this.useAnimationRowColors(slaveOf || name);
       const overrideFlag = this.colorOverridePlayers && this.colorOverridePlayers.has(slaveOf || name) ?
         (poolRefs ? poolRefs.flag : colorOverrideRef(Blockly, slaveOf || name)) : null;
@@ -9549,14 +9548,14 @@ Blockly.BBasic.generateAnimations = function() {
         const picture = {
           end: Math.min(limit + 1, totalDuration, 255),
           // The height the kernel is given: the number of rows on the DPC+ kernel, one less on the standard one.
-          height: orderGraphicRows(firstRows).length - (isDpcPlus ? 0 : 1),
+          height: orderRows(firstRows).length - (isDpcPlus ? 0 : 1),
           graphic: stubFor('g', pixelKey + (slaveOf ? '#R' : '#L'), graphicLines(firstRows)),
           flipped: wide ? stubFor('g', pixelKey + (slaveOf ? '#L' : '#R'), graphicLines(halfOf(frame.pixels, otherSide))) : null,
           color: null,
         };
         if (rowColored) {
           const rowColors = frame.rowColors || [];
-          const resolved = orderGraphicRows(frame.pixels.map((_, i) => [colorByteToBuildBBasic(rowColors[i] ?? DEFAULT_ROW_COLOR)]))
+          const resolved = orderRows(frame.pixels.map((_, i) => [colorByteToBuildBBasic(rowColors[i] ?? DEFAULT_ROW_COLOR)]))
               .map((row) => '  ' + row[0]);
           picture.color = stubFor('c', resolved.join('|'), [`  ${name}color:`, ...resolved, 'end']);
         }
@@ -9574,16 +9573,16 @@ Blockly.BBasic.generateAnimations = function() {
       // The virtual sprites of the DPC+ kernel (Players 1 to 9) are loaded through the kernel's data fetcher; the others by storing the address.
       const slot = isDpcPlus ? /^player([1-9]|1[0-6])$/.exec(name) : null;
       const pointerSlot = slot ? 2 * (Number(slot[1]) - 1) : null;
-      const colorSlot = slot ? playerColorPointerBase(useConfigurationStorage().value) + 2 * (Number(slot[1]) - 1) : null;
+      const colorSlot = slot ? playerColorPointerBase(animConfig) + 2 * (Number(slot[1]) - 1) : null;
       // (The address of rows is stored on the DPC+ kernel with bits 4 to 6 of its high byte moved down.)
-      const highByte = (symbol) => (isDpcPlus && !isPxe(useConfigurationStorage().value) ? `  .byte ((>${symbol}) & $0f) | (((>${symbol}) / 2) & $70)` : `  .byte >${symbol}`);
+      const highByte = (symbol) => (isDpcPlus && !isPxe(animConfig) ? `  .byte ((>${symbol}) & $0f) | (((>${symbol}) / 2) & $70)` : `  .byte >${symbol}`);
       const override = overrideFlag && !poolRefs ? /^(.+)\{(\d)\}$/.exec(overrideFlag) : null;
       // A table that has the same entry for every picture (one color for all of them, one height) is a number in the code instead: 2 cycles less for each
       // load and no table (Bricks' powerup: 7 pictures, one color and one height, 21 bytes less).
       const constant = (values) => values.every((value) => value === values[0]);
       const oneColor = rowColored && constant(rows.map((picture) => picture.color)) ? rows[0].color : null;
       const oneHeight = constant(rows.map((picture) => picture.height)) ? rows[0].height : null;
-      const highOf = (symbol) => (isDpcPlus && !isPxe(useConfigurationStorage().value) ? `((>${symbol}) & $0f) | (((>${symbol}) / 2) & $70)` : `>${symbol}`);
+      const highOf = (symbol) => (isDpcPlus && !isPxe(animConfig) ? `((>${symbol}) & $0f) | (((>${symbol}) / 2) & $70)` : `>${symbol}`);
       const colorLow = oneColor ? `#<${oneColor}` : `${at('ColorLow')},y`;
       const colorHigh = oneColor ? `#(${highOf(oneColor)})` : `${at('ColorHigh')},y`;
       const heightOperand = oneHeight !== null ? `#${oneHeight}` : `${at('Heights')},y`;
