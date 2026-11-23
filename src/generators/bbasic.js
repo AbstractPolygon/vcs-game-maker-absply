@@ -93,7 +93,7 @@ import {processPlayerAnimationsStorageDefaults, generateRomNoiseChecks, generate
   generateRainbowColorGraphics, rainbowColorNeedsPlayerColors, rainbowColorNeedsPlayer1Colors,
   reserveRomNoiseDevVars, reserveRainbowColorDevVars, reserveBackgroundRainbowDevVars,
   ROM_NOISE_FLAGS_FAMILY, MISSILE_FIRE_FLAGS_FAMILY, FIRE_OFFSCREEN_FLAGS_FAMILY, fireOffscreenFlagsVarName, SEEK_FLAGS_FAMILY, SEEK_AXIS_FAMILY, SEEK_ARRIVED_FLAGS_FAMILY,
-  SPRITE_SCROLL_FLAGS_FAMILY, SPRITE_HIDDEN_FLAGS_FAMILY, hasHiddenFlag, hiddenFlagRef, INERTIA_ACCEL_FLAGS_FAMILY, INERTIA_DECEL_FLAGS_FAMILY, OBJECT_GRAVITY_FLAGS_FAMILY, OBJECT_GRAVITY_RAN_FAMILY, OBJECT_GRAVITY_RAN_LAST_FAMILY, OBJECT_GRAVITY_BACKOUT_FAMILY, stopGravityBackOutNames,
+  SPRITE_SCROLL_FLAGS_FAMILY, SPRITE_HIDDEN_FLAGS_FAMILY, hasHiddenFlag, hiddenFlagRef, INERTIA_ACCEL_FLAGS_FAMILY, INERTIA_DECEL_FLAGS_FAMILY, OBJECT_GRAVITY_FLAGS_FAMILY, OBJECT_GRAVITY_RAN_FAMILY, OBJECT_GRAVITY_RAN_LAST_FAMILY, OBJECT_GRAVITY_BACKOUT_FAMILY, stopGravityBackOutNames, resolveEnclosingFrameInterval,
   romNoiseOwnBit, rainbowColorOwnBit, BACKGROUND_RAINBOW_OWN_BIT, BACKGROUND_RAINBOW_LOADED_BIT, backgroundRainbowLoadedBit, romNoiseFlagsVarName, RAINBOW_EXTRA_FAMILY, missileFireOwnBit, spriteOwnBit,
   backgroundColorTableLoVarName, backgroundColorTableHiVarName, BACKGROUND_RAINBOW_RESTORE_NAME,
   missileFireDirVarName, generateMissileFireChecks, generateBounceStageChecks, reserveMissileFireDevVars, reserveMissileBounceDevVars,
@@ -1032,6 +1032,15 @@ Blockly.BBasic.init = function(workspace) {
       block.getFieldValue('MISSILE') === fireObjectFieldValue(name))) {
       this.missileFireThrottleUsedFor.add(name);
     }
+  });
+  // A throttled object whose Fire blocks all start the same interval (1 for a block without throttle movement): the interval is a constant, not kept in the byte
+  // (see fireThrottleStart in generators/bbasic/sprites.js).
+  this.missileFireThrottleConst = new Map();
+  this.missileFireThrottleUsedFor.forEach((name) => {
+    const intervals = new Set(workspace.getAllBlocks(false).filter((block) => block.type === 'sprite_missile_fire' && block.isEnabled() &&
+      block.getFieldValue('MISSILE') === fireObjectFieldValue(name))
+        .map((block) => (block.getFieldValue('THROTTLE') === 'TRUE' ? (resolveEnclosingFrameInterval(block) || 1) : 1)));
+    if (intervals.size === 1) this.missileFireThrottleConst.set(name, [...intervals][0]);
   });
 
   // Which objects have a Fire block with "same speed at every angle" ticked.
@@ -2980,6 +2989,7 @@ Blockly.BBasic.init = function(workspace) {
   this.pfBoxArm = false;
   // The Find playfield pixel collided with blocks a Bounce block's call before them does (see bounceFindArgs in generators/bbasic/background.js).
   this.bounceFindMerged = new Set();
+  this.bounceFindRoutines = new Map();
   // Set when commongamelogic is called from another bank (see commonGameLogicCall).
   this.commonGameLogicFarUsed = false;
   // The playfield tilemap (see generators/bbasic/pf-tiles.js and generateBackgrounds): its plan, and whether the coprocessor's program has its functions.

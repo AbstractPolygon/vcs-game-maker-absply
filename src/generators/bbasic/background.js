@@ -571,10 +571,9 @@ export default (Blockly) => {
   // are one call of the coprocessor (function 101 of armprog.c, see bounceFind in generators/bbasic/sprites.js), and the Find block then gives no code.
   // Its numbers (from the second, the top line, on: the bounce gives the x and the direction), or null when it is not the case.
   Blockly.BBasic.bounceFindArgs = (bounceBlock, name, is16) => {
-    const next = bounceBlock.getNextBlock();
-    if (!next || next.type !== 'background_collision_pixel_direction' || !next.isEnabled() || next.getFieldValue('SPRITE') !== name) return null;
-    const dirBlock = next.getInputTargetBlock('DIRECTION');
-    if (!dirBlock || dirBlock.type !== 'sprite_fire_angle_get' || !dirBlock.isEnabled() || fireObjectName(dirBlock.getFieldValue('MISSILE')) !== name) return null;
+    const found = Blockly.BBasic.bounceFindOf(bounceBlock, name);
+    if (!found || !found.fireAngle) return null;
+    const next = found.block;
     const args = findPixelArmArgs({sprite: name, is16, ...findPixelSettings(name), tag: '_bf'});
     const col = Blockly.BBasic.superchipRwPairs[collisionPixelColumnVarName()];
     const row = Blockly.BBasic.superchipRwPairs[collisionPixelRowVarName()];
@@ -726,9 +725,20 @@ export default (Blockly) => {
     return lines.join('\n');
   };
 
-  Blockly.BBasic['background_collision_pixel_direction'] = function(block) {
-    // (Done by the call of the Bounce block before it: see bounceFindArgs.)
-    if (Blockly.BBasic.bounceFindMerged.has(block.id)) return '';
+  // A Find playfield pixel collided with block right after a Bounce block of the same object: the Bounce block makes one call that does both (see object_bounce in
+  // generators/bbasic/sprites.js), on every kernel. Null when the next block is not one, or when its direction reads something the Bounce changes (an angle, a speed
+  // or a bounce of an object), other than the object's Fire angle itself, which the finder takes from before the bounce anyway. fireAngle: the direction is that.
+  Blockly.BBasic.bounceFindOf = (bounceBlock, name) => {
+    const next = bounceBlock.getNextBlock();
+    if (!next || next.type !== 'background_collision_pixel_direction' || !next.isEnabled() || next.getFieldValue('SPRITE') !== name) return null;
+    const dirBlock = next.getInputTargetBlock('DIRECTION');
+    const fireAngle = !!dirBlock && dirBlock.type === 'sprite_fire_angle_get' && dirBlock.isEnabled() && fireObjectName(dirBlock.getFieldValue('MISSILE')) === name;
+    if (!fireAngle && dirBlock && dirBlock.getDescendants(false).some((b) => /angle|velocity|inertia|bounce|gravity/.test(b.type))) return null;
+    return {block: next, fireAngle};
+  };
+
+  // The lines of a Find playfield pixel collided with block: the direction into temp5 (pre) and the routine that finds the pixel (name, made here when it is not yet).
+  Blockly.BBasic.findPixelCallParts = (block) => {
     const sprite = block.getFieldValue('SPRITE');
     const direction = Blockly.BBasic.valueToCode(block, 'DIRECTION', Blockly.BBasic.ORDER_NONE) || '255';
     const {maxRow, rowDivisor, topY, groupRows} = findPixelSettings(sprite);
@@ -767,13 +777,15 @@ export default (Blockly) => {
     if (!Blockly.BBasic.subroutines[name]) {
       Blockly.BBasic.subroutines[name] = buildFindPixelBody({sprite, is16, maxRow, rowDivisor, topY, col, row, groupRows});
     }
-    const suffix = Blockly.BBasic.bankJumpSuffix(
-        Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(name));
-    return [
-      ...(anyFired ? [`temp5 = ${direction} + 8`, 'temp5 = temp5 / 16'] : [`temp5 = ${direction}`]),
-      ...bounceLines,
-      `gosub ${name}${suffix}`,
-    ].join('\n') + '\n';
+    return {name, pre: [...(anyFired ? [`temp5 = ${direction} + 8`, 'temp5 = temp5 / 16'] : [`temp5 = ${direction}`]), ...bounceLines]};
+  };
+
+  Blockly.BBasic['background_collision_pixel_direction'] = function(block) {
+    // (Done by the call of the Bounce block before it: see bounceFindOf.)
+    if (Blockly.BBasic.bounceFindMerged.has(block.id)) return '';
+    const {name, pre} = Blockly.BBasic.findPixelCallParts(block);
+    const suffix = Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(name));
+    return [...pre, `gosub ${name}${suffix}`].join('\n') + '\n';
   };
 
   Blockly.BBasic['background_rainbow_colors'] = function(block) {

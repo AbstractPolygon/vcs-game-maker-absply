@@ -537,7 +537,21 @@ export const seekArrivedBit = (name) => flagPoolBit(SEEK_ARRIVED_FLAGS_FAMILY, s
 export const seekThrottleVarName = (name) => `${name}SeekThrottle`;
 export const seekThrottleResetVarName = (name) => `${name}SeekThrottleReset`;
 export const missileFireThrottleVarName = (name) => `${name}FireThrottle`;
-export const missileFireThrottleResetVarName = (name) => `${name}FireThrottleReset`;
+// A fired object's throttle is one byte: with the same interval in every Fire block of the object (missileFireThrottleConst) the byte is the countdown and it starts
+// again from that number; else the low nibble is the countdown and the high nibble the interval it starts again from (an interval is held to 1 to 15).
+export const fireThrottleStart = (Blockly, name, interval) => {
+  const constant = (Blockly.BBasic.missileFireThrottleConst || new Map()).get(name);
+  return constant !== undefined ? constant : Math.max(1, Math.min(15, interval)) * 17;
+};
+// The lines of a frame of the throttle: a count down, and a jump to doneLabel (a bB label) unless it ran out, when it starts again.
+const fireThrottleTick = (Blockly, name, pair, continueLabel, doneLabel) => {
+  const constant = (Blockly.BBasic.missileFireThrottleConst || new Map()).get(name);
+  return [' asm', `       lda ${pair.read}`, '       sec', '       sbc #1', `       sta ${pair.write}`, ...(constant !== undefined ? [] : ['       and #15']),
+    `       beq ${continueLabel}`, `       jmp .${doneLabel}`, continueLabel,
+    ...(constant !== undefined ? [`       lda #${constant}`, `       sta ${pair.write}`] :
+      [`       lda ${pair.read}`, '       and #$F0', `       sta ${pair.write}`, '       lsr', '       lsr', '       lsr', '       lsr', `       ora ${pair.read}`, `       sta ${pair.write}`]),
+    'end'];
+};
 // The leftover of the frames a diagonal skips to move at the speed of a straight shot ("same speed at every angle").
 export const missileFireEvenVarName = (name) => `${name}FireEven`;
 
@@ -700,7 +714,7 @@ export const missileBounceOrigVelocityFracYVarName = (name) => `${name}BounceOri
 // looking for an event_frame_every_n ancestor. Its MASK field's VALUE
 // is interval-1 (see FRAME_OPTIONS in blocks/event.js) - "+ 1" recovers the
 // real interval.
-const resolveEnclosingFrameInterval = (block) => {
+export const resolveEnclosingFrameInterval = (block) => {
   let ancestor = block.getSurroundParent();
   while (ancestor) {
     if (ancestor.type === 'event_frame_every_n') {
@@ -856,9 +870,8 @@ export const reserveMissileFireDevVars = (reserveDevVar, reserveDevVarRW, usedFo
       reserveDevVarRW(missileFireEvenVarName(name), 'the count of frames skipped to move at the same speed at every angle');
     }
     if (usedThrottle && usedThrottle.has(name)) {
-      reserveDevVarRW(missileFireThrottleVarName(name), 'this missile\'s "throttle movement" countdown');
-      reserveDevVarRW(missileFireThrottleResetVarName(name),
-          'this missile\'s "throttle movement" countdown reset value');
+      // (The interval it starts again from is a constant or the high nibble: see fireThrottleStart.)
+      reserveDevVarRW(missileFireThrottleVarName(name), 'this missile\'s "throttle movement" countdown (and its interval in the high nibble when the Fire blocks differ)');
     }
   });
   // Any direction: the leftover 32nds of a pixel of both axes, a byte each.
@@ -1839,7 +1852,6 @@ export const generateMissileFireChecks = (Blockly) => {
     const speedVar = constSpeed !== undefined ? String(constSpeed) : speedPair.read;
     const activeBit = missileFireActiveBit(name);
     const throttlePair = resolveRW(missileFireThrottleVarName(name));
-    const throttleResetPair = resolveRW(missileFireThrottleResetVarName(name));
     const throttled = !!throttlePair;
     const is16 = used16 && used16.has(name);
     const isAny = usedAny.has(name);
@@ -2022,8 +2034,7 @@ export const generateMissileFireChecks = (Blockly) => {
       armObjects.push({
         pre: [
           ` if !${flagsVar}{${activeBit}} then goto ${doneLabel}`,
-          ...(throttled ? [' asm', '       lda ' + throttlePair.read, '       sec', '       sbc #1', '       sta ' + throttlePair.write, '       beq ' + throttleContinueLabel,
-            '       jmp .' + doneLabel, throttleContinueLabel, 'end', ` ${throttlePair.write} = ${throttleResetPair.read}`] : []),
+          ...(throttled ? fireThrottleTick(Blockly, name, throttlePair, throttleContinueLabel, doneLabel) : []),
         ],
         doneLabel, edgeLines, edgeDoneLabel,
         object: {x: `${name}x`, y: `${name}y`, flags: (is16 ? 1 : 0) + 2 + topShift + (fireRowDiv ? 64 : 0) + (evenPair ? 128 : 0),
@@ -2049,18 +2060,7 @@ export const generateMissileFireChecks = (Blockly) => {
         // name DASM itself expects (see generators/bbasic/music.js's
         // extensive comment on this) - throttleContinueLabel is purely
         // local to this block, so it doesn't need one.
-        ...(throttled ? [
-          ' asm',
-          '       lda ' + throttlePair.read,
-          '       sec',
-          '       sbc #1',
-          '       sta ' + throttlePair.write,
-          '       beq ' + throttleContinueLabel,
-          '       jmp .' + doneLabel,
-          throttleContinueLabel,
-          'end',
-          ` ${throttlePair.write} = ${throttleResetPair.read}`,
-        ] : []),
+        ...(throttled ? fireThrottleTick(Blockly, name, throttlePair, throttleContinueLabel, doneLabel) : []),
         // Speed 0 means stand still: nothing below (the half-speed minimum of
         // 1, or the pixel-step counter) may run for it.
         ...(constSpeed === undefined ? [` if ${speedVar} = 0 then goto ${doneLabel}`] :
@@ -3431,7 +3431,6 @@ ${originLines}`;
       // (see reserveMissileFireDevVars'  comment on why these two route
       // through the Superchip r/w pool), so only .write is ever needed.
       const throttlePair = Blockly.BBasic.superchipRwPairs[missileFireThrottleVarName(name)];
-      const throttleResetPair = Blockly.BBasic.superchipRwPairs[missileFireThrottleResetVarName(name)];
       // The countdown variables only exist when some Fire block on this object
       // has throttle movement ticked.
       const throttled = !!throttlePair;
@@ -3472,13 +3471,12 @@ ${originLines}`;
         `${name}x = ${x}\n` +
         `${name}y = ${y}\n` +
         speedLines +
-        (throttled ? `${throttleResetPair.write} = ${interval}\n` : '') +
         // Was "= 1", forcing the very FIRST step to fire after just 1
         // frame regardless of interval, before falling into the correct
         // every-${interval}-frames cadence from the second step onward -
         // seeded from the same interval instead, so the first step waits
-        // the full interval too, same as every step after it.
-        (throttled ? `${throttlePair.write} = ${interval}\n` : '') +
+        // the full interval too, same as every step after it. (The countdown and, unless it is a constant, the interval: see fireThrottleStart.)
+        (throttled ? `${throttlePair.write} = ${fireThrottleStart(Blockly, name, interval)}\n` : '') +
         // A new Fire starts the object again, so it has not gone off the screen.
         (Blockly.BBasic.fireOffscreenUsedFor && Blockly.BBasic.fireOffscreenUsedFor.has(name) ?
           `${resolveVar(fireOffscreenFlagsVarName())}{${fireOffscreenBit(name)}} = 0\n` : '') +
@@ -4637,11 +4635,8 @@ ${fine.write} = 0
     }
     // The stage subroutine can sit in a different bank than the Bounce block
     // calling it, so its call into the reflect routine is tagged relative to
-    // the bank it is in.
+    // the bank it is in (see stageBody below).
     const stageName = `_bouncestage_${name}${spriteSuffix}`;
-    const reflectSuffix = Blockly.BBasic.bankJumpSuffix(
-        Blockly.BBasic.getSubroutineBank(stageName), Blockly.BBasic.getSubroutineBank(reflectName));
-    const reflectCall = [` gosub ${reflectName}${reflectSuffix}`];
 
     // Optional "new angle": replaces the reflected heading of a fired object on
     // the first frame of the bounce (clamped to the valid range).
@@ -4709,17 +4704,18 @@ ${fine.write} = 0
       return [` gosub ${findName}${findSuffix}`, ...manualAngleLines, ...spreadLines].join('\n') + '\n';
     }
     // Reached by every Bounce block through a gosub, not repeated in each one.
-    if (bounceArm && !Blockly.BBasic.subroutines[stageName]) {
+    // The stage code (tag: a part of its labels, for a copy of it in a Bounce and Find routine, see below; from: the routine it is in, for the bank of its call).
+    const armStageBody = (tag) => {
       const topText = pfTopY(bounceConfig, name);
       const topLines = /\+ 1$/.test(topText) ? [`lda ${name}y`, 'clc', 'adc #1'] : /- 1$/.test(topText) ? [`lda ${name}y`, 'sec', 'sbc #1'] : [`lda ${name}y`];
       const steps = (Blockly.BBasic.missileFire16UsedFor || new Set()).has(name) ? 16 : 8;
-      const label = (part) => `_bouncestage_${name}_${part}`;
+      const label = (part) => `_bouncestage_${name}${tag}_${part}`;
       // (The call's lines without their asm and @end: the heading and the stage byte it gives back go straight to their bytes.)
       const callLines = buildPixArmCall({fn: ARM_FIND_PIXEL_FUNCTION.bounce, after: [bounceDirVar, stagePair.write], args: [[`lda ${name}x`], topLines, [`lda ${bounceDirVar}`],
         [`lda #${steps | (bounceRowDiv ? 128 : 0)}`], [`lda #${bounceMaxRow}`],
         [`lda #${missileBallPfXOffset(bounceConfig, name)}`], [`lda #${bounceRowInc & 255}`], [`lda ${stagePair.read}`],
         ...(armGravity ? [['lda #1'], [`lda ${armGravity.read}`]] : [['lda #0']])]}).split('\n').slice(1, -1);
-      Blockly.BBasic.subroutines[stageName] = [
+      return [
         'asm',
         // Only the first frame of a bounce (stage 0, bits 4 and 5) looks at the playfield, on the coprocessor. The next ones are done here, as bouncepix in
         // armprog.c does them (about 25 cycles, where the call takes about 100): the second and third only go on to the next stage, with the mark of a Bounce frame
@@ -4734,13 +4730,15 @@ ${fine.write} = 0
         ...callLines,
         `@${label('after')}`,
         // The coprocessor turned the vertical way of an object with Gravity (bit 7 of the stage byte): its fall speed is bounced here.
-        ...(armGravity ? [`lda ${stagePair.read}`, `bpl _bouncestage_${name}_nograv`, 'and #127', `sta ${stagePair.write}`,
-          ...buildGravityBounceAsm(Blockly, name, `_gravkeep_${name}_arm_`, '@'), `@_bouncestage_${name}_nograv`] : []),
+        ...(armGravity ? [`lda ${stagePair.read}`, `bpl _bouncestage_${name}${tag}_nograv`, 'and #127', `sta ${stagePair.write}`,
+          ...buildGravityBounceAsm(Blockly, name, `_gravkeep_${name}${tag}_arm_`, '@'), `@_bouncestage_${name}${tag}_nograv`] : []),
         '@end',
       ].join('\n');
-    }
-    if (!Blockly.BBasic.subroutines[stageName]) {
-      Blockly.BBasic.subroutines[stageName] = [
+    };
+    const stageBody = (tag, from) => {
+      const [s1, s2, s3, s4, done] = [stage1Label, stage2Label, stage3Label, stage4Label, doneLabel].map((label) => label.replace(/_(s\d|done)$/, `${tag}_$1`));
+      const call = [` gosub ${reflectName}${Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getSubroutineBank(from), Blockly.BBasic.getSubroutineBank(reflectName))}`];
+      return [
         // "Still the same collision, one frame later" check - frameVar is
         // advanced to what it'd need to equal for a genuine one-frame gap
         // FIRST, compared, THEN overwritten with the real framecounter value
@@ -4749,37 +4747,57 @@ ${fine.write} = 0
         ` temp6 = ${stagePair.read} & 48`,
         // Mark this frame as a Bounce frame (see generateBounceStageChecks).
         ` ${stagePair.write} = ${stagePair.read} | 64`,
-        ` if temp6 = 0 then goto ${stage1Label}`,
-        ` if temp6 = 16 then goto ${stage2Label}`,
-        ` if temp6 = 32 then goto ${stage3Label}`,
-        ` goto ${stage4Label}`,
-        `@ ${stage1Label}`,
+        ` if temp6 = 0 then goto ${s1}`,
+        ` if temp6 = 16 then goto ${s2}`,
+        ` if temp6 = 32 then goto ${s3}`,
+        ` goto ${s4}`,
+        `@ ${s1}`,
         ...fireLines.stage1,
         ...inertiaLines.stage1,
-        ...reflectCall,
+        ...call,
         ` ${stagePair.write} = (${stagePair.read} & 207) | 16`,
-        ` goto ${doneLabel}`,
-        `@ ${stage2Label}`,
+        ` goto ${done}`,
+        `@ ${s2}`,
         ...fireLines.stage2,
         ...inertiaLines.stage2,
         ` ${stagePair.write} = (${stagePair.read} & 207) | 32`,
-        ` goto ${doneLabel}`,
+        ` goto ${done}`,
         // Combat's deliberate "do nothing" grace frame (MxPFcount=$02) -
         // gives the object one more frame to clear the wall on stage 2's
         // heading before stage 4 gives up on it.
-        `@ ${stage3Label}`,
+        `@ ${s3}`,
         ` ${stagePair.write} = (${stagePair.read} & 207) | 48`,
-        ` goto ${doneLabel}`,
-        `@ ${stage4Label}`,
+        ` goto ${done}`,
+        `@ ${s4}`,
         ...fireLines.stage4,
         ...inertiaLines.stage4,
         ` ${stagePair.write} = (${stagePair.read} & 207) | 48`,
-        `@ ${doneLabel}`,
+        `@ ${done}`,
       ].map((line) => line.replace(/^ /, '')).join('\n');
+    };
+    // With a Find playfield pixel collided with block of the object right after it (see bounceFindOf in generators/bbasic/background.js), on any kernel and for any
+    // object (one the coprocessor does in one call is above): one routine has the stage code and then calls the finder, with the Find block's direction worked out
+    // between them, so the block makes one call (and one bank switch) where it made two. The routines of the pairs with the same direction are one.
+    const bounceFindNext = Blockly.BBasic.bounceFindOf ? Blockly.BBasic.bounceFindOf(block, name) : null;
+    if (bounceFindNext) {
+      Blockly.BBasic.bounceFindMerged.add(bounceFindNext.block.id);
+      const {name: findName, pre} = Blockly.BBasic.findPixelCallParts(bounceFindNext.block);
+      const key = `${name}|${findName}|${bounceFindNext.fireAngle ? 'fire' : Blockly.BBasic.valueToCode(bounceFindNext.block, 'DIRECTION', Blockly.BBasic.ORDER_NONE)}`;
+      const routines = Blockly.BBasic.bounceFindRoutines || (Blockly.BBasic.bounceFindRoutines = new Map());
+      if (!routines.has(key)) routines.set(key, `_bouncefind_${name}_${routines.size + 1}`);
+      const routine = routines.get(key);
+      if (!Blockly.BBasic.subroutines[routine]) {
+        const inner = (target) => Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getSubroutineBank(routine), Blockly.BBasic.getSubroutineBank(target));
+        // (The stage code is in it, not called: a call more would take two more bytes of the stack, which has only ten on DPC+.)
+        const tag = `_m${routines.size}`;
+        Blockly.BBasic.subroutines[routine] = [bounceArm ? armStageBody(tag) : stageBody(tag, routine), ...pre, `gosub ${findName}${inner(findName)}`].join('\n');
+      }
+      const routineSuffix = Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(routine));
+      return [` gosub ${routine}${routineSuffix}`, ...manualAngleLines, ...spreadLines].join('\n') + '\n';
     }
-    const stageSuffix = Blockly.BBasic.bankJumpSuffix(
-        Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(stageName));
 
+    if (!Blockly.BBasic.subroutines[stageName]) Blockly.BBasic.subroutines[stageName] = bounceArm ? armStageBody('') : stageBody('', stageName);
+    const stageSuffix = Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(stageName));
     return [
       ` gosub ${stageName}${stageSuffix}`,
       // Set on every call, not just the first frame: while the object is still
