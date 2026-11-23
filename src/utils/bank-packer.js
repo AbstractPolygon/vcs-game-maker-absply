@@ -20,6 +20,8 @@ const addressOf = (symbolmap, names) => {
 };
 
 // The bank an address is in: each bank's code is placed at a 4 KB page of its bank of addresses, and the label start_bankN is near the end of that page.
+// (In the measuring assembly, see measureBanks in hooks/bb-compiler.js, the code of a bank that is over runs on past its page into the pages of the banks
+// after it: there the bank the unit was put in, when the caller knows it, is the one to go by.)
 const bankOfAddress = (symbolmap, address) => {
   for (let bank = 1; symbolmap[`start_bank${bank}`] !== undefined; bank++) {
     if ((symbolmap[`start_bank${bank}`] >> 12) === (address >> 12)) return bank;
@@ -32,16 +34,17 @@ const bankOfAddress = (symbolmap, address) => {
  * bank (the last one in a bank to the first data table copy after it, else to where the code of the bank ends).
  * @param {!Object<string, number>} symbolmap
  * @param {!Object<number, number>} free Room left in each bank, from parseBankFree.
- * @param {!Array<{key: string, labels: !Array<string>, endLabels: (!Array<string>|undefined)}>} units Each unit with the names its first label can have
- *   (and its last, when it has one: then the size is exact; without it the unit is taken to run up to the next one).
+ * @param {!Array<{key: string, labels: !Array<string>, endLabels: (!Array<string>|undefined), bank: (number|undefined)}>} units Each unit with the names
+ *   its first label can have (and its last, when it has one: then the size is exact; without it the unit is taken to run up to the next one), and the bank
+ *   it was put in when that is known (else the bank is found from the address of the label, which is wrong past the end of a bank that is over).
  * @return {!Map<string, {size: number, bank: number, exact: (boolean|undefined)}>} Only for the units whose label was found.
  */
 export const measureUnitSizes = (symbolmap, free, units) => {
   const found = [];
-  units.forEach(({key, labels, endLabels}) => {
+  units.forEach(({key, labels, endLabels, bank: known}) => {
     const address = addressOf(symbolmap, labels);
     if (address === null) return;
-    const bank = bankOfAddress(symbolmap, address);
+    const bank = known !== undefined ? known : bankOfAddress(symbolmap, address);
     const endAddress = endLabels ? addressOf(symbolmap, endLabels) : null;
     if (bank !== null) found.push({key, address, bank, endAddress});
   });
@@ -75,6 +78,9 @@ export const measureUnitSizes = (symbolmap, free, units) => {
   return sizes;
 };
 
+// What a unit marked apart costs for each other unit in its bank, or for being in the main bank (see planBankPacking).
+const APART_COST = 200;
+
 // A small deterministic random number generator, so the same project is always packed the same way.
 const makeRandom = (seed) => {
   let state = seed >>> 0;
@@ -90,16 +96,18 @@ const makeRandom = (seed) => {
 /**
  * Chooses a bank for every unit so that each bank keeps `margin` bytes free, moving as little as possible and keeping what runs often in the main
  * bank (a call into another bank takes 35 to 50 cycles).
- * @param {{units: !Array<{key: string, bank: number, size: number, weight: number}>, banks: !Array<number>, free: !Object<number, number>,
+ * @param {{units: !Array<{key: string, bank: number, size: number, weight: number, apart: (boolean|undefined)}>, banks: !Array<number>, free: !Object<number, number>,
  *   primary: number, margin: number, enterBytes: number, edges: (!Array<{a: string, b: string, weight: number}>|undefined)}} problem
  *   units: where each is now (bank) and what it costs to run away from the main bank (weight); banks: the banks they can go in; free: the room
  *   each of those has now; enterBytes: the code a unit adds to a bank it was not in (the bank switching calls to it); edges: pairs of units where
  *   one calls the other, with what each call costs when the two are in different banks (how often it is made): a unit called every pass goes in the
- *   bank of the one that calls it, not in a bank by itself.
+ *   bank of the one that calls it, not in a bank by itself; callSites: the calls written in the code, from a unit (from: its key) or from the code
+ *   that stays in the main bank (from: null) to a unit (to: its key), `count` of them, each callBytes bigger in the bank of the code that makes it
+ *   when the unit it calls is in another bank.
  * @return {{assignment: !Map<string, number>, deficit: number, feasible: boolean, cost: number}} deficit: the bytes by which the banks fall short of the margin;
  *   cost: what the layout costs (the weights of the units away from the main bank, the moves, and the calls across banks).
  */
-export const planBankPacking = ({units, banks, free, primary, margin, enterBytes, edges = []}) => {
+export const planBankPacking = ({units, banks, free, primary, margin, enterBytes, edges = [], callSites = [], callBytes = 0}) => {
   const count = units.length;
   const indexOfKey = new Map(units.map((unit, i) => [unit.key, i]));
   // For each unit, the units it calls or is called by, with what it costs when they are in different banks.
@@ -113,8 +121,14 @@ export const planBankPacking = ({units, banks, free, primary, margin, enterBytes
   const original = units.map((unit) => (binIndex.has(unit.bank) ? binIndex.get(unit.bank) : -1));
   const baseFree = banks.map((bank) => (free[bank] === undefined ? 0 : free[bank]));
   // (A unit whose size is known is where an earlier layout put it for a reason: moving it again costs more than moving one that was only guessed at.)
-  const costOf = (i, bin) => (banks[bin] === primary ? 0 : units[i].weight) + (bin !== original[i] ? (units[i].settled ? 3 : 0.5) : 0);
+  // (A unit marked apart, the Title Screen Kernel on the standard kernel, goes in a bank to itself outside the main bank: each other unit with it, or the
+  // main bank, costs APART_COST, so it shares a bank only when that is what makes the layout fit.)
+  const costOf = (i, bin) => (banks[bin] === primary ? (units[i].apart ? APART_COST : 0) : units[i].weight) + (bin !== original[i] ? (units[i].settled ? 3 : 0.5) : 0);
   const state = original.map((bin, i) => (bin >= 0 ? bin : 0));
+  const apart = units.map((unit, i) => i).filter((i) => units[i].apart);
+  // What the units marked apart cost for the units with them, with unit i in bank bin.
+  const crowdCost = (i, bin) => (units[i].apart ? units.filter((other, j) => j !== i && state[j] === bin).length :
+    apart.filter((a) => a !== i && state[a] === bin).length) * APART_COST;
   // What the calls of unit i cost with the unit in bank bin (the others where they are now).
   const linkCost = (i, bin) => links[i].reduce((sum, {other, weight}) => sum + (state[other] === bin ? 0 : weight), 0);
   const room = baseFree.slice();
@@ -126,9 +140,29 @@ export const planBankPacking = ({units, banks, free, primary, margin, enterBytes
   const deficitOf = (bin) => Math.max(0, margin - room[bin]);
   let deficit = 0;
   let cost = 0;
+  // The calls between banks: each one's bytes are in the bank of the code that makes it. (The room measured has them as the units are now, so the
+  // starting charges change nothing; a move takes a charge back and puts the new one.)
+  const primaryBin = binIndex.has(primary) ? binIndex.get(primary) : 0;
+  const calls = callSites.filter(({from, to}) => indexOfKey.has(to) && (from === null || indexOfKey.has(from)) && from !== to)
+      .map(({from, to, count: n}) => ({from: from === null ? -1 : indexOfKey.get(from), to: indexOfKey.get(to), bytes: n * callBytes}));
+  const callsOf = units.map(() => []);
+  calls.forEach((call) => {
+    if (call.from >= 0) callsOf[call.from].push(call);
+    callsOf[call.to].push(call);
+  });
+  const chargeOf = (call) => {
+    const at = call.from < 0 ? primaryBin : state[call.from];
+    return {at, bytes: at === state[call.to] ? 0 : call.bytes};
+  };
+  calls.forEach((call) => (call.charge = chargeOf(call)));
   banks.forEach((bank, bin) => (deficit += deficitOf(bin)));
-  units.forEach((unit, i) => (cost += costOf(i, state[i]) + linkCost(i, state[i]) / 2));
-  const PENALTY = 4;
+  const changeRoom = (bin, bytes) => {
+    deficit -= deficitOf(bin);
+    room[bin] += bytes;
+    deficit += deficitOf(bin);
+  };
+  units.forEach((unit, i) => (cost += costOf(i, state[i]) + linkCost(i, state[i]) / 2 + (unit.apart ? crowdCost(i, state[i]) : 0)));
+  const PENALTY = 40;
   const energy = () => cost + PENALTY * deficit;
   const move = (i, to) => {
     const from = state[i];
@@ -147,11 +181,16 @@ export const planBankPacking = ({units, banks, free, primary, margin, enterBytes
       else room[bin] -= unit.size + enterBytes;
       deficit += deficitOf(bin);
     };
-    cost -= costOf(i, from) + linkCost(i, from);
+    cost -= costOf(i, from) + linkCost(i, from) + (apart.length ? crowdCost(i, from) : 0);
     leave(from);
     state[i] = to;
     enter(to);
-    cost += costOf(i, to) + linkCost(i, to);
+    cost += costOf(i, to) + linkCost(i, to) + (apart.length ? crowdCost(i, to) : 0);
+    callsOf[i].forEach((call) => {
+      changeRoom(call.charge.at, call.charge.bytes);
+      call.charge = chargeOf(call);
+      changeRoom(call.charge.at, -call.charge.bytes);
+    });
   };
   // A unit that is back in its original bank does not take room twice: the room sums above are relative to the layout as it started, so the
   // original bank counts the unit as already there (leave() and enter() are written so that going out and coming back cancel).

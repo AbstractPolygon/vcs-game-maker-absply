@@ -102,7 +102,9 @@ const SEED_OFFSET = 128;
 // project uses take to start.
 const STEP_TIMER_COUNTS = {standard: [5, 4, 4, 8, 4, 5, 7, 10], dpcplus: [7, 4, 4, 8, 4, 5, 5, 11]};
 const startCounts = (config, kinds) => {
-  if (config.kernel === 'dpcplus') return kinds.has('circle') ? 9 : STEP_TIMER_COUNTS.dpcplus[0];
+  // (A record of the coprocessor's circle: about 1130 cycles in Bricks, a circle of radius 1 with padding (the start, the call, and the call's time in the
+  // emulator), with the queue moved up after it about 1410 (the profiler by routine): 24 counts; at 9 a frame that had 9 counts left drew five queued circles and was 313 lines.)
+  if (config.kernel === 'dpcplus') return kinds.has('circle') ? 24 : STEP_TIMER_COUNTS.dpcplus[0];
   return [...kinds].every((kind) => kind === 'pixel') ? 4 : STEP_TIMER_COUNTS.standard[0];
 };
 // PXE: the steps of a frame (see _pfd_step). Not measured on a real PXE cartridge: the emulator does not model the coprocessor's speed.
@@ -254,7 +256,13 @@ const buildEngine = (Blockly) => {
     // (A row of a circle that is kept round takes a multiplication more.)
     if (circleStretch && (circleSpread || !armCircle)) need[6] = STEP_TIMER_COUNTS.standard[6] + 2;
     const timeLeft = (enough) => ['asm', `lda ${S.read}`, 'lsr', 'lsr', 'lsr', 'lsr', 'lsr', 'tax', 'lda INTIM', 'cmp _pfd_need,x', enough, '@end'].join('\n');
+    // (DPC+: a circle a block left past the queue goes in when the frame has 8 counts left for the copy, see deferredSubmit; while it waits the state is kept
+    // at 2 so that the steps are called.)
+    const stagedLines = armCircle && has('circle') ? [...store.read(records, 0, 'temp1'), 'if temp1 = 0 then goto _pfd_nost', 'if INTIM >= 136 then gosub _pfd_submit',
+      label('nost')] : [];
+    const stagedKeep = armCircle && has('circle') ? [...store.read(records, 0, 'temp1'), `if temp1 then ${S.write} = 2`] : [];
     add(label('step'),
+        ...stagedLines,
         ...(speed ? [['asm', `lda ${speedName(Blockly)}`, `and #${PFD_SPEED_MAX << speedBase()}`, 'bne ._pfd_sps', '@end'].join('\n')] : []),
         timeLeft('bcs ._pfd_stgo'),
         'return',
@@ -267,6 +275,7 @@ const buildEngine = (Blockly) => {
         'goto _pfd_step',
         label('stz'),
         set(S, 0),
+        ...stagedKeep,
         'return',
         // With a speed set: the same, the steps left counted down on the stack (no byte for it); the frame is done at 0 or when its time is.
         ...(speed ? [label('sps'), ['asm', ...speedLoad(Blockly), 'pha', '@end'].join('\n'),
@@ -302,7 +311,10 @@ const buildEngine = (Blockly) => {
   add(label('submit'),
       ...store.read(from, 0, 'temp1'),
       'if temp1 = 0 then return',
-      ...(displayRam ? [...header(last), 'if temp1 = 0 then goto _pfd_subr', 'gosub _pfd_flush', set(S, 1), label('subr')] : []));
+      // (DPC+, the queue full: the work being drawn is finished and the first record waiting is started, which frees one record, and the new one waits
+      // its turn. Drawing everything waiting at once made a frame of Bricks 313 lines: five queued circles in one frame.)
+      ...(displayRam ? [...header(last), 'if temp1 = 0 then goto _pfd_subr', label('one'), `if ${S.read} >= 32 then gosub _pfd_unit`,
+        `if ${S.read} >= 32 then goto _pfd_one`, 'gosub _pfd_unit', label('subr')] : []));
   for (let r = 0; r < from; r++) {
     add(...header(r),
         `if temp1 <> 0 then goto _pfd_sub${r + 1}`,
@@ -1153,8 +1165,13 @@ export const ensurePfDraw = (Blockly) => {
 };
 const callEngine = (Blockly, entry) =>
   `gosub _pfd_${entry}${Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(PF_DRAW_SUBROUTINE))}`;
-// The call before a block writes its record (none on DPC+: see _pfd_room).
-const roomCall = (Blockly) => (Blockly.BBasic.pfDraw.displayRam ? [] : [callEngine(Blockly, 'room')]);
+// The call before a block writes its record. DPC+: none, but a record still waiting in the record past the queue (a circle the block left there, see
+// deferredSubmit) goes into the queue first.
+const roomCall = (Blockly) => (Blockly.BBasic.pfDraw.displayRam ? [...recordStore(Blockly.BBasic.pfDraw).read(Blockly.BBasic.pfDraw.records, 0, 'temp1'),
+  `if temp1 then ${callEngine(Blockly, 'submit')}`] : [callEngine(Blockly, 'room')]);
+// DPC+: a circle the coprocessor draws (it waits for the steps at the end of the frame anyway) is left in the record past the queue, and the steps put it in the
+// queue when the frame has time for it (see generatePfDrawStep): the copy down the queue (about 370 cycles) was made in the frame of the block, a hit frame of Bricks.
+const deferredSubmit = (Blockly, spread) => Blockly.BBasic.pfDraw.displayRam && Blockly.BBasic.pfDraw.armCircle && !spread;
 
 // The line for the end of commongamelogic: the steps of the frame.
 export const generatePfDrawStep = (Blockly) => {
@@ -1189,7 +1206,9 @@ export const pfDrawCircleCode = (Blockly, operation, cx, cy, radius, padLeft, pa
   // (The top and the bottom: a row each, a byte, as many rows as a high pfres has.)
   const row = (code, i) => [`temp3 = ${code}`, ...store.write(i, 'temp3')];
   return [...roomCall(Blockly), ...store.write(1, cx), ...store.write(2, cy), ...radiusCode,
-    ...pack(padLeft, padRight, 4), ...row(padTop, 5), ...row(padBottom, 6), ...store.write(0, headerOf('circle', operation, spread ? 1 : 0)), callEngine(Blockly, 'submit')].join('\n') + '\n';
+    ...pack(padLeft, padRight, 4), ...row(padTop, 5), ...row(padBottom, 6), ...store.write(0, headerOf('circle', operation, spread ? 1 : 0)),
+    ...(deferredSubmit(Blockly, spread) ? [`if ${Blockly.BBasic.pfDraw.state.read} = 0 then ${Blockly.BBasic.pfDraw.state.write} = 2`] :
+      [callEngine(Blockly, 'submit')])].join('\n') + '\n';
 };
 
 // The centered area: each side worked out by _pfd_axis into the corners of an area record (nothing is submitted when a side has nothing left).

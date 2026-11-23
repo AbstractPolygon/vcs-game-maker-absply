@@ -37,9 +37,37 @@ export const adaptFor64k = (code) => {
   let bank = 1;
   let inBlock = false;
   let counter = 0;
-  const tag = (text) => text.replace(GOSUB, (match, name) => `gosub ${name} bank${bank}`);
+  const lines = code.split('\n');
+  // The routines written in assembly that end in an rts (a label, then an asm block with an rts in it: the draw engine's _pfd_plot, for one), with the bank
+  // each is in: a call of one from the bank it is in stays a plain jsr. Tagged, the call pushed the caller's bank with the return address, the rts took that for
+  // the address, and the 6502 ran the RAM (a 64k build with a title screen and the draw engine stopped on its first frame).
+  const rtsRoutines = new Map();
+  let scanBank = 1;
+  lines.forEach((line, i) => {
+    const bankStatement = /^\s*bank\s+(\d+)\s*$/i.exec(line);
+    if (bankStatement) scanBank = Number(bankStatement[1]);
+    const label = /^([A-Za-z_]\w*)\s*$/.exec(line);
+    if (!label || !/^\s*asm\s*$/i.test(lines[i + 1] || '')) return;
+    for (let k = i + 2; k < lines.length && lines[k].trim().toLowerCase() !== 'end'; k++) {
+      if (/^\s*rts\b/i.test(lines[k])) {
+        rtsRoutines.set(label[1], scanBank);
+        return;
+      }
+    }
+  });
+  const tag = (text) => text.replace(GOSUB, (match, name) => (rtsRoutines.get(name) === bank ? match : `gosub ${name} bank${bank}`));
+  // A "return thisbank" (an rts) of code that gosubs reach: the gosubs are tagged, so it goes back through BS_return too (the draw engine's routines end
+  // in one, and the 64k build ran the RAM after its first call). Not when the routine it is in (the last label before it that some call names) is called
+  // with a jsr from assembly: that call pushes a plain address.
+  const gosubTargets = new Set();
+  const jsrTargets = new Set();
+  lines.forEach((line) => {
+    for (const m of line.matchAll(/\bgosub\s+\.?([A-Za-z_]\w*)/g)) gosubTargets.add(m[1]);
+    for (const m of line.matchAll(/\bjsr\s+\.?([A-Za-z_]\w*)/gi)) jsrTargets.add(m[1]);
+  });
+  let routine = null;
 
-  code.split('\n').forEach((line) => {
+  lines.forEach((line) => {
     const trimmed = line.trim();
     if (inBlock) {
       out.push(line);
@@ -59,6 +87,12 @@ export const adaptFor64k = (code) => {
     }
     if (/^rem(\s|$)/i.test(trimmed)) {
       out.push(line);
+      return;
+    }
+    const label = /^([A-Za-z_]\w*)\s*$/.exec(line);
+    if (label && (gosubTargets.has(label[1]) || jsrTargets.has(label[1]))) routine = label[1];
+    if (/^return\s+thisbank$/i.test(trimmed) && routine && gosubTargets.has(routine) && !jsrTargets.has(routine)) {
+      out.push(...BARE_RETURN_LINES);
       return;
     }
     if (trimmed === 'return') {

@@ -325,7 +325,34 @@ export default (Blockly) => {
   // are one family (see computeFunctionFamilies in hooks/rom.js: they move to a bank together, so the calls between them are plain ones) and the code that
   // runs the pool makes one call for each sprite, which crosses a bank once at most (three calls that could each cross one, before). A build that does not fit
   // that way is made again with the three calls one by one (buildRom).
+  // The blocks of the pool made for the sprite itself (the COPY input, see utils/sprite-pool.js), in place of the exchange: no exchange and no calls, so
+  // fewer cycles (Bricks: about 150 cycles a frame for each powerup that moves, against about 30). Taken when the code is not bigger than the exchange
+  // subroutine and the calls, by the length of the code (the bytes per character the bank planner guesses with, see hooks/rom.js), the subroutines that
+  // only the copy asks for counted in; else nothing it made is kept (the subroutines it asked for go, as for a shadow copy). Null when not taken.
+  const INLINE_BYTES_PER_CHAR = 0.22;
+  const SWAP_BYTES_PER_LINE = 2.4;
+  const STEP_CALL_BYTES = 12;
+  const inlineStep = (block) => {
+    if (!block.getInputTargetBlock('COPY')) return null;
+    const first = Number(block.getFieldValue('FROM'));
+    const second = Number(block.getFieldValue('TO'));
+    const bodyField = block.getFieldValue('BODY');
+    ensureBody(block, bodyField);
+    const bodyName = Blockly.BBasic.nameDB_.getName(bodyField, Blockly.PROCEDURE_CATEGORY_NAME);
+    const before = new Set(Object.keys(Blockly.BBasic.subroutines));
+    const code = Blockly.BBasic.statementToCode(block, 'COPY');
+    const added = Object.keys(Blockly.BBasic.subroutines).filter((name) => !before.has(name));
+    const length = (text) => text.split('\n').map((line) => line.trim()).filter((line) => line && !/^rem\b/i.test(line)).join('\n ').length;
+    const bytes = (length(code) + added.reduce((sum, name) => sum + length(Blockly.BBasic.subroutines[name] || ''), 0)) * INLINE_BYTES_PER_CHAR;
+    const swapBytes = swapLines(first, second, `_for_${bodyName}`, reachableCode(bodyName)).length * SWAP_BYTES_PER_LINE + STEP_CALL_BYTES;
+    if (bytes <= swapBytes) return code;
+    added.forEach((name) => delete Blockly.BBasic.subroutines[name]);
+    return null;
+  };
+
   Blockly.BBasic['sprite_pool_step'] = function(block) {
+    const inline = inlineStep(block);
+    if (inline !== null) return inline;
     if (Blockly.BBasic.poolStepsOff) {
       const swap = callSub(registerSwap(block));
       return swap + bodyCall(block.getFieldValue('BODY'), block) + swap;

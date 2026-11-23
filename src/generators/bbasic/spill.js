@@ -137,7 +137,10 @@ const writtenNames = (shape) => {
 // A name that is only loaded (lda, ldx or ldy NAME) or stored (sta, stx or sty NAME) in an assembly block can be spilled too: a load sets the pointer of the
 // data fetcher with the register it loads (the others are not touched) and reads it, a store writes it there with the accumulator and the flags kept. Not in a block that is timed (it writes the TIA, or waits for a line), that uses the same data
 // fetcher itself, or where a branch could be pushed out of its reach by the lines added (a branch reaches 127 bytes, a spilled access is about 28).
-const ASM_ACCESS = /^\s*(lda|ldx|ldy|sta|stx|sty|bit|cmp|cpx|cpy|adc|sbc|and|ora|eor)\s+([A-Za-z_]\w*)\s*(;.*)?$/;
+// A test of one byte against a number or another byte, and the test that holds when it does not.
+const INVERTIBLE = /^\s*([A-Za-z_]\w*)\s*(<>|<=|>=|=|<|>)\s*(\$?[A-Za-z0-9_]+)\s*$/;
+const INVERSE = {'=': '<>', '<>': '=', '<': '>=', '>=': '<', '>': '<=', '<=': '>'};
+const ASM_ACCESS =/^\s*(lda|ldx|ldy|sta|stx|sty|bit|cmp|cpx|cpy|adc|sbc|and|ora|eor)\s+([A-Za-z_]\w*)\s*(;.*)?$/;
 // The ones that only read the byte for a calculation or a test (the instruction reads it from the data fetcher itself, with the accumulator kept on the
 // stack while the pointer is set: the carry and the overflow flag are not touched before the instruction).
 const ASM_READ_OPS = new Set(['bit', 'cmp', 'cpx', 'cpy', 'adc', 'sbc', 'and', 'ora', 'eor']);
@@ -522,6 +525,14 @@ export const applySpill = (code, slots) => {
       `${indent}lda ${WRITE_SCRATCH}`, `${indent}sta DF6WRITE`, 'end'];
   };
   const entries = entriesOf(code);
+  // Whether the line before entry `at` is a load of the accumulator with a number or a byte that is not in the display memory, in the same block of
+  // assembly, put out as it was (not a data fetcher: the pointer lines move one, and the load is put after them).
+  const loadedBefore = (at) => {
+    const before = entries[at - 1];
+    if (!before || before.kind !== 'block' || !before.asm || before.block !== entries[at].block || out[out.length - 1] !== before.line) return false;
+    const load = /^\s*lda\s+(#\S.*?|[A-Za-z_][\w.+]*(?:,[xy])?)\s*(;.*)?$/i.exec(before.line);
+    return !!load && !/DF\d|DF[A-Z]/.test(load[1]) && !slots.has(load[1].replace(/,[xy]$/i, ''));
+  };
   const spilledIn = (text) => names.filter((name) => wordRegex(name, '').test(text));
   // A label that only the jumps of tests reach, each with the same bytes holding the same names, and that the line before it does not
   // run into (a goto), is entered with those bytes still holding them: the test that follows it need not read them again (the frame checks
@@ -593,6 +604,11 @@ export const applySpill = (code, slots) => {
           } else {
             out.push(`${indent}pha`, ...pointerLines(indent, slot), `${indent}pla`, `${indent}${op} DF6DATA`);
           }
+        } else if (op === 'sta' && loadedBefore(at)) {
+          // Right after a load of a number or a plain byte: the load is made again after the pointer lines, which leaves the accumulator and the flags as
+          // the load did, without keeping them on the stack (14 cycles and 4 bytes less).
+          const load = out.pop();
+          out.push(...pointerLines(indent, slot), load, `${indent}sta DF6WRITE`);
         } else if (op === 'sta') {
           out.push(`${indent}php`, `${indent}pha`, ...pointerLines(indent, slot), `${indent}pla`, `${indent}sta DF6WRITE`, `${indent}plp`);
         } else {
@@ -679,6 +695,13 @@ export const applySpill = (code, slots) => {
     } else if (shape.type === 'ifthen') {
       const {pre, text} = readsIn(shape.cond, shape.indent);
       const id = labelCount++;
+      const trueOnly = !(shape.whenFalse || []).length ? INVERTIBLE.exec(text) : null;
+      if (trueOnly) {
+        // Nothing to do when the test fails: the opposite test jumps past the statements (one jump less, 3 bytes).
+        out.push(...pre, `${shape.indent}if ${trueOnly[1]} ${INVERSE[trueOnly[2]]} ${trueOnly[3]} then goto _spl_${id}_e`,
+            ...simpleLines(shape.whenTrue, shape.indent), ...(shape.thenMore || []).flatMap((simple) => simpleLines(simple, shape.indent)), `_spl_${id}_e`);
+        continue;
+      }
       out.push(...pre, `${shape.indent}if ${text} then goto _spl_${id}_a`);
       (shape.whenFalse || []).forEach((simple) => out.push(...simpleLines(simple, shape.indent)));
       const trueLines = [...simpleLines(shape.whenTrue, shape.indent), ...(shape.thenMore || []).flatMap((simple) => simpleLines(simple, shape.indent))];

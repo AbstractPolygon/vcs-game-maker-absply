@@ -25,7 +25,7 @@ const ArrayBufferSurface = require('6502.ts/lib/video/surface/ArrayBufferSurface
 const AudioOutputBuffer = require('6502.ts/lib/tools/AudioOutputBuffer').default;
 const CpuFactory = require('6502.ts/lib/machine/cpu/Factory').default;
 const palettes = require('6502.ts/lib/machine/stella/tia/palette');
-const {matchDriverFractionalFetchers} = require('./dpcplus-driver');
+const {matchDriverFractionalFetchers, cartridgeTypeOf} = require('./dpcplus-driver');
 const CartridgePXE = require('./pxe/CartridgePXE');
 const {createAtariVox} = require('./atarivox');
 
@@ -162,7 +162,8 @@ const createBoard = async () => {
     cartridge = new CartridgePXE(state.rom, {tvSpec: state.pal60 ? 'PAL60' : state.tvSpec === 'PAL' ? 'PAL' : 'NTSC'});
     await cartridge.init();
   } else {
-    cartridge = await new CartridgeFactory().createCartridge(state.rom);
+    // (The type is given for a DPC+ ROM: see cartridgeTypeOf.)
+    cartridge = await new CartridgeFactory().createCartridge(state.rom, cartridgeTypeOf(state.rom));
     // (The fractional fetchers of a DPC+ cartridge count the rows of the playfield; see dpcplus-driver.js.)
     matchDriverFractionalFetchers(cartridge, state.rom);
   }

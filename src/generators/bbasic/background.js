@@ -777,15 +777,21 @@ export default (Blockly) => {
     if (!Blockly.BBasic.subroutines[name]) {
       Blockly.BBasic.subroutines[name] = buildFindPixelBody({sprite, is16, maxRow, rowDivisor, topY, col, row, groupRows});
     }
-    return {name, pre: [...(anyFired ? [`temp5 = ${direction} + 8`, 'temp5 = temp5 / 16'] : [`temp5 = ${direction}`]), ...bounceLines]};
+    // From the second frame of a bounce of the sprite on (bits 4-5 of its stage byte 32 or more: the same collision goes on), nothing new was hit: the column and
+    // the row are 255 and the finder is not called, so what a block does with the pixel (take a brick out, add to the score) happens once a hit (asked 2026-11-22).
+    const ownStage = Blockly.BBasic.superchipRwPairs[missileBounceStageVarName(sprite)];
+    const sameHit = ownStage && (Blockly.BBasic.missileBounceUsedFor || new Set()).has(sprite) ? [`temp6 = ${ownStage.read} & 48`,
+      `if temp6 < 32 then goto ${label('newhit')}`, `${col.write} = 255`, `${row.write} = 255`, `goto ${label('found')}`, `@ ${label('newhit')}`] : [];
+    return {name, pre: [...sameHit, ...(anyFired ? [`temp5 = ${direction} + 8`, 'temp5 = temp5 / 16'] : [`temp5 = ${direction}`]), ...bounceLines],
+      post: sameHit.length ? [`@ ${label('found')}`] : []};
   };
 
   Blockly.BBasic['background_collision_pixel_direction'] = function(block) {
     // (Done by the call of the Bounce block before it: see bounceFindOf.)
     if (Blockly.BBasic.bounceFindMerged.has(block.id)) return '';
-    const {name, pre} = Blockly.BBasic.findPixelCallParts(block);
+    const {name, pre, post} = Blockly.BBasic.findPixelCallParts(block);
     const suffix = Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(name));
-    return [...pre, `gosub ${name}${suffix}`].join('\n') + '\n';
+    return [...pre, `gosub ${name}${suffix}`, ...post].join('\n') + '\n';
   };
 
   Blockly.BBasic['background_rainbow_colors'] = function(block) {

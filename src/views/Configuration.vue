@@ -570,6 +570,7 @@ const DEFAULT_CONFIGURATION = {
   enableOptimizationSpeed: false,
   enableFastMath: false,
   enableFireCoprocessor: false,
+  separatePoolAnimations: false,
   enableHarmonyCartFix: true,
   enableInlineRand: true,
   enableRand16: true,
@@ -990,6 +991,7 @@ export default defineComponent({
       state.enableOptimizationSpeed = DEFAULT_CONFIGURATION.enableOptimizationSpeed;
       state.enableFastMath = DEFAULT_CONFIGURATION.enableFastMath;
       state.enableFireCoprocessor = DEFAULT_CONFIGURATION.enableFireCoprocessor;
+      state.separatePoolAnimations = DEFAULT_CONFIGURATION.separatePoolAnimations;
       state.enableHarmonyCartFix = DEFAULT_CONFIGURATION.enableHarmonyCartFix;
       state.enableInlineRand = DEFAULT_CONFIGURATION.enableInlineRand;
       state.enableRand16 = DEFAULT_CONFIGURATION.enableRand16;

@@ -11,6 +11,16 @@ const NOT_LABELS = /^(?:end|return|asm|else|endif|next|loop|do|wend|drawscreen)$
 // every few frames (the label of its code says which). A condition on a variable, such as the state of the game, can hold for as long as the game stays in that
 // state, so the code under it is taken as run whenever the code that holds it is.
 const RARE_CONDITION = /\b(?:joy[01]\w*|switch\w+|collision|rand)\b|_(?:run_once|frame_every_n)_/i;
+// How many calls of each name in known a piece of code has, whatever the condition they are under.
+export const callCounts = (text, known) => {
+  const counts = new Map();
+  for (const match of (text || '').replace(/;.*$/gm, '').matchAll(CALL_PATTERN)) {
+    const name = match[1] || match[2];
+    if (known.has(name)) counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  return counts;
+};
+
 // The names in known that a piece of code calls, each with whether some call of it is made whenever the code runs (true) or only under a rare condition (false).
 // A call is under a rare condition when it is on a line "if ... then" with one, between a jump on one (the form the generated code takes for a block that is
 // run only if something holds) and the label it jumps to, or after such a jump out of the code (a "then return", or a jump to a name or label that is not in the text).

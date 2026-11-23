@@ -4692,11 +4692,23 @@ ${fine.write} = 0
             ...(armGravity ? [['lda #1'], [`lda ${armGravity.read}`]] : [['lda #0'], ['lda #0']]),
             // (The Find block's top line, height and size bits.)
             bounceFind.args[1], bounceFind.args[2], bounceFind.args[3]]}).split('\n').slice(1, -1);
+        // (From the second frame of the bounce on, the same collision: the 6502 does the stage as the stage code below does, and nothing new was hit, the column
+        // and the row 255, without the coprocessor's call; asked 2026-11-22.)
+        const sl = (part) => `_bouncefind_${name}_${part}`;
         Blockly.BBasic.subroutines[findName] = [
           'asm',
+          `lda ${stagePair.read}`, 'and #48', `beq ${sl('call')}`, 'cmp #48', `beq ${sl('back')}`,
+          `lda ${stagePair.read}`, 'clc', 'adc #16', 'ora #64', `sta ${stagePair.write}`, `jmp ${sl('same')}`,
+          `@${sl('back')}`,
+          `lda ${stagePair.read}`, 'and #15', 'clc', `adc #${bounceSteps / 2}`, `cmp #${bounceSteps}`, `bcc ${sl('turned')}`, `sbc #${bounceSteps}`, `@${sl('turned')}`, `sta ${bounceDirVar}`,
+          `lda ${stagePair.read}`, 'ora #112', `sta ${stagePair.write}`,
+          `@${sl('same')}`,
+          'lda #255', `sta ${bounceFind.col.write}`, `sta ${bounceFind.row.write}`, `jmp ${sl('end')}`,
+          `@${sl('call')}`,
           ...callLines,
           ...(armGravity ? [`lda ${stagePair.read}`, `bpl _bouncefind_${name}_nograv`, 'and #127', `sta ${stagePair.write}`,
             ...buildGravityBounceAsm(Blockly, name, `_gravkeep_${name}_armf_`, '@'), `@_bouncefind_${name}_nograv`] : []),
+          `@${sl('end')}`,
           '@end',
         ].join('\n');
       }
@@ -4781,7 +4793,7 @@ ${fine.write} = 0
     const bounceFindNext = Blockly.BBasic.bounceFindOf ? Blockly.BBasic.bounceFindOf(block, name) : null;
     if (bounceFindNext) {
       Blockly.BBasic.bounceFindMerged.add(bounceFindNext.block.id);
-      const {name: findName, pre} = Blockly.BBasic.findPixelCallParts(bounceFindNext.block);
+      const {name: findName, pre, post} = Blockly.BBasic.findPixelCallParts(bounceFindNext.block);
       const key = `${name}|${findName}|${bounceFindNext.fireAngle ? 'fire' : Blockly.BBasic.valueToCode(bounceFindNext.block, 'DIRECTION', Blockly.BBasic.ORDER_NONE)}`;
       const routines = Blockly.BBasic.bounceFindRoutines || (Blockly.BBasic.bounceFindRoutines = new Map());
       if (!routines.has(key)) routines.set(key, `_bouncefind_${name}_${routines.size + 1}`);
@@ -4790,7 +4802,7 @@ ${fine.write} = 0
         const inner = (target) => Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getSubroutineBank(routine), Blockly.BBasic.getSubroutineBank(target));
         // (The stage code is in it, not called: a call more would take two more bytes of the stack, which has only ten on DPC+.)
         const tag = `_m${routines.size}`;
-        Blockly.BBasic.subroutines[routine] = [bounceArm ? armStageBody(tag) : stageBody(tag, routine), ...pre, `gosub ${findName}${inner(findName)}`].join('\n');
+        Blockly.BBasic.subroutines[routine] = [bounceArm ? armStageBody(tag) : stageBody(tag, routine), ...pre, `gosub ${findName}${inner(findName)}`, ...post].join('\n');
       }
       const routineSuffix = Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(routine));
       return [` gosub ${routine}${routineSuffix}`, ...manualAngleLines, ...spreadLines].join('\n') + '\n';

@@ -86,4 +86,16 @@ const matchDriverFractionalFetchers = (cartridge, rom) => {
   });
 };
 
-module.exports = {md5, matchDriverFractionalFetchers};
+// The type of cartridge to make of a ROM for 6502.ts's cartridge factory: DPC+ for a ROM with the two "DPC+" marks of its driver, else undefined (the factory finds
+// the type). The factory looks for the bytes of a 3E cartridge's bank switch (85 3E A9 00, sta $3E then lda #0) before it looks for DPC+, and a DPC+ ROM can
+// have them by chance: a jmp $3E85 (4C 85 3E) before an lda #0 made a DPC+ ROM run as a 3E cartridge, which ran nothing.
+const DPC_PLUS_MARK = [0x44, 0x50, 0x43, 0x2B];
+const cartridgeTypeOf = (rom) => {
+  let marks = 0;
+  for (let i = 0; rom && i + DPC_PLUS_MARK.length <= rom.length; i++) {
+    if (DPC_PLUS_MARK.every((byte, k) => rom[i + k] === byte)) marks++;
+  }
+  return marks === 2 ? 'bankswitch_dpc_plus' : undefined;
+};
+
+module.exports = {md5, matchDriverFractionalFetchers, cartridgeTypeOf};

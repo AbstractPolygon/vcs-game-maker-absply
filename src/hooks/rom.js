@@ -47,7 +47,8 @@ import {expandSceneBlocks, sceneBlocksXml, sceneTablesHaveOffsets, triggerEventX
 import {emulatorTvSpec} from '../utils/tv-standard';
 import {computeRomCapacity} from '../utils/rom-capacity';
 import {parseBankFree, measureUnitSizes, planBankPacking} from '../utils/bank-packer';
-import {calledNames} from '../utils/call-scan';
+import {calledNames, callCounts} from '../utils/call-scan';
+import {subroutineEndLabel} from '../generators/bbasic/return-kind';
 import {useGeneratedBasic, markGeneratedFresh, setGeneratedCodeBuilder} from './generated';
 import {appendCompileLog, clearCompileLog, useBackgroundsStorage, useConfigurationStorage, useErrorStorage,
   useDataTablesStorage, usePlayerAnimationsStorage, useTextFontStorage, useTextStringsStorage, useTitleScreenStorage,
@@ -1233,7 +1234,7 @@ const unitRunFrequency = (kind, name) => {
 const unitPassFrequency = (unit) => {
   if (unit.frequency === EVERY_FRAME || unit.kind === 'eventBanks' || unit.kind === 'graphicsBanks' || /^_background_load/.test(unit.name)) return unit.frequency;
   const {reached} = callGraph();
-  return (unit.members || [{name: unit.name}]).some((member) => reached.has(member.name)) ? EVERY_FRAME : unit.frequency;
+  return membersOf(unit).some((member) => reached.has(member.name)) ? EVERY_FRAME : unit.frequency;
 };
 // (`anywhere`: every unit that can move, wherever it is now and music too, for the planner of the bank layout.)
 const relocationCandidates = (banks, hasReservedMusicBank, primaryBank, anywhere = false) => {
@@ -1318,9 +1319,39 @@ const relocationCandidates = (banks, hasReservedMusicBank, primaryBank, anywhere
   return candidates.sort((a, b) => a.frequency - b.frequency || b.size - a.size);
 };
 
+// The subroutines and functions that the units call and no code outside the units does (not the main loop, an event that stays in the main bank, or a
+// subroutine that cannot move), from the code of the build: such a unit costs nothing by itself away from the main bank, only by the calls of the
+// units that call it (the edges of the plan), so it can go with them. Bricks' _pfbox_player0, called only by the box checks in bank 5, stayed in the main
+// bank by the rating of a unit that runs every frame, and each frame the box checks made a call across banks to it. Null when the code is not known.
+// The generated code of a part of a unit (an event, a subroutine or a function; graphics have no calls).
+const unitBodyText = (kind, name) => (kind === 'eventBanks' ? (BlocklyBB.gameEvents[name] || []).join('\n') :
+  kind === 'subroutineBanks' ? (BlocklyBB.subroutines || {})[name] || '' : kind === 'functionBanks' ? (BlocklyBB.functions || {})[name] || '' : '');
+let unitOnlyCache = null;
+const unitOnlyCalledNames = (code) => {
+  if (!code) return null;
+  if (unitOnlyCache && unitOnlyCache.code === code) return unitOnlyCache.names;
+  const subroutines = BlocklyBB.subroutines || {};
+  const functions = BlocklyBB.functions || {};
+  const known = new Set([...Object.keys(subroutines), ...Object.keys(functions)]);
+  const outside = callCounts(code, known);
+  const inUnits = new Map();
+  relocationCandidates(getRelocationBanks(), false, 1, true).forEach((unit) => membersOf(unit).forEach(({kind, name}) => {
+    callCounts(unitBodyText(kind, name), known).forEach((count, called) => {
+      inUnits.set(called, (inUnits.get(called) || 0) + count);
+      outside.set(called, (outside.get(called) || 0) - count);
+    });
+  }));
+  const names = new Set([...inUnits.keys()].filter((name) => outside.get(name) <= 0));
+  unitOnlyCache = {code, names};
+  return names;
+};
+// Whether every part of a unit is a subroutine or function that only units call (see unitOnlyCalledNames).
+const calledOnlyByUnits = (unit, names) => !!names && membersOf(unit)
+    .every(({kind, name}) => (kind === 'subroutineBanks' || kind === 'functionBanks') && names.has(name));
+
 // The names the first label of a unit can have in the assembly (a label of code written in a bank has the scope "0." in front of it).
 const unitEndLabels = (kind, name) => {
-  const names = kind === 'eventBanks' ? [`${name}_end`] : kind === 'graphicsBanks' ? [`${name}_reloc_end`] : null;
+  const names = kind === 'eventBanks' ? [`${name}_end`] : kind === 'graphicsBanks' ? [`${name}_reloc_end`] : kind === 'subroutineBanks' ? [subroutineEndLabel(name)] : null;
   return names && names.flatMap((label) => [`0.${label}`, label]);
 };
 const unitLabels = (kind, name) => {
@@ -1332,6 +1363,10 @@ const PLAN_WEIGHTS = [1, 4, 12, 80];
 const planWeight = (frequency) => (frequency === ON_COLLISION ? 40 : PLAN_WEIGHTS[frequency] || 1);
 const PLAN_MARGINS = [48, 24, 8];
 const PLAN_ENTER_BYTES = 10;
+// The bytes a call to another bank takes more than a call in the same bank: on DPC+ the return address and the target pushed, the bank and the jump to
+// BS_goto (17 bytes, against a jsr of 3, see cheapBankJumps); on the standard kernel A and X are kept too (sta temp7 and four more, 24 bytes).
+const PLAN_CALL_BYTES = 14;
+const PLAN_CALL_BYTES_STANDARD = 21;
 const MAX_PLAN_ATTEMPTS = 12;
 
 // Plans the whole layout from what the assembler measured (see utils/bank-packer.js): the units go where they fit, the ones that run often stay in
@@ -1350,14 +1385,11 @@ const planLayoutFromMeasurement = (measured, config, reservedMusicBank, maxBanks
   if (!bins.includes(primary)) return null;
   const banksNow = getRelocationBanks();
   const candidates = relocationCandidates(banksNow, false, primary, true).filter((unit) => unit.kind !== 'musicBanks');
-  const memberOf = (unit) => unit.members || [{kind: unit.kind, name: unit.name}];
-  const sizes = measureUnitSizes(measured.symbolmap, free, candidates.flatMap((unit) => memberOf(unit)
-      .map((member) => ({key: `${member.kind}:${member.name}`, labels: unitLabels(member.kind, member.name), endLabels: unitEndLabels(member.kind, member.name)}))));
-  const scaleOf = (kind) => (kind === 'eventBanks' ? COMPILED_BYTES_PER_EVENT_CHAR : kind === 'graphicsBanks' ? COMPILED_BYTES_PER_GRAPHICS_CHAR :
-    COMPILED_BYTES_PER_SUBROUTINE_CHAR);
-  const chars = (member) => (member.kind === 'eventBanks' ? BlocklyBB.estimateEventSize(member.name) :
-    member.kind === 'graphicsBanks' ? BlocklyBB.estimateGraphicsUnitSize(member.name) :
-    member.kind === 'functionBanks' ? BlocklyBB.estimateFunctionSize(member.name) : BlocklyBB.estimateSubroutineSize(member.name)) * scaleOf(member.kind);
+  const sizes = measureUnitSizes(measured.symbolmap, free, candidates.flatMap((unit) => membersOf(unit)
+      .map((member) => ({key: `${member.kind}:${member.name}`, labels: unitLabels(member.kind, member.name), endLabels: unitEndLabels(member.kind, member.name),
+        // (The bank the build put it in: a unit past the end of a bank that is over has the address of another bank's page.)
+        bank: (banksNow[member.kind] || {})[member.name] || primary}))));
+  const chars = (member) => estimatedUnitBytes(member.kind, member.name);
   // What is measured now is kept for the next layouts of this build: a unit that is not measured again (it has no label where it is now) keeps its size.
   // (Not a guess from the distance to the next label in the main bank, which has the code of the program between its units.)
   sizes.forEach((found, key) => {
@@ -1365,7 +1397,7 @@ const planLayoutFromMeasurement = (measured, config, reservedMusicBank, maxBanks
   });
   // How many times its estimate a kind of unit turns out to be, from the ones measured.
   const ratios = {};
-  candidates.flatMap((unit) => memberOf(unit)).forEach((member) => {
+  candidates.flatMap((unit) => membersOf(unit)).forEach((member) => {
     const known = memory.get(`${member.kind}:${member.name}`);
     if (known === undefined || !chars(member)) return;
     const entry = (ratios[member.kind] = ratios[member.kind] || {actual: 0, estimated: 0});
@@ -1375,8 +1407,9 @@ const planLayoutFromMeasurement = (measured, config, reservedMusicBank, maxBanks
   const ratioOf = (kind) => (ratios[kind] && ratios[kind].estimated > 200 ? ratios[kind].actual / ratios[kind].estimated : 2);
   let guessed = 0;
   const units = [];
+  const unitOnly = unitOnlyCalledNames(measured.code);
   candidates.forEach((unit) => {
-    const members = memberOf(unit);
+    const members = membersOf(unit);
     let size = 0;
     let bank = null;
     let settled = true;
@@ -1393,17 +1426,21 @@ const planLayoutFromMeasurement = (measured, config, reservedMusicBank, maxBanks
     });
     if (bank === null) bank = (banksNow[members[0].kind] || {})[members[0].name] || primary;
     if (!bins.includes(bank)) return;
-    units.push({key: `${unit.kind}:${unit.name}`, unit, bank, size, settled, frequency: unit.passFrequency, weight: planWeight(unit.passFrequency)});
+    // (A unit only other units call costs what the calls cost, by the edges below.)
+    const weight = calledOnlyByUnits(unit, unitOnly) ? 1 : planWeight(unit.passFrequency);
+    units.push({key: `${unit.kind}:${unit.name}`, unit, bank, size, settled, frequency: unit.passFrequency, weight,
+      // (The Title Screen Kernel of the standard kernel, which its documentation asks a bank to itself for, is not put in the main bank or with other units.)
+      apart: bankSizeKeyFor(config) !== 'dpcplus' && unit.kind === 'subroutineBanks' && unit.name === TITLE_SCREEN_SUBROUTINE_NAME});
   });
   // Which units call which (by the names of their parts in the code), each call with what it costs across banks: how often the less frequent of the two runs.
   const unitOfName = new Map();
-  units.forEach(({key, unit}) => memberOf(unit).forEach(({kind, name}) => {
+  units.forEach(({key, unit}) => membersOf(unit).forEach(({kind, name}) => {
     if (kind === 'subroutineBanks' || kind === 'functionBanks') unitOfName.set(name, key);
   }));
   const frequencyOf = new Map(units.map(({key, frequency}) => [key, frequency]));
   const graph = callGraph();
   const edges = new Map();
-  units.forEach(({key, unit}) => memberOf(unit).forEach(({kind, name}) => {
+  units.forEach(({key, unit}) => membersOf(unit).forEach(({kind, name}) => {
     (kind === 'eventBanks' ? graph.eventCalls : graph.calls).get(name)?.forEach((always, calledName) => {
       const callee = unitOfName.get(calledName);
       if (!callee || callee === key) return;
@@ -1413,16 +1450,33 @@ const planLayoutFromMeasurement = (measured, config, reservedMusicBank, maxBanks
       if (!edges.has(pair) || edges.get(pair).weight < weight) edges.set(pair, {a: key, b: callee, weight});
     });
   }));
+  // The calls written in the code to the subroutines of the units, from each unit and from the code that stays in the main bank, counted: a call to a
+  // unit in another bank takes more bytes than one in the same bank, in the bank of the code that makes it (see planBankPacking). Without them the
+  // plan moved a unit out of the main bank and the main bank's calls to it grew: Bricks' main bank stayed about 300 bytes over, plan after plan.
+  const callSites = [];
+  if (measured.code) {
+    const known = new Set(unitOfName.keys());
+    const fromUnits = new Map();
+    units.forEach(({key, unit}) => membersOf(unit).forEach(({kind, name}) => callCounts(unitBodyText(kind, name), known).forEach((count, calledName) => {
+      fromUnits.set(calledName, (fromUnits.get(calledName) || 0) + count);
+      if (unitOfName.get(calledName) !== key) callSites.push({from: key, to: unitOfName.get(calledName), count});
+    })));
+    callCounts(measured.code, known).forEach((count, calledName) => {
+      const fixed = count - (fromUnits.get(calledName) || 0);
+      if (fixed > 0) callSites.push({from: null, to: unitOfName.get(calledName), count: fixed});
+    });
+  }
   let result = null;
   for (const margin of PLAN_MARGINS) {
-    result = planBankPacking({units, banks: bins, free, primary, margin: margin + extraMargin, enterBytes: PLAN_ENTER_BYTES, edges: [...edges.values()]});
+    result = planBankPacking({units, banks: bins, free, primary, margin: margin + extraMargin, enterBytes: PLAN_ENTER_BYTES, edges: [...edges.values()],
+      callSites, callBytes: bankSizeKeyFor(config) === 'dpcplus' ? PLAN_CALL_BYTES : PLAN_CALL_BYTES_STANDARD});
     if (result.feasible) break;
   }
   const moves = [];
   units.forEach(({key, unit, bank}) => {
     const target = result.assignment.get(key);
     if (target === bank) return;
-    memberOf(unit).forEach(({kind, name}) => setRelocationBank(kind, name, target));
+    membersOf(unit).forEach(({kind, name}) => setRelocationBank(kind, name, target));
     moves.push({kind: unit.kind, name: unit.name, bank: target, members: unit.members});
   });
   return {moves, deficit: result.deficit, feasible: result.feasible, guessed, free, unitCount: units.length};
@@ -1431,59 +1485,25 @@ const planLayoutFromMeasurement = (measured, config, reservedMusicBank, maxBanks
 const pickRelocationCandidate = (banks, hasReservedMusicBank, primaryBank) =>
   relocationCandidates(banks, hasReservedMusicBank, primaryBank)[0] || null;
 
-// A unit that is still in the main bank and fits in the free bytes another bank measured in the last good build: the largest
-// one, to the bank it leaves the least room in. (The sizes are estimates, so a unit has to fit with a margin.) Null when none does.
-const pickSqueezeMove = (capacity, config, banks, tried) => {
-  const maxBanks = BANK_COUNT_BY_ROMSIZE[bankSizeKeyFor(config)];
-  if (!maxBanks || !capacity || !capacity.perBank) return null;
-  const primary = primaryBankFor(config);
-  const textMinikernelActive = BlocklyBB.isTextMinikernelActive();
-  const reservedMusicBank = musicReservedBank(maxBanks, textMinikernelActive, minRelocationBankFor(config));
-  const free = {};
-  capacity.perBank.forEach(({freeBytes}, i) => {
-    const bank = i + 1;
-    if (bank !== primary && bank >= minRelocationBankFor(config) && bank !== reservedMusicBank &&
-        bank !== (banks.subroutineBanks || {})[TITLE_SCREEN_SUBROUTINE_NAME] &&
-        bank <= (textMinikernelActive ? maxBanks - 1 : maxBanks)) free[bank] = freeBytes;
-  });
-  const scaled = (unit) => unit.size * (unit.kind === 'eventBanks' ? COMPILED_BYTES_PER_EVENT_CHAR :
-    unit.kind === 'graphicsBanks' ? COMPILED_BYTES_PER_GRAPHICS_CHAR :
-    unit.kind === 'musicBanks' ? 1 : COMPILED_BYTES_PER_SUBROUTINE_CHAR);
-  const candidates = relocationCandidates(banks, !!reservedMusicBank, primary).filter((unit) =>
-    unit.kind !== 'musicBanks' && unit.frequency < EVERY_FRAME && !tried.has(`${unit.kind}:${unit.name}`));
-  for (const unit of candidates) {
-    const need = scaled(unit) * SQUEEZE_MARGIN;
-    const fits = Object.keys(free).map(Number).filter((bank) => free[bank] >= need)
-        .sort((a, b) => free[a] - free[b]);
-    if (fits.length) return {unit, bank: fits[0]};
-  }
-  return null;
-};
-
 // A unit that runs on every frame and is in another bank, and fits in the free bytes the main bank measured in the last good build: the
 // largest one that does. Each call into another bank takes 35 to 50 cycles, which the relocation of the first attempts (it moves what is
 // biggest, by estimates) can cost for no reason once the main bank turns out to have room. Null when none fits.
-const pickPullBackMove = (capacity, config, banks, tried) => {
+const pickPullBackMove = (capacity, config, banks, tried, unitOnly) => {
   const primary = primaryBankFor(config);
   const mainBank = capacity && capacity.perBank && capacity.perBank[primary - 1];
   if (!mainBank) return null;
-  const scale = {
-    eventBanks: COMPILED_BYTES_PER_EVENT_CHAR, graphicsBanks: COMPILED_BYTES_PER_GRAPHICS_CHAR, subroutineBanks: COMPILED_BYTES_PER_SUBROUTINE_CHAR,
-  };
-  const sizeOf = {
-    eventBanks: (name) => BlocklyBB.estimateEventSize(name), graphicsBanks: (name) => BlocklyBB.estimateGraphicsUnitSize(name),
-    subroutineBanks: (name) => BlocklyBB.estimateSubroutineSize(name),
-  };
   const found = [];
   // (Not a subroutine of a family, a hosted one or a wrapper: the calls between the members of a family are plain ones, so a member moved alone is called
   // in the wrong bank. Platformer Example's _sprite_box_checks, pulled back without the _pass_checks that calls it, ran another bank's bytes and reset the
   // game. The planner moves a family as one: see planLayoutFromMeasurement.)
   const inFamily = (kind, name) => kind === 'subroutineBanks' && (!!(BlocklyBB.functionHostedSubroutines || {})[name] ||
     (BlocklyBB.functionCallWrapperNames || new Set()).has(name));
-  Object.keys(scale).forEach((kind) => {
+  ['eventBanks', 'graphicsBanks', 'subroutineBanks'].forEach((kind) => {
     Object.entries(banks[kind] || {}).forEach(([name, bank]) => {
-      if (bank === primary || tried.has(`pull:${kind}:${name}`) || unitRunFrequency(kind, name) < EVERY_FRAME || inFamily(kind, name)) return;
-      const need = sizeOf[kind](name) * scale[kind] * SQUEEZE_MARGIN;
+      // (Nor one only units call: it goes with them, see unitOnlyCalledNames.)
+      if (bank === primary || tried.has(`pull:${kind}:${name}`) || unitRunFrequency(kind, name) < EVERY_FRAME || inFamily(kind, name) ||
+        calledOnlyByUnits({kind, name}, unitOnly)) return;
+      const need = estimatedUnitBytes(kind, name) * SQUEEZE_MARGIN;
       if (need <= mainBank.freeBytes) found.push({kind, name, bank, need});
     });
   });
@@ -1526,16 +1546,22 @@ const MAX_SQUEEZE_ATTEMPTS = 12;
 const COMPILED_BYTES_PER_GRAPHICS_CHAR = 0.09;
 const COMPILED_BYTES_PER_SUBROUTINE_CHAR = 0.22;
 
+// The bytes a character of a unit's generated source turns into, by the kind of unit (a music unit's estimate is in bytes already).
+const bytesPerChar = (kind) => (kind === 'eventBanks' ? COMPILED_BYTES_PER_EVENT_CHAR : kind === 'graphicsBanks' ? COMPILED_BYTES_PER_GRAPHICS_CHAR :
+  kind === 'musicBanks' ? 1 : COMPILED_BYTES_PER_SUBROUTINE_CHAR);
+// The length of a unit's generated source (see the estimate functions of generators/bbasic.js), and the bytes that is guessed to compile to.
+const unitSourceSize = (kind, name) => (kind === 'eventBanks' ? BlocklyBB.estimateEventSize(name) : kind === 'graphicsBanks' ? BlocklyBB.estimateGraphicsUnitSize(name) :
+  kind === 'musicBanks' ? BlocklyBB.estimateMusicUnitSize(name) : kind === 'functionBanks' ? BlocklyBB.estimateFunctionSize(name) : BlocklyBB.estimateSubroutineSize(name));
+const estimatedUnitBytes = (kind, name) => unitSourceSize(kind, name) * bytesPerChar(kind);
+// The parts of a relocation candidate: the members of a family, else the unit itself.
+const membersOf = (unit) => unit.members || [{kind: unit.kind, name: unit.name}];
+
 // About how many bytes of code each bank holds, from the units the banks object puts there.
 const estimateBankBytes = (banks) => {
   const bytes = {};
-  const tally = (unitBanks, bytesOf) => Object.entries(unitBanks || {}).forEach(([name, bank]) => {
-    bytes[bank] = (bytes[bank] || 0) + bytesOf(name);
-  });
-  tally(banks.eventBanks, (name) => BlocklyBB.estimateEventSize(name) * COMPILED_BYTES_PER_EVENT_CHAR);
-  tally(banks.graphicsBanks, (name) => BlocklyBB.estimateGraphicsUnitSize(name) * COMPILED_BYTES_PER_GRAPHICS_CHAR);
-  tally(banks.subroutineBanks, (name) => BlocklyBB.estimateSubroutineSize(name) * COMPILED_BYTES_PER_SUBROUTINE_CHAR);
-  tally(banks.functionBanks, (name) => BlocklyBB.estimateFunctionSize(name) * COMPILED_BYTES_PER_SUBROUTINE_CHAR);
+  ['eventBanks', 'graphicsBanks', 'subroutineBanks', 'functionBanks'].forEach((kind) => Object.entries(banks[kind] || {}).forEach(([name, bank]) => {
+    bytes[bank] = (bytes[bank] || 0) + estimatedUnitBytes(kind, name);
+  }));
   return bytes;
 };
 
@@ -1784,6 +1810,81 @@ const addScoreLayoutFiles = async (siblingFiles, generator) => {
   }
 };
 
+// The Text Minikernel's files when the build has text (a copy: the cached object is shared, and the build changes some of the files), with the colors of
+// the lines of text on the standard kernel (see withTextLineColors12b). showScore: whether the build shows the score; squish: the Squish score loop.
+const textMinikernelSiblingFiles = async (showScore, squish) => {
+  if (!BlocklyBB.isTextMinikernelActive()) return {};
+  const config = useConfigurationStorage().value || {};
+  const files = {...(config.kernel === 'dpcplus' ? await getDpcPlusTextMinikernelSiblingFiles(BlocklyBB.isTextRow2Used(), !!BlocklyBB.textScrollCursorUsed,
+      (showScore ?? true) === false, squish, textLineColorsOf(config)) : await getTextMinikernelSiblingFiles())};
+  if (config.kernel !== 'dpcplus' && textLineColorsOf(config) && files['text12b.asm']) files['text12b.asm'] = withTextLineColors12b(files['text12b.asm'], textLineColorsOf(config));
+  return files;
+};
+
+// The files next to the source that the generated code of the build asks for, the same for the game and the previews: the hand-written assembly of
+// the animations (player animation frame pointers, see generateAnimations in generators/bbasic.js; inlined as text12a.asm and text12b.asm are), a
+// two score layout (batari's score minikernel, see generators/bbasic/score-layout.js), the fast multiply and divide, PXE's math routines, and the
+// Titlescreen Kernel's shared code with this build's layouts and data (only the per-copy kernels the cards of the project use).
+const addGeneratedSiblingFiles = async (siblingFiles) => {
+  const config = useConfigurationStorage().value || {};
+  Object.assign(siblingFiles, BlocklyBB.playerAnimAsmFiles || {});
+  await addScoreLayoutFiles(siblingFiles, BlocklyBB);
+  if (BlocklyBB.usesDivMulRoutine() && fastMathOn(config)) Object.assign(siblingFiles, await getFastMathSiblingFiles(config.kernel));
+  if (BlocklyBB.pxeScratch && BlocklyBB.usesDivMulRoutine()) Object.assign(siblingFiles, getPxeMathSiblingFiles(BlocklyBB.pxeScratch));
+  if (BlocklyBB.titleScreenUsedKernelKeys) {
+    Object.assign(siblingFiles, await getTitleScreenSiblingFiles(BlocklyBB.titleScreenUsedKernelKeys, !!BlocklyBB.titleScreenHasScoreCard, !!BlocklyBB.titleShareSetup,
+        !!(BlocklyBB.titleTwoToneKeys && BlocklyBB.titleTwoToneKeys.size)));
+    Object.assign(siblingFiles, BlocklyBB.titleScreenAsmFiles || {});
+  }
+};
+
+// From the generated code and the files next to it to the assembled ROM, the same for the game and the previews: preprocessing, the files the
+// compiled code asks for (DPC+ sound, the Squish score loop, a hidden score, the coprocessor program), the compile, the passes over the assembly
+// and the assembly. Each stage's command and its time go to the compile log, as running the batari Basic toolchain by hand prints them.
+// squish: the Squish score loop (the game's score font; the previews have none); showScore: whether the build shows the score (a preview hides it
+// whatever the project has).
+const compileAndAssemble = async (code, siblingFiles, {squish, showScore}) => {
+  const config = useConfigurationStorage().value || {};
+  const log = (text) => appendCompileLog(text);
+  appendCompileLog('Preprocessing...', 'stage');
+  // Sprite frames that repeat are cut out of the source batari Basic compiles (see utils/dpc-share-source.js).
+  const sharedSource = config.kernel === 'dpcplus' ? shareDpcPlusPlayerSource(code) : null;
+  const source = sharedSource ? sharedSource.code : code;
+  const preprocessed = await preprocessBatariBasic(
+      isPxe(config) ? fixFracIncs(flattenBanks(source), pfIsWide(config), pfBuffersOf(config), !!config.pxeSeparateScroll) : source, log);
+  appendCompileLog('Compiling to assembly...', 'stage');
+  Object.assign(siblingFiles, await getDpcPlusAudioSiblingFiles(siblingFiles, BlocklyBB.dpcAudioFiles, BlocklyBB.dpcAudioMidLevel));
+  // The text builds' kernels are made before, with the Squish loop in them.
+  if (squish && !BlocklyBB.isTextMinikernelActive()) {
+    Object.assign(siblingFiles, await getDpcPlusSquishSiblingFiles(siblingFiles));
+  }
+  // A hidden score gives its scanlines to the picture (the Text Minikernel's score row stays, it draws the text).
+  if (config.kernel === 'dpcplus' && (showScore ?? true) === false && !BlocklyBB.isTextMinikernelActive()) {
+    Object.assign(siblingFiles, await getDpcPlusNoScoreSiblingFiles(siblingFiles));
+  }
+  Object.assign(siblingFiles, await getDpcPlusProgramSiblingFile(config.kernel, {
+    math: !!(BlocklyBB.usesDivMulRoutine() && fastMathOn(config)),
+    rows: !!BlocklyBB.pfBoxArmRows,
+    // (The playfield offset areas of a scene work on the coprocessor too.)
+    offset: !!BlocklyBB.offsetArmUsed || !!BlocklyBB.pfBoxArm || !!BlocklyBB.dpcAudioArm || !!BlocklyBB.pfTilesArm,
+    scoreFont: !!BlocklyBB.dpcPlusScoreFonts,
+  }));
+  const compiled = await compileBatariBasicToAsm(preprocessed, siblingFiles, log);
+  // (The compiler puts the bank of a data table in front of its name, with a bank of one "$10" (names of data tables start with an underscore): the PXE kernel has one bank, and no such address.)
+  if (isPxe(config)) compiled.mainAsm = legalizeForPxe(compiled.mainAsm.replace(/\$[0-9a-f]0(?=[g-z_])/gi, ''), BlocklyBB.pxeScratch, true);
+  dropUnusedDivMul(compiled, siblingFiles);
+  fixSameBankCalls64k(compiled, config);
+  shareDpcPlusPlayerData(compiled, config);
+  resolveAnimationPictureTables(compiled);
+  cheapBankJumps(compiled, config);
+  compactRainbowRestoreRoutine(compiled, config);
+  retargetPoolPointers(compiled, config);
+  appendCompileLog('Assembling ROM...', 'stage');
+  const compiledResult = await assembleBatariBasic(compiled.mainAsm, compiled.workDir, log);
+  if (BlocklyBB.offsetArmUsed || BlocklyBB.pfBoxArm || BlocklyBB.dpcAudioArm || BlocklyBB.pfTilesArm) patchArmProgramAddress(compiledResult);
+  return compiledResult;
+};
+
 const buildRomInner = async () => {
   lastBuildFailedForFit = false;
   // (The names the kernels' assembly uses: the variables the spill may take from var0 to var8 must not be among them, see spillInternalVariables.)
@@ -1857,30 +1958,19 @@ const buildRomInner = async () => {
   }
   const buildStartedAt = performance.now();
 
-  // After a build that works, units still in the main bank are tried in the free room the other banks measured. A move that does not
+  // After a build that works, the layout is planned again (tryReplan) or a unit is pulled back into the main bank (tryPullBack). A move that does not
   // fit is taken back, and the last good build stays loaded.
   let squeeze = null;
   let squeezeCount = 0;
   let goodCapacity = null;
   const squeezeTried = new Set();
-  const trySqueeze = (capacity) => {
-    // (The PXE kernel has no banks to move anything between.)
-    if (squeezeCount >= MAX_SQUEEZE_ATTEMPTS || isPxe(configurationStorage.value)) return false;
-    const move = pickSqueezeMove(capacity, configurationStorage.value || {}, getRelocationBanks(), squeezeTried);
-    if (!move) return false;
-    const members = move.unit.members || [{kind: move.unit.kind, name: move.unit.name}];
-    members.forEach(({kind, name}) => setRelocationBank(kind, name, move.bank));
-    squeeze = {members, key: `${move.unit.kind}:${move.unit.name}`, from: primaryBankFor(configurationStorage.value || {})};
-    squeezeCount++;
-    appendCompileLog(`Trying ${move.unit.kind.replace('Banks', '')} "${move.unit.name}" in bank ${move.bank} to free the main bank.`);
-    return true;
-  };
-
-  // The other way: a unit that runs on every frame, moved into the main bank when the last good build left room there.
+  // The bB code of the attempt, for the units only other units call (see unitOnlyCalledNames).
+  let planCode = null;
+  // After a build that works: a unit that runs on every frame, moved into the main bank when the last good build left room there.
   const tryPullBack = (capacity) => {
     if (squeezeCount >= MAX_SQUEEZE_ATTEMPTS || isPxe(configurationStorage.value)) return false;
     const config = configurationStorage.value || {};
-    const move = pickPullBackMove(capacity, config, getRelocationBanks(), squeezeTried);
+    const move = pickPullBackMove(capacity, config, getRelocationBanks(), squeezeTried, unitOnlyCalledNames(planCode));
     if (!move) return false;
     setRelocationBank(move.kind, move.name, primaryBankFor(config));
     squeeze = {members: [{kind: move.kind, name: move.name}], key: `pull:${move.kind}:${move.name}`, from: move.bank};
@@ -1889,18 +1979,18 @@ const buildRomInner = async () => {
     return true;
   };
 
-  // DPC+, once a build: the whole layout planned again from the good build (the sizes of the units where they are, the room the assembler reports
-  // for each bank, the calls between units: see planLayoutFromMeasurement), which keeps what runs every frame in the main bank with what it calls,
-  // where the steps above move one unit at a time. A plan that does not build is taken back, as a squeeze is. (After a plan the squeeze is
-  // not tried: it moves code that runs often, by the rating it gives, out of the main bank the plan chose for it.)
+  // Every bankswitched ROM (standard and DPC+), once a build: the whole layout planned again from the good build (the sizes of the units where they are,
+  // the room the assembler reports for each bank, the calls between units: see planLayoutFromMeasurement), which keeps what runs every frame in the main
+  // bank with what it calls. A plan that does not build is taken back. (It took the place of a step that moved units out of the main bank one at a time
+  // after a good build, 11 to 13 compiles on a standard 8K project.)
   let replanned = false;
   const tryReplan = (compiledResult, maxBanks) => {
     const config = configurationStorage.value || {};
-    if (replanned || bankSizeKeyFor(config) !== 'dpcplus' || isPxe(config) || !compiledResult || !compiledResult.stdout) return false;
+    if (replanned || (BANK_COUNT_BY_ROMSIZE[bankSizeKeyFor(config)] || 0) < 2 || isPxe(config) || !compiledResult || !compiledResult.stdout) return false;
     replanned = true;
     const before = JSON.parse(JSON.stringify(getRelocationBanks()));
     const planMusicBank = musicReservedBank(maxBanks, BlocklyBB.isTextMinikernelActive(), minRelocationBankFor(config));
-    const plan = planLayoutFromMeasurement({stdout: compiledResult.stdout, symbolmap: compiledResult.symbolmap}, config, planMusicBank, maxBanks,
+    const plan = planLayoutFromMeasurement({stdout: compiledResult.stdout, symbolmap: compiledResult.symbolmap, code: planCode}, config, planMusicBank, maxBanks,
         BlocklyBB.isTextMinikernelActive(), 0, planSizeMemory);
     if (!plan || !plan.feasible || !plan.moves.length) {
       if (plan && plan.moves.length) restoreRelocationBanks(before);
@@ -1940,7 +2030,9 @@ const buildRomInner = async () => {
     // pair a ROM built for one standard with the emulator spec of the other.
     let buildTvSpec;
     try {
+      const generateStarted = performance.now();
       let generated = regenerateCode();
+      appendCompileLog(`Generating took ${Math.round(performance.now() - generateStarted)}ms.`);
       // A coprocessor program with the playfield box test that is too big for a bank (it is data alone in a bank): the box tests are done by the 6502.
       const program = await armProgramOf(generated);
       if (program && program.size > ARM_PROGRAM_BANK_ROOM && program.key.includes('b') && !BlocklyBB.pfBoxArmOff) {
@@ -1949,6 +2041,7 @@ const buildRomInner = async () => {
         generated = regenerateCode();
       }
       code = await fillArmProgram(generated);
+      planCode = code;
       buildTvSpec = emulatorTvSpec(useConfigurationStorage().value || {});
       useGeneratedBasic().value = code;
       markGeneratedFresh();
@@ -1978,42 +2071,8 @@ const buildRomInner = async () => {
       // A Squish score font on DPC+ shortens the score's loop (see utils/dpc-squish.js); with the score hidden there is nothing to shorten.
       const dpcPlusSquish = config.kernel === 'dpcplus' && (config.scoreFont === SQUISH_SCORE_FONT || config.scoreFont === SQUISH_CUSTOM_SCORE_FONT) &&
         !cycleScoreOn(config) && !config.enableScanlinesDebug && ((configurationStorage.value || {}).showScore ?? true) !== false;
-      const siblingFiles = textMinikernelActive ?
-        {...(config.kernel === 'dpcplus' ? await getDpcPlusTextMinikernelSiblingFiles(BlocklyBB.isTextRow2Used(), !!BlocklyBB.textScrollCursorUsed,
-            ((configurationStorage.value || {}).showScore ?? true) === false, dpcPlusSquish, textLineColorsOf(config)) : await getTextMinikernelSiblingFiles())} : {};
-      // (The standard kernel's text kernel gets the colors of the lines of text from a table too, see withTextLineColors12b.)
-      if (textMinikernelActive && config.kernel !== 'dpcplus' && textLineColorsOf(config) && siblingFiles['text12b.asm']) {
-        siblingFiles['text12b.asm'] = withTextLineColors12b(siblingFiles['text12b.asm'], textLineColorsOf(config));
-      }
-      // Hand-written .asm content generated during this same attempt's
-      // regenerateCode() call above (player animation frame pointers, see
-      // generateAnimations in generators/bbasic.js), added as sibling files
-      // the exact same way text12a.asm/text12b.asm are - the music per-
-      // channel gate check used to work the same way, but was reverted back
-      // to plain bB (see generateMusicChecks'  comment) after this
-      // "inline"-a-real-file mechanism was confirmed to break once relocated
-      // to a bank other than 1.
-      Object.assign(siblingFiles, BlocklyBB.playerAnimAsmFiles || {});
-      // A two score layout: batari's score minikernel (see generators/bbasic/score-layout.js), inlined in the kernel's bank like the text minikernel.
-      await addScoreLayoutFiles(siblingFiles, BlocklyBB);
-      if (BlocklyBB.usesDivMulRoutine() && fastMathOn(configurationStorage.value || {})) {
-        Object.assign(siblingFiles, await getFastMathSiblingFiles(config.kernel));
-      }
-      if (BlocklyBB.pxeScratch && BlocklyBB.usesDivMulRoutine()) Object.assign(siblingFiles, getPxeMathSiblingFiles(BlocklyBB.pxeScratch));
-      // The Titlescreen Kernel's  static shared helper code (public/bb19/
-      // titlescreen/) plus this build's  generated titlescreen_layout_N.asm
-      // (one per title screen page) and combined titlescreen_data.asm (see
-      // registerTitleScreenSubroutine in generators/bbasic/titlescreen.js) -
-      // same "siblings throughout the whole compile pipeline" reasoning as
-      // the Text Minikernel above. Only set at all once at least one "Draw
-      // title screen" block exists on the workspace (titleScreenUsedKernelKeys
-      // stays undefined otherwise), and only fetches the specific per-copy
-      // kernel files the project's  cards (across every page) actually use.
-      if (BlocklyBB.titleScreenUsedKernelKeys) {
-        Object.assign(siblingFiles, await getTitleScreenSiblingFiles(BlocklyBB.titleScreenUsedKernelKeys, !!BlocklyBB.titleScreenHasScoreCard, !!BlocklyBB.titleShareSetup,
-            !!(BlocklyBB.titleTwoToneKeys && BlocklyBB.titleTwoToneKeys.size)));
-        Object.assign(siblingFiles, BlocklyBB.titleScreenAsmFiles || {});
-      }
+      const siblingFiles = await textMinikernelSiblingFiles(config.showScore, dpcPlusSquish);
+      await addGeneratedSiblingFiles(siblingFiles);
       // The compiler has no font support, so point its score
       // digits at the selected font by overriding score_graphics.asm.
       // Squish is special (see utils/score-font.js/SQUISH_SCORE_FONT): it's
@@ -2118,46 +2177,7 @@ const buildRomInner = async () => {
               {glyphByte, linesMaxVarName, linesBaseVarName, colorVarName, endColorVarName, blinkMask});
         }
       }
-      // Passed to every stage below so each one's  real CLI invocation
-      // (and, once it finishes, how long it took) appears live in the error
-      // console, each on its  line - matches what running the actual
-      // batari Basic toolchain locally would print.
-      const log = (text) => appendCompileLog(text);
-      appendCompileLog('Preprocessing...', 'stage');
-      // Sprite frames that repeat are cut out of the source batari Basic compiles (see utils/dpc-share-source.js).
-      const sharedSource = (configurationStorage.value || {}).kernel === 'dpcplus' ? shareDpcPlusPlayerSource(code) : null;
-      const preprocessed = await preprocessBatariBasic(
-          isPxe(configurationStorage.value) ? fixFracIncs(flattenBanks(sharedSource ? sharedSource.code : code), pfIsWide(configurationStorage.value), pfBuffersOf(configurationStorage.value), !!configurationStorage.value.pxeSeparateScroll) : (sharedSource ? sharedSource.code : code), log);
-      appendCompileLog('Compiling to assembly...', 'stage');
-      Object.assign(siblingFiles, await getDpcPlusAudioSiblingFiles(siblingFiles, BlocklyBB.dpcAudioFiles, BlocklyBB.dpcAudioMidLevel));
-      // The text builds' kernels are made above, with the Squish loop in them.
-      if (dpcPlusSquish && !BlocklyBB.isTextMinikernelActive()) {
-        Object.assign(siblingFiles, await getDpcPlusSquishSiblingFiles(siblingFiles));
-      }
-      // A hidden score gives its scanlines to the picture (the Text Minikernel's score row stays, it draws the text).
-      if ((configurationStorage.value || {}).kernel === 'dpcplus' && ((configurationStorage.value || {}).showScore ?? true) === false &&
-        !BlocklyBB.isTextMinikernelActive()) {
-        Object.assign(siblingFiles, await getDpcPlusNoScoreSiblingFiles(siblingFiles));
-      }
-      Object.assign(siblingFiles, await getDpcPlusProgramSiblingFile((configurationStorage.value || {}).kernel, {
-        math: !!(BlocklyBB.usesDivMulRoutine() && fastMathOn(configurationStorage.value || {})),
-        rows: !!BlocklyBB.pfBoxArmRows,
-        offset: !!BlocklyBB.offsetArmUsed || !!BlocklyBB.pfBoxArm || !!BlocklyBB.dpcAudioArm || !!BlocklyBB.pfTilesArm,
-        scoreFont: !!BlocklyBB.dpcPlusScoreFonts,
-      }));
-      const compiled = await compileBatariBasicToAsm(preprocessed, siblingFiles, log);
-      // (The compiler puts the bank of a data table in front of its name, with a bank of one "$10" (names of data tables start with an underscore): the PXE kernel has one bank, and no such address.)
-      if (isPxe(configurationStorage.value)) compiled.mainAsm = legalizeForPxe(compiled.mainAsm.replace(/\$[0-9a-f]0(?=[g-z_])/gi, ''), BlocklyBB.pxeScratch, true);
-      dropUnusedDivMul(compiled, siblingFiles);
-      fixSameBankCalls64k(compiled, configurationStorage.value);
-      shareDpcPlusPlayerData(compiled, configurationStorage.value);
-      resolveAnimationPictureTables(compiled);
-      cheapBankJumps(compiled, configurationStorage.value);
-      compactRainbowRestoreRoutine(compiled, configurationStorage.value);
-      retargetPoolPointers(compiled, configurationStorage.value);
-      appendCompileLog('Assembling ROM...', 'stage');
-      const compiledResult = await assembleBatariBasic(compiled.mainAsm, compiled.workDir, log);
-      if (BlocklyBB.offsetArmUsed || BlocklyBB.pfBoxArm || BlocklyBB.dpcAudioArm || BlocklyBB.pfTilesArm) patchArmProgramAddress(compiledResult);
+      const compiledResult = await compileAndAssemble(code, siblingFiles, {squish: dpcPlusSquish, showScore: config.showScore});
       // The ROM itself is fully compiled and valid at this point - a failure
       // from here on is the PREVIEW emulator's problem, not a compile error,
       // and must never be reported (or retried into) as one. In particular,
@@ -2249,7 +2269,7 @@ const buildRomInner = async () => {
       squeeze = null;
       goodCapacity = capacity;
       // (A layout that came from the last good build, and worked again, was squeezed then.)
-      if (!(attempt === 0 && seededFromLastSuccess) && (tryReplan(compiledResult, maxBanks) || (!replanned && trySqueeze(capacity)) || tryPullBack(capacity))) continue;
+      if (!(attempt === 0 && seededFromLastSuccess) && (tryReplan(compiledResult, maxBanks) || tryPullBack(capacity))) continue;
       recordSuccessfulRelocationBanks(bankSizeKey);
       appendCompileLog('Build succeeded.', 'stage');
       appendCompileLog(`Total build time: ${Math.round(performance.now() - buildStartedAt)}ms.`, 'stage');
@@ -2262,7 +2282,7 @@ const buildRomInner = async () => {
         squeezeTried.add(squeeze.key);
         squeeze = null;
         appendCompileLog('That did not fit: keeping the previous layout.');
-        if ((!replanned && trySqueeze(goodCapacity)) || tryPullBack(goodCapacity)) continue;
+        if (tryPullBack(goodCapacity)) continue;
         regenerateCode();
         recordSuccessfulRelocationBanks(bankSizeKeyFor(configurationStorage.value || {}));
         appendCompileLog('Build succeeded.', 'stage');
@@ -2310,12 +2330,12 @@ const buildRomInner = async () => {
         }
         // The assembler measured every bank (see measureBanks in bb-compiler.js): the whole layout is planned from the sizes of the units, and the
         // old way of moving one unit at a time by estimates is only left for what the plan cannot do.
-        if (e.measured && bankSizeKeyFor(config) === 'dpcplus' && !isPxe(config) && planAttempts < MAX_PLAN_ATTEMPTS) {
+        if (e.measured && (BANK_COUNT_BY_ROMSIZE[bankSizeKeyFor(config)] || 0) >= 2 && !isPxe(config) && planAttempts < MAX_PLAN_ATTEMPTS) {
           const planMusicBank = musicReservedBank(maxBanks, BlocklyBB.isTextMinikernelActive(), minRelocationBankFor(config));
-          let plan = planLayoutFromMeasurement(e.measured, config, planMusicBank, maxBanks, BlocklyBB.isTextMinikernelActive(), planExtraMargin, planSizeMemory);
+          let plan = planLayoutFromMeasurement({...e.measured, code: planCode}, config, planMusicBank, maxBanks, BlocklyBB.isTextMinikernelActive(), planExtraMargin, planSizeMemory);
           if (plan && !plan.moves.length && planExtraMargin < 120) {
             planExtraMargin += 40;
-            plan = planLayoutFromMeasurement(e.measured, config, planMusicBank, maxBanks, BlocklyBB.isTextMinikernelActive(), planExtraMargin, planSizeMemory);
+            plan = planLayoutFromMeasurement({...e.measured, code: planCode}, config, planMusicBank, maxBanks, BlocklyBB.isTextMinikernelActive(), planExtraMargin, planSizeMemory);
           }
           if (plan && planMusicBank) {
             BlocklyBB.getMusicUnitKeys().filter((name) => (getRelocationBanks().musicBanks || {})[name] !== planMusicBank).forEach((name) => {
@@ -2347,7 +2367,7 @@ const buildRomInner = async () => {
             reservedMusicBank :
             pickNextBank(banks, maxBanks, textMinikernelActive,
                 reservedMusicBank ? new Set([reservedMusicBank]) : null, minRelocationBankFor(config),
-                (candidate.members || [candidate]).map(({kind}) => kind)));
+                membersOf(candidate).map(({kind}) => kind)));
 
         // The bank that is too full is not the one the units start in: moving more out of that one does not help, the bank that
         // is over has to give up some of its units (the fallback just below does that).
@@ -2457,13 +2477,6 @@ const buildRomInner = async () => {
         // finding a candidate or genuinely running out of banks (the outer
         // MAX_RELOCATION_ATTEMPTS is what actually bounds total build time).
         if (!candidate && relocatedThisBuild.length) {
-          const estimateSize = (kind, name) => (
-            kind === 'eventBanks' ? BlocklyBB.estimateEventSize(name) * COMPILED_BYTES_PER_EVENT_CHAR :
-            kind === 'graphicsBanks' ? BlocklyBB.estimateGraphicsUnitSize(name) * COMPILED_BYTES_PER_GRAPHICS_CHAR :
-            kind === 'musicBanks' ? BlocklyBB.estimateMusicUnitSize(name) :
-            kind === 'functionBanks' ? BlocklyBB.estimateFunctionSize(name) * COMPILED_BYTES_PER_SUBROUTINE_CHAR :
-            BlocklyBB.estimateSubroutineSize(name) * COMPILED_BYTES_PER_SUBROUTINE_CHAR
-          );
           // A function or function_call_statement wrapper subroutine can
           // never be picked as a co-resident on its  here - see
           // computeFunctionFamilies'  comment: it has no bank-tag syntax,
@@ -2519,7 +2532,7 @@ const buildRomInner = async () => {
                 }
                 const unitKey2 = `${kind}:${name}`;
                 if (!stuckBankTriedUnits.has(unitKey2)) {
-                  coResidents.push({kind, name, size: estimateSize(kind, name), unitKey: unitKey2});
+                  coResidents.push({kind, name, size: estimatedUnitBytes(kind, name), unitKey: unitKey2});
                 }
               });
             });
@@ -2609,7 +2622,7 @@ const buildRomInner = async () => {
         if (candidate && bank) {
           // Same "family moves as one unit" expansion as the proactive
           // pre-pass above.
-          (candidate.members || [{kind: candidate.kind, name: candidate.name}])
+          membersOf(candidate)
               .forEach(({kind, name}) => setRelocationBank(kind, name, bank));
           relocatedThisBuild.push({kind: candidate.kind, name: candidate.name, bank, members: candidate.members});
           if (candidate.kind === 'subroutineBanks' && candidate.name === TITLE_SCREEN_SUBROUTINE_NAME) {
@@ -2633,18 +2646,16 @@ const buildRomInner = async () => {
               `Bank overflow - relocating ${candidate.kind.replace('Banks', '')} "${candidate.name}" to bank ${bank}, retrying...`);
           // The assembler says how many bytes the bank is over by, so units are moved until about that many bytes are out, not one
           // per compile (each compile takes seconds).
-          const scaledBytes = (unit) => unit.size * (unit.kind === 'eventBanks' ? COMPILED_BYTES_PER_EVENT_CHAR :
-            unit.kind === 'graphicsBanks' ? COMPILED_BYTES_PER_GRAPHICS_CHAR :
-            unit.kind === 'musicBanks' ? 1 : COMPILED_BYTES_PER_SUBROUTINE_CHAR);
+          const scaledBytes = (unit) => unit.size * bytesPerChar(unit.kind);
           let stillOver = parseBankOverflowBytes(e.dasmStdout, primaryBankFor(config)) - scaledBytes(candidate);
           while (stillOver > 0 && emptyThisBank === null) {
             const more = pickRelocationCandidate(getRelocationBanks(), !!reservedMusicBank, primaryBankFor(config));
             if (!more || more.kind === 'musicBanks') break;
             const moreBank = pickNextBank(getRelocationBanks(), maxBanks, textMinikernelActive,
                 new Set([reservedMusicBank, ...titleKernelBankFor(more)].filter(Boolean)), minRelocationBankFor(config),
-                (more.members || [more]).map(({kind}) => kind));
+                membersOf(more).map(({kind}) => kind));
             if (!moreBank) break;
-            (more.members || [{kind: more.kind, name: more.name}]).forEach(({kind, name}) => setRelocationBank(kind, name, moreBank));
+            membersOf(more).forEach(({kind, name}) => setRelocationBank(kind, name, moreBank));
             relocatedThisBuild.push({kind: more.kind, name: more.name, bank: moreBank, members: more.members});
             appendCompileLog(`Also relocating ${more.kind.replace('Banks', '')} "${more.name}" to bank ${moreBank}.`);
             stillOver -= scaledBytes(more);
@@ -2654,10 +2665,6 @@ const buildRomInner = async () => {
           // for the one-at-a-time path above.
           // The biggest units of a bank that is over go to the banks they fit in, until about `over` bytes are out (skip: a unit already moved).
           const evictFromBank = (fromBank, overBytes, skip) => {
-            const unitBytes = (kind, name) => (
-              kind === 'eventBanks' ? BlocklyBB.estimateEventSize(name) * COMPILED_BYTES_PER_EVENT_CHAR :
-              kind === 'graphicsBanks' ? BlocklyBB.estimateGraphicsUnitSize(name) * COMPILED_BYTES_PER_GRAPHICS_CHAR :
-              BlocklyBB.estimateSubroutineSize(name) * COMPILED_BYTES_PER_SUBROUTINE_CHAR);
             let over = overBytes;
             const wrapperNames = BlocklyBB.functionCallWrapperNames || new Set();
             const occupants = [];
@@ -2666,7 +2673,7 @@ const buildRomInner = async () => {
               Object.entries(banksNow[kind] || {}).forEach(([name, unitBank]) => {
                 if (unitBank !== fromBank || (kind === 'subroutineBanks' && wrapperNames.has(name)) ||
                   (skip && skip.kind === kind && skip.name === name) || (kind === 'subroutineBanks' && name === TITLE_SCREEN_SUBROUTINE_NAME)) return;
-                occupants.push({kind, name, size: unitBytes(kind, name), key: `${kind}:${name}`});
+                occupants.push({kind, name, size: estimatedUnitBytes(kind, name), key: `${kind}:${name}`});
               });
             });
             occupants.sort((a, b) => sizeOf(b.key, b.size) - sizeOf(a.key, a.size));
@@ -2698,12 +2705,8 @@ const buildRomInner = async () => {
               overStreak = 0;
             }
             const reportedOver = parseBankOverflowBytes(e.dasmStdout, emptyThisBank);
-            const unitEstimate = (kind, name) => (
-              kind === 'eventBanks' ? BlocklyBB.estimateEventSize(name) * COMPILED_BYTES_PER_EVENT_CHAR :
-              kind === 'graphicsBanks' ? BlocklyBB.estimateGraphicsUnitSize(name) * COMPILED_BYTES_PER_GRAPHICS_CHAR :
-              BlocklyBB.estimateSubroutineSize(name) * COMPILED_BYTES_PER_SUBROUTINE_CHAR);
             evictFromBank(emptyThisBank, (reportedOver > 0 ? reportedOver : OVER_UNKNOWN_BYTES * (2 ** Math.min(overStreak, 4))) -
-              sizeScale * (candidate.kind === 'family' ? estimateFamilySize(candidate.members) : unitEstimate(candidate.kind, candidate.name)),
+              sizeScale * (candidate.kind === 'family' ? estimateFamilySize(candidate.members) : estimatedUnitBytes(candidate.kind, candidate.name)),
             candidate);
             // Other banks the assembler also reported as over (it says how much each is over): they give up units too.
             Object.keys(lastSpaceLeft).map(Number).filter((b) => b !== emptyThisBank && lastSpaceLeft[b] < 0 && b > 1 && b !== primaryBankFor(config) &&
@@ -3137,63 +3140,14 @@ const buildPreviewRom = async ({name, xml, titleScreen = false, configOverride =
       // has to be the one of a hidden score, as the code it goes with (dpchidescore) is.
       const previewShowScore = configOverride && 'showScore' in configOverride ? configOverride.showScore :
         (configurationStorage.value || {}).showScore;
-      const siblingFiles = BlocklyBB.isTextMinikernelActive() ?
-        {...(previewDpcPlus ? await getDpcPlusTextMinikernelSiblingFiles(BlocklyBB.isTextRow2Used(), !!BlocklyBB.textScrollCursorUsed,
-            (previewShowScore ?? true) === false, false, textLineColorsOf(configurationStorage.value)) : await getTextMinikernelSiblingFiles())} : {};
-      if (BlocklyBB.isTextMinikernelActive() && !previewDpcPlus && textLineColorsOf(configurationStorage.value) && siblingFiles['text12b.asm']) {
-        siblingFiles['text12b.asm'] = withTextLineColors12b(siblingFiles['text12b.asm'], textLineColorsOf(configurationStorage.value));
-      }
-      Object.assign(siblingFiles, BlocklyBB.playerAnimAsmFiles || {});
-      // A two score layout: batari's score minikernel (see generators/bbasic/score-layout.js), inlined in the kernel's bank like the text minikernel.
-      await addScoreLayoutFiles(siblingFiles, BlocklyBB);
-      if (BlocklyBB.usesDivMulRoutine() && fastMathOn(configurationStorage.value || {})) {
-        Object.assign(siblingFiles, await getFastMathSiblingFiles((configurationStorage.value || {}).kernel));
-      }
-      if (BlocklyBB.pxeScratch && BlocklyBB.usesDivMulRoutine()) Object.assign(siblingFiles, getPxeMathSiblingFiles(BlocklyBB.pxeScratch));
+      const siblingFiles = await textMinikernelSiblingFiles(previewShowScore, false);
+      await addGeneratedSiblingFiles(siblingFiles);
       if (BlocklyBB.isTextMinikernelActive()) {
         const textKernelFile = previewDpcPlus ? 'text12DPCplus.asm' : 'text12b.asm';
         const textFontOverride = await buildTextFontOverride(previewDpcPlus ? siblingFiles[textKernelFile] : null);
         if (textFontOverride) siblingFiles[textKernelFile] = textFontOverride;
       }
-      if (BlocklyBB.titleScreenUsedKernelKeys) {
-        Object.assign(siblingFiles, await getTitleScreenSiblingFiles(BlocklyBB.titleScreenUsedKernelKeys, !!BlocklyBB.titleScreenHasScoreCard, !!BlocklyBB.titleShareSetup,
-            !!(BlocklyBB.titleTwoToneKeys && BlocklyBB.titleTwoToneKeys.size)));
-        Object.assign(siblingFiles, BlocklyBB.titleScreenAsmFiles || {});
-      }
-      const log = (text) => appendCompileLog(text);
-      appendCompileLog('Preprocessing...', 'stage');
-      // Sprite frames that repeat are cut out of the source batari Basic compiles (see utils/dpc-share-source.js).
-      const sharedSource = (configurationStorage.value || {}).kernel === 'dpcplus' ? shareDpcPlusPlayerSource(code) : null;
-      const preprocessed = await preprocessBatariBasic(
-          isPxe(configurationStorage.value) ? fixFracIncs(flattenBanks(sharedSource ? sharedSource.code : code), pfIsWide(configurationStorage.value), pfBuffersOf(configurationStorage.value), !!configurationStorage.value.pxeSeparateScroll) : (sharedSource ? sharedSource.code : code), log);
-      appendCompileLog('Compiling to assembly...', 'stage');
-      Object.assign(siblingFiles, await getDpcPlusAudioSiblingFiles(siblingFiles, BlocklyBB.dpcAudioFiles, BlocklyBB.dpcAudioMidLevel));
-      // A hidden score gives its scanlines to the picture (the Text Minikernel's score row stays, it draws the text). The preview's score, not
-      // the project's: a preview hides it whatever the project has (with the project's score on, the picture lost its bottom lines).
-      if ((configurationStorage.value || {}).kernel === 'dpcplus' && (previewShowScore ?? true) === false &&
-        !BlocklyBB.isTextMinikernelActive()) {
-        Object.assign(siblingFiles, await getDpcPlusNoScoreSiblingFiles(siblingFiles));
-      }
-      Object.assign(siblingFiles, await getDpcPlusProgramSiblingFile((configurationStorage.value || {}).kernel, {
-        math: !!(BlocklyBB.usesDivMulRoutine() && fastMathOn(configurationStorage.value || {})),
-        rows: !!BlocklyBB.pfBoxArmRows,
-        // (The playfield offset areas of a scene work on the coprocessor too.)
-        offset: !!BlocklyBB.offsetArmUsed || !!BlocklyBB.pfBoxArm || !!BlocklyBB.dpcAudioArm || !!BlocklyBB.pfTilesArm,
-        scoreFont: !!BlocklyBB.dpcPlusScoreFonts,
-      }));
-      const compiled = await compileBatariBasicToAsm(preprocessed, siblingFiles, log);
-      // (The compiler puts the bank of a data table in front of its name, with a bank of one "$10" (names of data tables start with an underscore): the PXE kernel has one bank, and no such address.)
-      if (isPxe(configurationStorage.value)) compiled.mainAsm = legalizeForPxe(compiled.mainAsm.replace(/\$[0-9a-f]0(?=[g-z_])/gi, ''), BlocklyBB.pxeScratch, true);
-      dropUnusedDivMul(compiled, siblingFiles);
-      fixSameBankCalls64k(compiled, configurationStorage.value);
-      shareDpcPlusPlayerData(compiled, configurationStorage.value);
-      resolveAnimationPictureTables(compiled);
-      cheapBankJumps(compiled, configurationStorage.value);
-      compactRainbowRestoreRoutine(compiled, configurationStorage.value);
-      retargetPoolPointers(compiled, configurationStorage.value);
-      appendCompileLog('Assembling ROM...', 'stage');
-      const compiledResult = await assembleBatariBasic(compiled.mainAsm, compiled.workDir, log);
-      if (BlocklyBB.offsetArmUsed || BlocklyBB.pfBoxArm || BlocklyBB.dpcAudioArm || BlocklyBB.pfTilesArm) patchArmProgramAddress(compiledResult);
+      const compiledResult = await compileAndAssemble(code, siblingFiles, {squish: false, showScore: previewShowScore});
       try {
         withGopher2600((gopher2600) => {
           gopher2600.setAtariVoxRequired(false);

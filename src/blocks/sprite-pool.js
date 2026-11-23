@@ -323,9 +323,9 @@ Blockly.defineBlocksWithJsonArray([
   },
   {
     'type': 'sprite_pool_step',
-    'message0': 'Run pool %4 for sprite %2 in %3 (first sprite %1)',
+    'message0': 'Run pool %4 for sprite %2 in %3 (first sprite %1) %5',
     'args0': [{'type': 'field_input', 'name': 'FROM', 'text': '1'}, {'type': 'field_input', 'name': 'TO', 'text': '2'}, {'type': 'field_input', 'name': 'HOST', 'text': ''},
-      {'type': 'field_input', 'name': 'BODY', 'text': ''}],
+      {'type': 'field_input', 'name': 'BODY', 'text': ''}, {'type': 'input_statement', 'name': 'COPY'}],
     'previousStatement': null,
     'nextStatement': null,
     'colour': SPRITE_POOL_COLOUR,

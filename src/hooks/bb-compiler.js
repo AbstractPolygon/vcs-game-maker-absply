@@ -74,6 +74,28 @@ const buildTree = (files) => {
 // raw bytes (needed for main.bin, which isn't valid UTF-8), `elapsedMs` is
 // how long the wasm module itself took to run (excludes fetchWasm - cached
 // after the first call anyway, see wasmCache above).
+// The shim's file write makes a new array of the whole file each time a write makes it longer, and the tools write their output (the assembly, several
+// hundred KB) a little at a time: every write copied all of it so far (about a tenth of a build). A file that grows keeps room to spare (twice what it
+// needs) and its data is a view of it; runWasi gives the caller an exact copy at the end.
+OpenFile.prototype.fd_write = function(data) {
+  if (this.file.readonly) return {ret: 8, nwritten: 0};
+  const at = Number(this.file_pos);
+  const end = at + data.byteLength;
+  const file = this.file;
+  if (end > file.data.byteLength) {
+    // (A new store when the data is not a view of the one kept: the shim's truncate and resize give the file a new array.)
+    if (!file.store || file.data.buffer !== file.store.buffer || end > file.store.length) {
+      const store = new Uint8Array(Math.max(end, 2 * file.data.byteLength, 4096));
+      store.set(file.data);
+      file.store = store;
+    }
+    file.data = file.store.subarray(0, end);
+  }
+  file.data.set(data, at);
+  this.file_pos += BigInt(data.byteLength);
+  return {ret: 0, nwritten: data.byteLength};
+};
+
 const runWasi = async (wasmPath, args, stdinText, preopens, log) => {
   // The shim passes `args` straight through as argv with no synthesized
   // argv[0] - these are clang/wasi-sdk C binaries expecting a real program
@@ -142,6 +164,11 @@ const runWasi = async (wasmPath, args, stdinText, preopens, log) => {
     const collect = (d, prefix) => {
       d.contents.forEach((inode, entryName) => {
         const path = prefix ? prefix + '/' + entryName : entryName;
+        // (A file that grew is a view of a bigger array, see fd_write above: an exact copy, so its buffer is the file.)
+        if (inode.data && inode.store) {
+          inode.data = inode.data.slice();
+          inode.store = null;
+        }
         if (inode.data) {
           // A file the caller put there and the tool left alone goes back as it came (a byte string): decoding it as text would
           // lose the bytes that are not valid UTF-8, which for a binary file like the DPC+ coprocessor program (custom2.bin) changes

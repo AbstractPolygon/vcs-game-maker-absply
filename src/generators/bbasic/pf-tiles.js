@@ -123,7 +123,19 @@ const layoutFor = (backgrounds, height, fixedTiles = [], flips = false, unit = 8
 // there, 1 when it does not scroll}), with the Tiles section's tiles (tileSet: {height, tiles: [{pixels: rows of 8}]}) first: their height,
 // or with none drawn the tile height that takes the fewest bytes (onlyHeight: that height). The tiles are 4 pixels wide when the section's
 // are (tileUnitOf), otherwise 8. Null when it can not be done.
+// (The plan depends on its inputs alone, and a build makes it on every pass of every attempt with the same backgrounds: the last plans are kept by their
+// inputs. Bricks: about a tenth of the time of its build.)
+const planCache = new Map();
+const PLAN_CACHE_SIZE = 8;
 export const planTilemap = (backgrounds, tileSet = null, onlyHeight = 0) => {
+  const key = JSON.stringify([backgrounds, tileSet, onlyHeight]);
+  if (planCache.has(key)) return planCache.get(key);
+  const plan = planTilemapUncached(backgrounds, tileSet, onlyHeight);
+  planCache.set(key, plan);
+  if (planCache.size > PLAN_CACHE_SIZE) planCache.delete(planCache.keys().next().value);
+  return plan;
+};
+const planTilemapUncached = (backgrounds, tileSet, onlyHeight) => {
   if (!backgrounds.length) return null;
   const unit = tileUnitOf(tileSet);
   const rowsOf = backgrounds.map(({pixels, fill, thin}) => ({rows: pixels.map((row) => rowUnits(row, unit)), fill: Math.max(fill || 0, pixels.length), thin: thin || 1}));

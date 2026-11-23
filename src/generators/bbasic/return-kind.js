@@ -10,6 +10,9 @@
 // subroutine's label does not run into it. Otherwise, and on PXE (its compiler is another one), the return stays as it is. The returns a subroutine's
 // blocks put inside it stay as they are.
 export const SUBROUTINE_END_MARK = '; subroutine end';
+// The label after a subroutine's return (see generateSubroutineBody in generators/bbasic.js): nothing jumps to it or runs into it.
+export const subroutineEndLabel = (name) => `${name}__end`;
+const END_LABEL_LINE = /^\s*[A-Za-z_]\w*__end\s*$/;
 const KEYWORDS = /^(end|asm|return|rem|else|then|if|goto|gosub|data|function|bank|const|dim|set|inline|include|next|drawscreen)$/;
 const escape = (name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const isLabel = (line) => /^[A-Za-z_]\w*\s*$/.test(line) && !KEYWORDS.test(line.trim());
@@ -38,11 +41,20 @@ export const narrowSubroutineReturns = (code, enabled) => {
     blocks.set(name, {start: starts[0], end, indent});
   });
   const blockAt = (i) => [...blocks].find(([, {start, end}]) => i > start && i < end);
+  // The bank of each line (the code is in sections that start with a line "bank N"; bank 1 before the first). (BS_goto, below, is in the bank switching code
+  // of DPC+ ROMs only: see withBankGoto in hooks/bb-compiler.js.)
+  const bankGoto = /^\s*set\s+kernel\s+DPC\s*\+/mi.test(code);
+  let bankNow = 1;
+  const bankOfLine = lines.map((line) => {
+    const marker = /^\s*bank\s+(\d+)\s*$/.exec(line);
+    if (marker) bankNow = Number(marker[1]);
+    return bankNow;
+  });
   const facts = new Map();
   blocks.forEach(({start, end}, name) => {
     // (Nothing runs into the label from the line before it.)
     let before = start - 1;
-    while (before >= 0 && (lines[before].trim() === '' || /^\s*rem\b/.test(lines[before]))) before--;
+    while (before >= 0 && (lines[before].trim() === '' || /^\s*rem\b/.test(lines[before]) || END_LABEL_LINE.test(lines[before]))) before--;
     if (before >= 0 && !/^\s*(return\b|goto\b|bank\s)/.test(lines[before])) return;
     const inside = new Set();
     for (let i = start + 1; i < end; i++) {
@@ -53,12 +65,20 @@ export const narrowSubroutineReturns = (code, enabled) => {
     let other = 0;
     let ok = true;
     const tails = new Set();
+    const fromBanks = new Set();
     const nameWord = new RegExp(`(^|[^\\w.])\\.?${escape(name)}(?!\\w)`, 'g');
     const tailGoto = new RegExp(`^\\s*goto\\s+${escape(name)}\\s*$`);
     lines.forEach((line, i) => {
       if (!ok || i === start || line.trim().startsWith('rem')) return;
       const outside = i < start || i > end;
       if (outside && insideWords.some((word) => word.test(line))) {
+        // (A jsr in an asm block to a label inside it is a call in the bank of the line too, as the shared animation code of a sprite pool is entered at the
+        // label of an animation: see _poolanimstep in generators/bbasic.js. Anything else that names a label inside it leaves the return as it is.)
+        const entry = /^\s*jsr\s+\.?([A-Za-z_]\w*)\s*(;.*)?$/i.exec(line);
+        if (entry && inside.has(entry[1])) {
+          same++;
+          return;
+        }
         ok = false;
         return;
       }
@@ -80,8 +100,9 @@ export const narrowSubroutineReturns = (code, enabled) => {
       }
       same += plain + jsr;
       other += banked;
+      if (banked) fromBanks.add(bankOfLine[i]);
     });
-    if (ok) facts.set(name, {same, other, tails});
+    if (ok) facts.set(name, {same, other, tails, fromBanks});
   });
   // The kinds, worked out again until none changes (a subroutine reached by a tail call takes its kind from the one that makes it).
   const kinds = new Map();
@@ -100,7 +121,14 @@ export const narrowSubroutineReturns = (code, enabled) => {
   kinds.forEach((kind, name) => {
     if (!kind) return;
     const {end, indent} = blocks.get(name);
-    lines[end] = `${indent}return ${kind}`;
+    const {tails, fromBanks} = facts.get(name);
+    // A subroutine that every call reaches from the same other bank goes back to that bank by its number: the bank switch and the rts of BS_goto (about 15
+    // cycles), not BS_return, which finds the bank from the return address and keeps A and X (about 50; the code after a gosub sets what it uses itself).
+    if (kind === 'otherbank' && bankGoto && !tails.size && fromBanks.size === 1 && !fromBanks.has(bankOfLine[end])) {
+      lines[end] = [`${indent}asm`, `${indent} ldx #${[...fromBanks][0]}`, `${indent} jmp BS_goto`, 'end'].join('\n');
+    } else {
+      lines[end] = `${indent}return ${kind}`;
+    }
     narrowed++;
   });
   if (enabled) narrowed += narrowFunctionReturns(lines);

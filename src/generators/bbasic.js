@@ -41,7 +41,7 @@ import {DEFAULT_ROW_COLOR, DEFAULT_BK_ROW_COLOR, processBackgroundStorageDefault
   ROW_FADE_IDLE_STEP, rowFadeStartColor, multicolorFadeVarName,
   backgroundColorBgVarName, backgroundColorOffsetVarName, BACKGROUND_COLOR_SCROLL_SUBROUTINE_NAME, FADE_STEPS} from '../blocks/background';
 import {buildGroupRowsLoad, GROUP_ROWS_TABLE, ensureArmProgram, resolveFireBatch} from './bbasic/offset-arm';
-import {narrowSubroutineReturns, SUBROUTINE_END_MARK} from './bbasic/return-kind';
+import {narrowSubroutineReturns, SUBROUTINE_END_MARK, subroutineEndLabel} from './bbasic/return-kind';
 import {isSixtyFourK} from '../utils/bank64-returns';
 import {chooseSpill, chooseAllSpillable, applySpill, remainingUses, mergeAdjacentReads, displayRamSlotAddress, STACK_AREA} from './bbasic/spill';
 import {functionCallDiscardVarName, functionCallArgVarName, functionParamVarName,
@@ -5273,7 +5273,7 @@ Blockly.BBasic.finish = function(code) {
       [name, this.nameDB_.getName(name, Blockly.Names.DEVELOPER_VARIABLE_TYPE)]));
     this.subroutines[DPC_AUDIO_SUBROUTINE_NAME] = this.dpcAudioPlan.routine(dpcAudioNames);
     this.dpcAudioFiles = {'DPC_frequencies.h': this.dpcAudioPlan.frequencyFile()};
-    // The routine's coprocessor functions (waveform rebuild, volume mix) are in the program that is in the ROM as data, in a bank of its own (see offset-arm.js).
+    // The routine's coprocessor functions (waveform rebuild, volume mix) are in the program that is in the ROM as data, in a bank to itself (see offset-arm.js).
     this.dpcAudioArm = true;
     ensureArmProgram(Blockly, undefined, 'a');
     // What the kernel's exit needs to leave the volume register at the voices' middle level (see withDpcPlusAudioHook).
@@ -9052,11 +9052,13 @@ Blockly.BBasic.generateDataTables = function(bank) {
 // bank) below, since the block itself is identical either way; only WHERE
 // it gets spliced differs. See generateSubroutines'  comment for why each
 // entry needs its  normalizeIndents() pass.
-// (The return at the end is marked for narrowSubroutineReturns, which makes it a return thisbank or otherbank when it can.)
+// (The return at the end is marked for narrowSubroutineReturns, which makes it a return thisbank or otherbank when it can. A label after it, no bytes,
+// gives the bank planner the size of the subroutine wherever it is: see unitEndLabels in hooks/rom.js.)
 const generateSubroutineBody = (name, body) => Blockly.BBasic.normalizeIndents([
   `@${name}`,
   body,
   `return ${SUBROUTINE_END_MARK} ${name}`,
+  `@${subroutineEndLabel(name)}`,
 ].join('\n'));
 
 // Splices every user-defined subroutine (see subroutine_define in
@@ -9229,9 +9231,12 @@ Blockly.BBasic.poolAnimationGroups = function(playerAnimationsStorage) {
   const sharing = new Map();
   const config = useConfigurationStorage().value || {};
   if (config.kernel !== 'dpcplus' || isPxe(config)) return sharing;
+  // ROM option "Separate animation code for each pool sprite": the sprites of a pool do not share (each has code and tables for itself: no exchange through the
+  // temp bytes, no call into the shared code, about 150 cycles less a step, for its bytes). The other virtual sprites still share.
+  const pooled = new Set(config.separatePoolAnimations ? (this.poolSwapPairs || []).flatMap(({first, second}) => [first, second]) : []);
   const byFirst = new Map();
   (this.poolSwapPairs || []).forEach(({first, second}) => {
-    if (first < 2) return;
+    if (first < 2 || pooled.size) return;
     if (!byFirst.has(first)) byFirst.set(first, new Set());
     byFirst.get(first).add(second);
   });
@@ -9259,7 +9264,7 @@ Blockly.BBasic.poolAnimationGroups = function(playerAnimationsStorage) {
   const bySignature = new Map();
   (this.dpcPlusExtraPlayers || []).filter((n) => n >= 2).forEach((n) => {
     const name = `player${n}`;
-    if (sharing.has(name) || partners.has(name)) return;
+    if (sharing.has(name) || partners.has(name) || pooled.has(n)) return;
     const key = signature(name);
     if (!bySignature.has(key)) bySignature.set(key, []);
     bySignature.get(key).push(n);
@@ -9566,6 +9571,15 @@ Blockly.BBasic.generateAnimations = function() {
       // (The address of rows is stored on the DPC+ kernel with bits 4 to 6 of its high byte moved down.)
       const highByte = (symbol) => (isDpcPlus && !isPxe(useConfigurationStorage().value) ? `  .byte ((>${symbol}) & $0f) | (((>${symbol}) / 2) & $70)` : `  .byte >${symbol}`);
       const override = overrideFlag && !poolRefs ? /^(.+)\{(\d)\}$/.exec(overrideFlag) : null;
+      // A table that has the same entry for every picture (one color for all of them, one height) is a number in the code instead: 2 cycles less for each
+      // load and no table (Bricks' powerup: 7 pictures, one color and one height, 21 bytes less).
+      const constant = (values) => values.every((value) => value === values[0]);
+      const oneColor = rowColored && constant(rows.map((picture) => picture.color)) ? rows[0].color : null;
+      const oneHeight = constant(rows.map((picture) => picture.height)) ? rows[0].height : null;
+      const highOf = (symbol) => (isDpcPlus && !isPxe(useConfigurationStorage().value) ? `((>${symbol}) & $0f) | (((>${symbol}) / 2) & $70)` : `>${symbol}`);
+      const colorLow = oneColor ? `#<${oneColor}` : `${at('ColorLow')},y`;
+      const colorHigh = oneColor ? `#(${highOf(oneColor)})` : `${at('ColorHigh')},y`;
+      const heightOperand = oneHeight !== null ? `#${oneHeight}` : `${at('Heights')},y`;
       const code = [
         ' asm',
         `  lda ${refFrame}`,
@@ -9626,20 +9640,20 @@ Blockly.BBasic.generateAnimations = function() {
             '  sta DF0LOW',
             `  lda #(>(playerpointers+${colorSlot})) & $0F`,
             '  sta DF0HI',
-            `  lda ${at('ColorLow')},y`,
+            `  lda ${colorLow}`,
             '  sta DF0WRITE',
-            `  lda ${at('ColorHigh')},y`,
+            `  lda ${colorHigh}`,
             '  sta DF0WRITE',
           ] : [
-            `  lda ${at('ColorLow')},y`,
+            `  lda ${colorLow}`,
             `  sta ${name}color`,
-            `  lda ${at('ColorHigh')},y`,
+            `  lda ${colorHigh}`,
             `  sta ${name}color+1`,
           ]),
         ] : []),
         at('Height'),
         // (The shared code of a pool sets the height of the sprite it runs for: the heights are an array, the number of places after the first sprite is half of temp6.)
-        ...(poolRefs ? ['  lda temp6', '  lsr', '  tax', `  lda ${at('Heights')},y`, `  sta ${name}height,x`] : [`  lda ${at('Heights')},y`, `  sta ${refHeight}`]),
+        ...(poolRefs ? ['  lda temp6', '  lsr', '  tax', `  lda ${heightOperand}`, `  sta ${name}height,x`] : [`  lda ${heightOperand}`, `  sta ${refHeight}`]),
         `  jmp .${animationLabel}animationEnd`,
         at('Starts'),
         '  .byte 0',
@@ -9649,14 +9663,13 @@ Blockly.BBasic.generateAnimations = function() {
         ...rows.map((picture) => `  .byte <${picture.graphic}`),
         at('GraphicHigh'),
         ...rows.map((picture) => highByte(picture.graphic)),
-        ...(rowColored ? [
+        ...(rowColored && !oneColor ? [
           at('ColorLow'),
           ...rows.map((picture) => `  .byte <${picture.color}`),
           at('ColorHigh'),
           ...rows.map((picture) => highByte(picture.color)),
         ] : []),
-        at('Heights'),
-        ...rows.map((picture) => `  .byte ${picture.height}`),
+        ...(oneHeight === null ? [at('Heights'), ...rows.map((picture) => `  .byte ${picture.height}`)] : []),
         'end',
       ];
       return code.join('\n') + '\n\n' + stubs.join('\n') + '\n\n';
@@ -10145,9 +10158,14 @@ Blockly.BBasic.workspaceToCode = function(workspace) {
   if (hasWrapper) return resolveFireBatch(this.workspaceToCodeAllPasses(workspace), this.displayRamVars);
   const inProgram = (block) => block.isEnabled() && !block.getInheritedDisabled();
   const wrapped = ['getAllBlocks', 'getBlocksByType', 'getTopBlocks'];
+  // (The blocks do not change while the code is made, and the generators ask for them many times on every pass: each answer is kept, and a copy given,
+  // as a caller may sort it. The walk up the parents for a disabled one took about a tenth of a build.)
+  const answers = new Map();
   wrapped.forEach((name) => {
     workspace[name] = function(...args) {
-      return Object.getPrototypeOf(this)[name].apply(this, args).filter(inProgram);
+      const key = `${name}|${args.map((arg) => String(arg)).join('|')}`;
+      if (!answers.has(key)) answers.set(key, Object.getPrototypeOf(this)[name].apply(this, args).filter(inProgram));
+      return answers.get(key).slice();
     };
   });
   try {
