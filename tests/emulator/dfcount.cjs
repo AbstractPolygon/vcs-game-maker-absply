@@ -8,13 +8,13 @@ const Board = req('6502.ts/lib/machine/stella/Board').default;
 const Config = req('6502.ts/lib/machine/stella/Config').default;
 const CpuFactory = req('6502.ts/lib/machine/cpu/Factory').default;
 const CF = req('6502.ts/lib/machine/stella/cartridge/CartridgeFactory').default;
-const {matchDriverFractionalFetchers} = require(REPO + 'tools/stellerator/dpcplus-driver');
+const {matchDriverFractionalFetchers, cartridgeTypeOf} = require(REPO + 'tools/stellerator/dpcplus-driver');
 (async () => {
   const [, , file, frames = '1300', seed = '1'] = process.argv;
   // (STACKbegin in DPCplusbB.h, BKCOLS + 256: its place in the display memory.)
   const STACK = 0x0ca5;
   const rom = new Uint8Array(fs.readFileSync(file));
-  const cart = await new CF().createCartridge(rom); matchDriverFractionalFetchers(cart, rom);
+  const cart = await new CF().createCartridge(rom, cartridgeTypeOf(rom)); matchDriverFractionalFetchers(cart, rom);
   const config = Config.create({tvMode: 0, enableAudio: false, pcmAudio: false, emulatePaddles: false, randomSeed: 1, frameStart: 23, cpuType: CpuFactory.Type.stateMachine});
   const board = new Board(config, cart);
   board.getVideoOutput().setSurfaceFactory(() => ({buf: new Uint32Array(160 * 400), getBuffer() { return this.buf; }, getWidth() { return 160; }, getHeight() { return 400; }}));

@@ -9,12 +9,12 @@ const Board = req('6502.ts/lib/machine/stella/Board').default;
 const Config = req('6502.ts/lib/machine/stella/Config').default;
 const CpuFactory = req('6502.ts/lib/machine/cpu/Factory').default;
 const CF = req('6502.ts/lib/machine/stella/cartridge/CartridgeFactory').default;
-const {matchDriverFractionalFetchers} = require(ROOT + 'tools/stellerator/dpcplus-driver');
+const {matchDriverFractionalFetchers, cartridgeTypeOf} = require(ROOT + 'tools/stellerator/dpcplus-driver');
 (async () => {
   const [, , file, frames = '1500', seed = '1'] = process.argv;
   const rom = new Uint8Array(fs.readFileSync(file));
   const kind = process.env.KIND || 'dpc';
-  const cart = await new CF().createCartridge(rom);
+  const cart = await new CF().createCartridge(rom, cartridgeTypeOf(rom));
   if (kind === 'dpc') matchDriverFractionalFetchers(cart, rom);
   const config = Config.create({tvMode: 0, enableAudio: false, pcmAudio: false, emulatePaddles: false, randomSeed: 1, frameStart: 23, cpuType: CpuFactory.Type.stateMachine});
   const board = new Board(config, cart);

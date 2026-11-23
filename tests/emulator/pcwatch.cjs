@@ -7,7 +7,7 @@ const Board = req('6502.ts/lib/machine/stella/Board').default;
 const Config = req('6502.ts/lib/machine/stella/Config').default;
 const CpuFactory = req('6502.ts/lib/machine/cpu/Factory').default;
 const CF = req('6502.ts/lib/machine/stella/cartridge/CartridgeFactory').default;
-const {matchDriverFractionalFetchers} = require(ROOT + 'tools/stellerator/dpcplus-driver');
+const {matchDriverFractionalFetchers, cartridgeTypeOf} = require(ROOT + 'tools/stellerator/dpcplus-driver');
 (async () => {
   const [, , file, symFile, frames = '20', names = ''] = process.argv;
   const symText = fs.readFileSync(symFile, 'utf8');
@@ -15,7 +15,7 @@ const {matchDriverFractionalFetchers} = require(ROOT + 'tools/stellerator/dpcplu
   const watch = names.split(',').filter(Boolean).map((name) => ({name, addr: sym(name)}));
   watch.filter((w) => w.addr === null).forEach((w) => console.log('no symbol', w.name));
   const rom = new Uint8Array(fs.readFileSync(file));
-  const cart = await new CF().createCartridge(rom); matchDriverFractionalFetchers(cart, rom);
+  const cart = await new CF().createCartridge(rom, cartridgeTypeOf(rom)); matchDriverFractionalFetchers(cart, rom);
   const config = Config.create({tvMode: 0, enableAudio: false, pcmAudio: false, emulatePaddles: false, randomSeed: 1, frameStart: 23, cpuType: CpuFactory.Type.stateMachine});
   const board = new Board(config, cart); let n = 0;
   board.getVideoOutput().setSurfaceFactory(() => ({buf: new Uint32Array(160 * 400), getBuffer() { return this.buf; }, getWidth() { return 160; }, getHeight() { return 400; }}));

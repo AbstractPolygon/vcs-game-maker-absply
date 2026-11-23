@@ -7,10 +7,11 @@ const p = P.REPO + 'src/hooks/rom.js';
 let s = fs.readFileSync(p, 'utf8');
 const crlf = s.includes('\r\n');
 if (crlf) s = s.replace(/\r\n/g, '\n');
-const a = '      const compiledResult = await assembleBatariBasic(compiled.mainAsm, compiled.workDir, log);\n';
-if (s.split(a).length < 2) throw new Error('anchor');
+// (The line that assembles, at whatever indent: compileAndAssemble has it for the game and the previews.)
+const at = /^( *)const compiledResult = await assembleBatariBasic\(compiled\.mainAsm, compiled\.workDir, log\);$/gm;
+if (!at.test(s)) throw new Error('anchor');
 // (The bB text of that build too, for tests/browser/loadsym.cjs: the last compile is not always the one assembled, see hook_bb.cjs.)
-s = s.split(a).join('      window.__vcsAsm = compiled.mainAsm; window.__vcsBbAtAsm = window.__vcsBb; // TEMP-DEBUG remove\n' + a);
+s = s.replace(at, (line, indent) => `${indent}window.__vcsAsm = compiled.mainAsm; window.__vcsBbAtAsm = window.__vcsBb; // TEMP-DEBUG remove\n${line}`);
 if (crlf) s = s.replace(/\n/g, '\r\n');
 fs.writeFileSync(p, s);
 console.log('asm hook on');

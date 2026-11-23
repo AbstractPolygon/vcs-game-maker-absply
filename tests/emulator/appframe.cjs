@@ -7,7 +7,7 @@ const P = require('../lib/paths.cjs');
 const Board = require(P.REPO + 'node_modules/6502.ts/lib/machine/stella/Board').default;
 const Config = require(P.REPO + 'node_modules/6502.ts/lib/machine/stella/Config').default;
 const CartridgeFactory = require(P.REPO + 'node_modules/6502.ts/lib/machine/stella/cartridge/CartridgeFactory').default;
-const {matchDriverFractionalFetchers} = require(P.REPO + 'tools/stellerator/dpcplus-driver');
+const {matchDriverFractionalFetchers, cartridgeTypeOf} = require(P.REPO + 'tools/stellerator/dpcplus-driver');
 const CartridgePXE = require(P.REPO + 'tools/stellerator/pxe/CartridgePXE');
 // (As in worker-entry.js.)
 const FRAME_WIDTH = 160;
@@ -24,7 +24,7 @@ const NTSC_PICTURE_LINES = 200;
     cartridge = new CartridgePXE(rom, {tvSpec: pal ? 'PAL' : 'NTSC'});
     if (cartridge.init) await cartridge.init();
   } else {
-    cartridge = await new CartridgeFactory().createCartridge(rom);
+    cartridge = await new CartridgeFactory().createCartridge(rom, cartridgeTypeOf(rom));
     matchDriverFractionalFetchers(cartridge, rom);
   }
   const board = new Board(config, cartridge);
