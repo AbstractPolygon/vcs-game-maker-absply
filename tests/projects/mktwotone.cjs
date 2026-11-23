@@ -27,9 +27,18 @@ doc['title-screen'] = {...doc['title-screen'], screens: [{...doc['title-screen']
   {id: 2, type: '48x2', color: 0x0e, twoTone: true, rightRowColors: right, pf1: 0, pf2: 0, background: 0,
     frames: [{id: 1, duration: 16, pixels: rows.join('\n'), rowColors: left, pf1: 0, pf2: 0, background: 0}]},
 ]}]};
+// PAGE=1 (twotone_dpc_page.vcsgm): a 48x1 graphic and six space cards after it, which put the loop of 48x2_T_kernel.asm at a page offset of $98
+// (at the time of the fix of 2026-11-23): the old page check looked at $50 bytes of the $6D, its bne crossed the page and the graphic smeared to the
+// right. Check the loop's address in the symbols (pf48x2_T_loop) and the picture of frame 60.
+const page = process.env.PAGE === '1';
+if (page) {
+  const cards = doc['title-screen'].screens[0].cards;
+  cards.push({id: 3, type: '48x1', color: 0x46, frames: [{id: 1, duration: 16, pixels: Array(8).fill('X.'.repeat(24)).join('\n'), rowColors: Array(8).fill(0x46)}]},
+    ...Array.from({length: 6}, (_, k) => ({id: 10 + k, type: 'space', lines: 3})));
+}
 doc['blockly-workspace'] = '<xml xmlns="https://developers.google.com/blockly/xml">' +
   '<block type="event_block" id="ev_title_update" x="20" y="20"><field name="EVENT">title_update</field><statement name="DO">' +
   '<block type="titlescreen_draw"><field name="SCREEN">3</field></block></statement></block></xml>';
-const out = path.join(__dirname, (std ? 'twotone_std' : (bg ? 'twotone_dpc_bg' : 'twotone_dpc')) + (process.env.ROWS === '1' ? '_rows' : '') + '.vcsgm');
+const out = path.join(__dirname, (std ? 'twotone_std' : (bg ? 'twotone_dpc_bg' : 'twotone_dpc')) + (process.env.ROWS === '1' ? '_rows' : '') + (page ? '_page' : '') + '.vcsgm');
 fs.writeFileSync(out, yaml.dump(doc, {lineWidth: -1}));
 console.log(path.basename(out));
