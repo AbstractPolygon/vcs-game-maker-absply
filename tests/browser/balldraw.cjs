@@ -17,7 +17,7 @@ module.exports = async ({send, evaluate, sleep, APP}) => {
   for (let k = 0; k < 3; k++) { await evaluate("[...document.querySelectorAll('.v-icon.mdi-chevron-down')].forEach((i) => { const b = i.closest('button'); if (b) b.click(); })"); await sleep(1200); }
   console.log('ball button', await evaluate(`(() => { const i = document.querySelector('.v-icon.mdi-circle-outline'); if (!i) return null; const b = i.closest('button'); b.click(); return b.getAttribute('title'); })()`));
   await sleep(1500);
-  const VM = `(() => { const out = []; const walk = (v) => { out.push(v); v.$children.forEach(walk); }; walk(document.querySelector('#inspire').__vue__); return out; })().find((v) => v && v.$props && v.$props.rowRunWidths)`;
+  const VM = `(() => { const out = []; const walk = (v) => { out.push(v); v.$children.forEach(walk); }; walk(document.querySelector('#inspire').__vue__); return out; })().find((v) => v && v.$props && v.$props.normalizePixels)`;
   console.log('editor found', await evaluate(`!!(${VM})`));
   const tool = async (name) => evaluate(`(() => { const b = [...document.querySelectorAll('button')].find((x) => (x.getAttribute('title') || '').startsWith('${name}')); b.click(); return b.getAttribute('title').slice(0, 30); })()`);
   await evaluate(`(${VM}).$el.scrollIntoView({block: 'center'})`);
