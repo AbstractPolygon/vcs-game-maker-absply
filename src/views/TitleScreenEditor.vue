@@ -624,9 +624,10 @@
                                     :draggable="armedFrameKey === frameKey(card, frame)"
                                     v-on="frameHandleListeners(screen, card, frameIndex)"
                                     @mousedown="(event) => armFrameDrag(event, card, frame)"
+                                    @click="(event) => selectFrame(frameOwner(screen, card), card.frames, frame, event)"
                                     @mouseup="armedFrameKey = null"
                                     :class="{
-                                      'pixel-editor-container-active': frameHighlightState(screen, card, frame) === 'blue',
+                                      'pixel-editor-container-active': frameHighlightState(screen, card, frame) === 'blue' || isFrameSelected(frameOwner(screen, card), frame),
                                       'pixel-editor-container-active-grey': frameHighlightState(screen, card, frame) === 'grey',
                                     }"
                                     :style="{width: editorWidth(card), maxWidth: editorWidth(card)}"
@@ -747,12 +748,12 @@
                                         <div class="frame-corner-toolbar">
                                           <confirm-delete-menu
                                             v-if="card.frames.length > 1"
-                                            title="Delete this frame?"
+                                            :title="deleteFrameQuestion(frameOwner(screen, card), card.frames, frame)"
                                             :selected="frameHighlightState(screen, card, frame) === 'blue'"
                                             :select-priority="2"
-                                            activator-title="Delete this frame"
+                                            :activator-title="deleteFrameQuestion(frameOwner(screen, card), card.frames, frame).replace('?', '') + ' (Ctrl+click or Shift+click frames outside their pixels to select several)'"
                                             icon-btn-class="titlescreen-icon-btn-size"
-                                            @confirm="handleDeleteFrame(card, frame)"
+                                            @confirm="handleDeleteFrame(screen, card, frame)"
                                           />
                                           <v-btn
                                             v-if="cardHasRowColors(card)"
@@ -902,6 +903,7 @@ import {recordCardDeletion} from '../hooks/card-delete-undo';
 import {useDragReorder} from '../hooks/drag-reorder';
 import {insertCardAfter, REMOVED, remapCardReferences, removeCards} from '../utils/card-refs';
 import {useCardSelection} from '../hooks/card-selection';
+import {useFrameSelection} from '../hooks/frame-selection';
 import {recordFieldsChange, recordRowColorsChange} from '../utils/row-color-history';
 import {useTitleScreenStorage, useErrorStorage, usePixelGridOverlayStorage,
   usePlayerAnimationsStorage, useColorPaletteStorage, useTitleCardColumnsStorage, useConfigurationStorage} from '../hooks/project';
@@ -1842,8 +1844,14 @@ export default defineComponent({
       });
     };
 
-    const handleDeleteFrame = (card, frame) => {
-      card.frames = card.frames.filter(({id}) => id !== frame.id);
+    // Several frames of a graphic selected at once, to delete them together (see hooks/frame-selection.js).
+    const {selectFrame, isFrameSelected, framesToDelete, deleteFrameQuestion, forgetFrames} = useFrameSelection();
+    const frameOwner = (screen, card) => `${screen.id}:${card.id}`;
+    // The frame, or every selected frame of the graphic when it is one of them.
+    const handleDeleteFrame = (screen, card, frame) => {
+      const doomed = framesToDelete(frameOwner(screen, card), card.frames, frame);
+      card.frames = card.frames.filter(({id}) => !doomed.includes(id));
+      forgetFrames(doomed);
       handleChildChange();
       instance.proxy.$forceUpdate();
     };
@@ -2254,7 +2262,7 @@ export default defineComponent({
       handleSetBackgroundColor, handleSetCardColor, handleSetPlayerColor, handlePlayerStartChange, handleClearCardColors,
       TITLE_PLAYER_SIZE_OPTIONS, titlePlayerSizeCode, handlePlayerSizeChange,
       handleFramePixelsInput, handleRowColorsInput, handleMoveRows, handleFlipRowColors, cardFrameHeight,
-      handleAddFrame, handleDeleteFrame,
+      handleAddFrame, handleDeleteFrame, selectFrame, isFrameSelected, deleteFrameQuestion, frameOwner,
       frameDrag, armedFrameKey, frameKey, armFrameDrag, frameHandleListeners,
       handleImportCardFrames, replaceFramesOnImport, keepColorsOnImport, importMenuOpenCardRef,
       handleImportAsepriteCardFrames, asepriteImportMenuOpen,

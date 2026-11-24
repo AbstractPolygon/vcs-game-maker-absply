@@ -56,6 +56,9 @@ const terrainDoneAllMask = () => PFD_TERRAIN_DONE_BITS.reduce((mask, index) => m
 
 export const PF_DRAW_BLOCK_TYPES = ['background_change_pixel', 'background_change_hv_line', 'background_fill_area', 'background_draw_line',
   'background_fill_circle', 'background_flood_fill', 'background_generate_terrain', 'background_gravity'];
+// The blocks that ask about or steer the drawing (not a drawing themselves): a block of these reads or writes the engine's bytes.
+export const PF_DRAW_CONTROL_TYPES = ['background_generate_terrain_done', 'background_when_terrain_done', 'background_when_gravity_done',
+  'background_gravity_done', 'background_draw_speed', 'background_flood_fill_stop', 'background_flood_fill_done'];
 export const pfDrawKindOf = (block) => {
   switch (block.type) {
     case 'background_change_pixel': return 'pixel';
@@ -76,7 +79,7 @@ const KINDS_BY_NUMBER = ['none', 'pixel', 'sline', 'terrain', 'area', 'line', 'c
 const OPERATION_NUMBER = {on: 0, off: 1, flip: 2};
 // The numbers a kind's record holds and the work bytes it keeps while it is drawn (at most five numbers: the record is read into temp1 to temp6).
 const RECORD_NUMBERS = {pixel: 2, hline: 3, vline: 3, terrain: 5, area: 4, carea: 4, line: 4, circle: 6, fill: 2, gravity: 5};
-const WORK_BYTES = {pixel: 0, hline: 3, vline: 3, terrain: 10, area: 5, carea: 5, line: 7, circle: 8, fill: 3, gravity: 6};
+const WORK_BYTES = {pixel: 0, hline: 3, vline: 3, terrain: 5, area: 5, carea: 5, line: 7, circle: 8, fill: 3, gravity: 6};
 // The records of the queue and the seeds of the fill. The standard kernel without Superchip has the least RAM: one record waiting and two seeds.
 const queueRecordsFor = (config, superchip, displayRam) => (displayRam ? 4 : superchip ? 3 : config.pxe ? 2 : 1);
 const seedSlotsFor = (config, superchip) => (superchip || config.pxe ? 4 : 2);
@@ -410,7 +413,7 @@ const buildEngine = (Blockly) => {
   // starts where the ground is getting shallower and keeps the height it started at as a ledge (1 pixel thick, and 1 more for every 16 of its height) over the
   // ground when that falls away, so the top of a hill leans out over a void; a cave has a gap in the middle of the line (a quarter of the height, up to 15
   // pixels), under the surface. A run starts at a position with a chance of 3 times the overhangs (or 4 times the caves) in 16, where the ground is more than 3 high (8
-  // or more for a cave). The overhangs and the caves are packed in the fifth number of the record: overhangs + caves * 16. The ledge is the tenth work byte.
+  // or more for a cave). The overhangs and the caves are packed in the fifth number of the record: overhangs + caves * 16. The record stays in the queue while the terrain is drawn (see the a3 entry).
   // The part of a finished terrain that makes Terrain done true (the side that finished sets its bit, and bit 16 is for every terrain finished, when no other terrain waits).
   const terrainDoneLines = () => [label('tzdone'),
     // The side that finished sets its bit (1 bottom, 2 top, 4 left, 8 right); bit 16 is for every terrain finished.
@@ -440,7 +443,11 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         ...(pfDraw.terrainDone ? terrainDoneLines() : []));
   }
   if (has('terrain') && !armTerrain) {
-    const [pos, depth, least, most, pixel, seed, params, over, caves, ledge] = W;
+    // (The terrain keeps its record in the queue while it is drawn: the least and the most height, the roughness and overhangs (params), the packed
+    // fifth number (caves) and the random number are the record's bytes 1 to 5, set to what the terrain keeps as it starts; the work bytes are the
+    // position, the height there, the pixel of the line, the overhang being made and the ledge. The record leaves the queue when the terrain is done.)
+    const [pos, depth, pixel, over, ledge] = W;
+    const [, least, most, params, caves, seed] = pfDraw.queue[0];
     add(label('a3'), set(pos, 0), set(pixel, 0), set(least, 'temp2'), set(most, 'temp3'), set(over, 0), set(ledge, 0),
         // The fifth number of the record is the overhangs, the caves and tile packed: overhangs + caves * 16 + 128 for tile. The caves byte keeps the caves in bits 0-2,
         // tile in bit 3 and the slope of the ground (see _pfd_u3sl) in bits 4-7.
@@ -474,9 +481,11 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         `if ${seed.read} = 0 then ${seed.write} = 1`,
         `if ${seed.read}{0} then ${S.write} = ${S.read} | 4`,
         'gosub _pfd_u3sl',
-        'goto _pfd_shift',
+        // (Not shifted out: the record stays, see above.)
+        'return',
         // A finished terrain makes Terrain done true for a frame only when no other terrain is waiting (the one being drawn left the queue when it started).
         label('u3z'),
+        ...store.remove(0),
         ...(pfDraw.terrainDone ? ['gosub _pfd_tzdone'] : []),
         'goto _pfd_unone',
         label('a3z'),
@@ -1205,6 +1214,15 @@ const roomCall = (Blockly) => (Blockly.BBasic.pfDraw.displayRam ? [...recordStor
 // DPC+: a circle the coprocessor draws (it waits for the steps at the end of the frame anyway) is left in the record past the queue, and the steps put it in the
 // queue when the frame has time for it (see generatePfDrawStep): the copy down the queue (about 370 cycles) was made in the frame of the block, a hit frame of Bricks.
 const deferredSubmit = (Blockly, spread) => Blockly.BBasic.pfDraw.displayRam && Blockly.BBasic.pfDraw.armCircle && !spread;
+
+// At power-on: the state and every queue record free. Superchip RAM (where the bytes go when it is on) is not cleared by the startup as the
+// RAM of the console is: a record left over there looked like Draw blocks waiting (a terrain drawn over the whole playfield). Not on DPC+ (the
+// display memory the records are in is set up by the kernel's startup) nor when no Draw block is used.
+export const pfDrawStartupLines = (Blockly) => {
+  const pfDraw = Blockly.BBasic.pfDraw;
+  if (!pfDraw || pfDraw.displayRam) return [];
+  return [`${pfDraw.state.write} = 0`, ...pfDraw.queue.map((record) => `${record[0].write} = 0`)];
+};
 
 // The line for the end of commongamelogic: the steps of the frame.
 export const generatePfDrawStep = (Blockly) => {

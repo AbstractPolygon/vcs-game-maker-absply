@@ -2095,8 +2095,9 @@ Blockly.BBasic.init = function(workspace) {
   const runOnceOtherCount = runOnceBlocks.length - runOnceTitleCount;
   this.runOnceSharedPairs = Math.min(runOnceTitleCount, runOnceOtherCount);
   const runOnceByteCount = Math.ceil(Math.max(runOnceTitleCount, runOnceOtherCount) / 4);
-  // DPC+: the flag bytes live in display RAM (see utils/dpc-ram-flags.js) and take no variable slot at all.
-  this.runOnceRamBytes = (useConfigurationStorage().value || {}).kernel === 'dpcplus' ? runOnceByteCount : 0;
+  // DPC+: the flag bytes live in display RAM (see utils/dpc-ram-flags.js) and take no variable slot at all. Not on PXE: its display memory page $0F does not keep
+  // them (a Run once block fired again and again there), so PXE has them as variables, as the standard kernel does.
+  this.runOnceRamBytes = (useConfigurationStorage().value || {}).kernel === 'dpcplus' && !isPxe(useConfigurationStorage().value) ? runOnceByteCount : 0;
   const runOnceByteNames = this.runOnceRamBytes ? [] : [...Array(runOnceByteCount).keys()].map((i) => `RunOnceFlags${i}`);
 
   // Whether MUSIC_PLAY_RESET_NAME (see registerMusicPlayResetSubroutine
@@ -2944,13 +2945,34 @@ Blockly.BBasic.init = function(workspace) {
   // Its working bytes go in the Display RAM bytes the project does not use; the ones that find no room are variables.
   this.offsetPxePlacement = this.offsetPxeUsed ? pxeOffsetPlacement(workspace.getAllBlocks(false)) : {};
   Blockly.BBasic.offsetPxePlacement = this.offsetPxePlacement;
-  reservePxeOffsetDevVars(reserveDevVar, this.offsetPxeUsed, this.offsetPxePlacement);
+  // Working bytes that hold a value only while one routine runs (it calls none of the others): the Playfield offset area routine, the PXE offset routine
+  // and the AtariVox high score table. They share one pool of slots: a group's first byte is the pool's first, and so on; only the bytes past what the pool has
+  // take new slots. Not on DPC+, where a slot can go to the display memory, which an alias does not follow.
+  this.scratchPool = [];
+  this.scratchAliases = [];
+  const scratchGroup = () => {
+    if ((useConfigurationStorage().value || {}).kernel === 'dpcplus' && !isPxe(useConfigurationStorage().value)) return reserveDevVar;
+    let index = 0;
+    return (canonicalName, type, description) => {
+      const at = index++;
+      if (at < this.scratchPool.length) {
+        const name = this.nameDB_.getName(canonicalName, type || Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+        if (description && !(name in this.devVarDescriptions)) this.devVarDescriptions[name] = description;
+        this.scratchAliases.push({alias: name, target: this.scratchPool[at]});
+        return name;
+      }
+      const name = reserveDevVar(canonicalName, type, description);
+      this.scratchPool.push(name);
+      return name;
+    };
+  };
+  reservePxeOffsetDevVars(scratchGroup(), this.offsetPxeUsed, this.offsetPxePlacement);
   this.offsetArmUsed = !isPxe(useConfigurationStorage().value) && ((useConfigurationStorage().value || {}).kernel === 'dpcplus') && workspace.getAllBlocks(false).some((block) =>
     block.isEnabled() && block.type === 'background_offset');
   this.offsetAreaUsed = !this.offsetArmUsed && !this.offsetPxeUsed && workspace.getAllBlocks(false).some((block) =>
     block.isEnabled() && block.type === 'background_offset' && block.getFieldValue('WHOLE') === 'FALSE' && !offsetByteRange(block));
   this.offsetArmShared = offsetArmSharedVars({boxTest: this.pfBoxPlayers.size > 0});
-  reserveOffsetAreaDevVars(reserveDevVar, this.offsetAreaUsed, this.offsetArmUsed, this.offsetArmShared);
+  reserveOffsetAreaDevVars(scratchGroup(), this.offsetAreaUsed, this.offsetArmUsed, this.offsetArmShared);
   // Same bucket again, for "Seek to"'s  per-sprite target/speed state
   // (see reserveSeekDevVars'  comment in generators/bbasic/sprites.js) -
   // a no-op unless seekUsedFor's  early pre-scan (above) found it used.
@@ -3774,7 +3796,8 @@ Blockly.BBasic.init = function(workspace) {
   }
   // The table of high scores in the AtariVox's memory needs three bytes (the place, the place being moved, the byte of a place).
   if (Blockly.BBasic.avoxHighScoresUsed) {
-    HIGH_SCORE_VARS.forEach((name) => reserveDevVar(name, undefined, 'AtariVox high scores: a place of the table, or a byte of one, while the table is changed'));
+    const reserveHighScore = scratchGroup();
+    HIGH_SCORE_VARS.forEach((name) => reserveHighScore(name, undefined, 'AtariVox high scores: a place of the table, or a byte of one, while the table is changed'));
   }
   reserveAnimFinishedDoneDevVars(reserveDevVar, this.playerAnimationFinishedWatches);
   // "Background scroll" with "scroll playfield colors" checked (needs the row
@@ -3918,9 +3941,28 @@ Blockly.BBasic.init = function(workspace) {
       if (defvars.includes(name) || this.superchipVars.includes(name)) shareable.push(name);
     });
   }
+  // Past those: the bytes of the Draw blocks' engine (its state, work and queue, see generators/bbasic/pf-draw.js) when no block of the
+  // title phase draws or asks about a drawing: they only hold something while a drawing goes on, and gameplay starts with them at 0 (no
+  // drawing; one that was going on when the title screen started is dropped). The title loop then does not step the engine (see
+  // generatedTitleKernelSkip).
+  this.titleSharedInit = new Map();
+  this.pfDrawTitleShared = false;
+  if (pendingTitleVars.length > shareable.length && Blockly.BBasic.pfDraw) {
+    const phase = titlePhaseBlocks(workspace);
+    const draws = (block) => pfDrawKindOf(block) || PF_DRAW_CONTROL_TYPES.includes(block.type);
+    if (phase && !phase.some(draws)) {
+      const pfd = Blockly.BBasic.pfDraw;
+      const plain = (pair) => (pair && pair.read === pair.write ? pair.read : null);
+      const inPools = (name) => defvars.includes(name) || this.superchipVars.includes(name) || this.dpcPlusVars.includes(name);
+      [pfd.state, ...pfd.work, ...(pfd.queue || []).flat()].map(plain).filter((name) => name && inPools(name) && !shareable.includes(name))
+          .forEach((name) => {
+            shareable.push(name);
+            this.titleSharedInit.set(name, 0);
+          });
+    }
+  }
   // Past those: whatever else the generated code of a first pass shows only gameplay touching (see title-liveness.js), the
   // system variables included. They start from their starting value again when gameplay starts.
-  this.titleSharedInit = new Map();
   // (Only when every Title Screen block is inside the events that run during the title screen: the checks below read the
   // generated code, which cannot tell a title block run during gameplay.)
   if (pendingTitleVars.length > shareable.length && this.gameplayOnlyHints && titlePhaseBlocks(workspace)) {
@@ -3939,6 +3981,12 @@ Blockly.BBasic.init = function(workspace) {
     else routeDevVar(titleVar);
   });
   this.titleUnhostedCount = pendingTitleVars.length - this.titleSharedSlots.length;
+  // (Whether a Title Screen variable took a byte of the Draw engine: see generatedTitleKernelSkip.)
+  {
+    const pfd = Blockly.BBasic.pfDraw;
+    const engineNames = pfd ? new Set([pfd.state, ...pfd.work, ...(pfd.queue || []).flat()].map((pair) => pair && pair.read)) : new Set();
+    this.pfDrawTitleShared = this.titleSharedSlots.some(({target}) => engineNames.has(target));
+  }
   // "End title screen" sets back to zero the variables that only code running after it uses, which took a Title Screen variable's slot.
   this.titleEndNames = new Set(this.titleSharedSlots.map(({target}) => target).filter((name) => afterEndNames.has(name)));
   this.titleEndResets = [...this.titleEndNames].map((name) => `${name} = 0`);
@@ -4191,6 +4239,11 @@ Blockly.BBasic.init = function(workspace) {
             .map((name, i) => this.dpcPlusSpriteVars.includes(name) ?
               this.dpcPlusSpriteVarSlot(name) : availableLetters[runOnceDefvarsStart + i]));
   }
+  // (PXE: the run-once bytes can be among var0 to varN, where routeDevVar put them when there was room: the slot is the place in that list.)
+  this.runOnceByteNames.forEach((name, i) => {
+    const k = this.dpcPlusVars.indexOf(name);
+    if (k !== -1) this.runOnceByteLetters[i] = `var${k}`;
+  });
   if (this.dpcPlusSpriteVars.length) {
     const showComments = config.showVariableComments ?? false;
     const spriteDims = this.dpcPlusSpriteVars.map((name) => {
@@ -4219,6 +4272,12 @@ Blockly.BBasic.init = function(workspace) {
       `  dim ${partner}${part} = ${slotOf(/^player[01]$/.test(owner) ? `${owner}${part}` :
         this.nameDB_.getName(`${owner}${part}`, Blockly.Names.DEVELOPER_VARIABLE_TYPE))}` +
       `  ; same as ${owner}${part}`)).join('\n');
+  // (The working bytes of the scratch pool: see scratchGroup.)
+  const scratchAliasDims = (this.scratchAliases || []).map(({alias, target}) =>
+    `  dim ${alias} = ${slotOf(target)}  ; shares a slot with ${target} (working bytes of routines that do not run at the same time)`).join(String.fromCharCode(10));
+  if (scratchAliasDims) {
+    this.definitions_['variables'] = (this.definitions_['variables'] ? this.definitions_['variables'] + String.fromCharCode(10) : '') + scratchAliasDims;
+  }
   if (partnerAliasDims) {
     this.definitions_['variables'] = (this.definitions_['variables'] ? this.definitions_['variables'] + '\n' : '') +
       partnerAliasDims;
@@ -5226,7 +5285,8 @@ Blockly.BBasic.finish = function(code) {
   // (The steps of the Draw blocks (terrain, lines, fill) are in the second half of commongamelogic: the Title Screen loop returns before it, so they run before that return
   // there, with the label of their idle jump renamed: without them a Draw block makes nothing while the Titlescreen Kernel is on.)
   // (Also when "Start title screen" in "Title screen start" keeps the kernel on in "Title screen update": the Draw blocks of the start event go on drawing there, every one of them.)
-  const titleKernelSteps = generatedPfDrawStep.split('_pfd_idle').join('_pfd_idle_title');
+  // (Not when Title Screen variables took the engine's bytes: no block of the title phase draws then, see pfDrawTitleShared.)
+  const titleKernelSteps = this.pfDrawTitleShared ? '' : generatedPfDrawStep.split('_pfd_idle').join('_pfd_idle_title');
   const generatedTitleKernelSkip = this.titleScreenDrawUsed ?
     ` if !${titleKernelLoopFlag()} then goto commongamelogicdraw\n${titleKernelSteps}\n${COMMON_GAME_LOGIC_RETURN_MARK}\ncommongamelogicdraw\n` : '';
   const generatedScoreFlashChecks = Blockly.BBasic.generateScoreFlashChecks();
@@ -5380,7 +5440,8 @@ Blockly.BBasic.finish = function(code) {
   const generatedKeypadPollCall = Blockly.BBasic.generateKeypadPollCall();
   const generatedKeypadSetup = Blockly.BBasic.generateKeypadSetup();
   const generatedCtrlpfShadowSetup = generateCtrlpfShadowSetup(Blockly) +
-      (this.runOnceRamBytes ? '\n' + this.normalizeIndents(runOnceStartupLines(this.runOnceRamBytes).join('\n')) : '');
+      (this.runOnceRamBytes ? '\n' + this.normalizeIndents(runOnceStartupLines(this.runOnceRamBytes).join('\n')) : '') +
+      (pfDrawStartupLines(Blockly).length ? '\n' + this.normalizeIndents(pfDrawStartupLines(Blockly).map((line) => ` ${line}`).join('\n')) : '');
   // NUSIZ takes the player's copies (bits 0-2) from playerNsize and the missile's width (bits 4-5) from the
   // missile widths byte, never the animation flags that share playerNsize's upper bits.
   const missileWidthsVar = this.missileWidthUsed ?
@@ -10067,7 +10128,7 @@ Blockly.BBasic.generateAnimations = function() {
 import background, {backgroundGetPixelDevVarsNeeded,
   reserveShakeScreenDevVar, reserveOffsetAreaDevVars, offsetArmSharedVars, offsetByteRange, bgColorFlagBits, rainbowBackgroundBits, rainbowIdBits, BG_COLOR_FLAGS_FAMILY, BG_RAINBOW_ID_FAMILY, BG_COLOR_STEP_FAMILY, BG_SCROLL_EDGE_FAMILY, reserveBackgroundColorFlagsDevVar, bgColorFlagRef, generateShakeScreenChecks, dpcPlusScrollDivider} from './bbasic/background';
 import bit from './bbasic/bit';
-import {reservePfDrawVars, pfDrawKindsUsed, generatePfDrawStep, PFD_TERRAIN_DONE_FAMILY, PFD_SPEED_FAMILY, PFD_SPEED_BITS} from './bbasic/pf-draw';
+import {reservePfDrawVars, pfDrawKindsUsed, pfDrawKindOf, pfDrawStartupLines, PF_DRAW_CONTROL_TYPES, generatePfDrawStep, PFD_TERRAIN_DONE_FAMILY, PFD_SPEED_FAMILY, PFD_SPEED_BITS} from './bbasic/pf-draw';
 import collision from './bbasic/collision';
 import color from './bbasic/color';
 import colour from './bbasic/colour';

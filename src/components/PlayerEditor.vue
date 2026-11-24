@@ -368,13 +368,14 @@
                       class="pixel-editor-container"
                       :class="{
                         'pixel-editor-container-wide': zoom >= 1,
-                        'pixel-editor-container-active': frameHighlightState(animation, frame) === 'blue',
+                        'pixel-editor-container-active': frameHighlightState(animation, frame) === 'blue' || isFrameSelected(frameOwner(animation), frame),
                         'pixel-editor-container-active-grey': frameHighlightState(animation, frame) === 'grey',
                       }"
                       :style="{width: frameEditorWidth(animation)}"
                       :draggable="armedFrameKey === frameKey(animation, frame)"
                       v-on="frameHandleListeners(animation, frameIndex)"
                       @mousedown="(event) => armFrameDrag(event, animation, frame)"
+                      @click="(event) => selectFrame(frameOwner(animation), animation.frames, frame, event)"
                       @mouseup="armedFrameKey = null"
                     >
                       <v-text-field
@@ -441,10 +442,10 @@
                           <div class="frame-corner-toolbar">
                             <confirm-delete-menu
                               v-if="animation.frames.length > 1"
-                              title="Delete this frame?"
+                              :title="deleteFrameQuestion(frameOwner(animation), animation.frames, frame)"
                               :selected="frameHighlightState(animation, frame) === 'blue'"
                               :select-priority="2"
-                              activator-title="Delete this frame"
+                              :activator-title="deleteFrameQuestion(frameOwner(animation), animation.frames, frame).replace('?', '') + ' (Ctrl+click or Shift+click frames outside their pixels to select several)'"
                               icon-btn-class="player-icon-btn-size"
                               @confirm="handleDeleteFrame(animation, frame)"
                             />
@@ -528,6 +529,7 @@ import {useCollapsedIds} from '../hooks/collapse';
 import {useDragReorder} from '../hooks/drag-reorder';
 import {useCardFolders} from '../hooks/card-folders';
 import {useCardSelection} from '../hooks/card-selection';
+import {useFrameSelection} from '../hooks/frame-selection';
 import {recordFieldsChange, recordRowColorsChange} from '../utils/row-color-history';
 import {DEFAULT_ROW_COLOR, clearRowColors} from '../blocks/background';
 import {DEFAULT_SPRITES, processPlayerAnimationsStorageDefaults} from '../generators/bbasic/sprites';
@@ -733,6 +735,9 @@ export default defineComponent({
     // that animation (see handleAddFrame's getMaxId, scoped per
     // animation), so both ids are needed together to identify one frame
     // uniquely across the whole tab.
+    // Several frames of an animation selected at once, to delete them together (see hooks/frame-selection.js).
+    const {selectFrame, isFrameSelected, framesToDelete, deleteFrameQuestion, forgetFrames} = useFrameSelection();
+    const frameOwner = (animation) => `animation${animation.id}`;
     const activeFrameEditor = ref(null);
     const activeAnimationId = ref(null);
     const activeFrameId = ref(null);
@@ -1261,9 +1266,11 @@ export default defineComponent({
       });
     };
 
+    // The frame, or every selected frame of the animation when it is one of them (see hooks/frame-selection.js).
     const handleDeleteFrame = (animation, frame) => {
-      animation.frames = animation.frames.filter(({id}) => id != frame.id);
-      console.info('Deleted ', frame);
+      const doomed = framesToDelete(frameOwner(animation), animation.frames, frame);
+      animation.frames = animation.frames.filter(({id}) => !doomed.includes(id));
+      forgetFrames(doomed);
       handleChildChange();
       instance.proxy.$forceUpdate();
     };
@@ -1504,7 +1511,7 @@ export default defineComponent({
 
     return {selectedCardId, selectedCardIds, selectCard, deselectCard, deleteQuestion,
       state, handleChildChange, handleFrameDurationChange,
-      handleAddFrame, handleDeleteFrame,
+      handleAddFrame, handleDeleteFrame, selectFrame, isFrameSelected, deleteFrameQuestion, frameOwner,
       handleImportAnimationFrames, replaceFramesOnImport, keepColorsOnImport, importMenuOpenAnimationId,
       handleImportAsepriteSheet, asepriteReplaceAnimations, asepriteImportMenuOpen,
       handleAddAnimation, handleDeleteAnimation, handleDuplicateAnimation, handleSetPreviewScale, handleSetWide, handleSetSingleHeight, handleImportSpriteFiles,
