@@ -1,7 +1,7 @@
 'use strict';
 
 import {isInsideFunctionBody} from '../../utils/function-body';
-import {useConfigurationStorage} from '../../hooks/project';
+import {useConfigurationStorage, appendCompileLog} from '../../hooks/project';
 import {buildPxeOffsetBody, PXE_OFFSET_VARS, PXE_OFFSET_ROUTINE} from './offset-pxe';
 import {flagPoolVar, flagPoolBit} from './flag-pool';
 import {NARROW_TILE_WIDTH, STANDARD_TILE_LOAD_NAME, TILE_SET_FUNCTION} from './pf-tiles';
@@ -1171,6 +1171,23 @@ export default (Blockly) => {
   // Trigger for "Fade playfield (or background) rows from color to row colors" - only
   // starts the fade (the per-frame steps are in generateRowFadeChecks in
   // generators/bbasic.js). Does nothing without per-row colors for those rows.
+  // Palette cycling of the row colors (DPC+): the rows in the display memory get the number added, by a routine generateBackgrounds makes (it knows
+  // how many rows the backgrounds have). The standard kernel and PXE read the row colors from the ROM in their kernels: nothing to change there.
+  Blockly.BBasic[`background_change_row_colors`] = function(block) {
+    const kind = block.getFieldValue('VAR') === 'COLUBK' ? 'bk' : 'pf';
+    const config = (useConfigurationStorage() && useConfigurationStorage().value) || {};
+    if (config.kernel !== 'dpcplus' || config.pxe || !(kind === 'pf' ? Blockly.BBasic.dpcPlusPfColorsOn(config) : config.enableDpcPlusBkColors)) {
+      appendCompileLog('Change row colors works on DPC+ with per-row colors on (Options tab): the block does nothing here.', 'info');
+      return '';
+    }
+    const delta = Blockly.BBasic.valueToCode(block, 'VALUE', Blockly.BBasic.ORDER_ASSIGNMENT) || '16';
+    const name = `_rowcolorcycle_${kind}`;
+    const suffix = Blockly.BBasic.bankJumpSuffix(Blockly.BBasic.getCurrentBank(), Blockly.BBasic.getSubroutineBank(name));
+    return `temp1 = ${delta}
+gosub ${name}${suffix}
+`;
+  };
+
   Blockly.BBasic[`background_fade_rows_from`] = function(block) {
     const kind = block.getFieldValue('VAR') === 'COLUBK' ? 'bk' : 'pf';
     const startColors = ((Blockly.BBasic.multicolorFade || {})[kind] || {from: []}).from;

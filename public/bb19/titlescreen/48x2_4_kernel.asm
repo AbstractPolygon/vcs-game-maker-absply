@@ -183,10 +183,12 @@ bmp_48x2_4_pointersetup
 	tay
 	lda bmp_48x2_4_ballen,y
 	sta stack2
+  ifconst bmp_48x2_4_ballcolors
+	lda bmp_48x2_4_ballc,y		; (vcs-game-maker: the top row's ball color: draw_bmp_48x2_XB puts aux4 in COLUPF)
+	sta aux4
+  endif
 	lda bmp_48x2_4_04,y
 	sta scorepointers
-	lda bmp_48x2_4_03,y
-	sta scorepointers+2
 	lda bmp_48x2_4_ballx
 	sta missile0y
 	jsr draw_bmp_48x2_XB_place
@@ -230,36 +232,25 @@ bmp_48x2_4_values
 ; The ball's loop of this graphic (see draw_bmp_48x2_XB): two rows a pass, each row two lines; aux2 the row's index in the tables, missile0y
 ; the index after the last row. The ball is on its rows' lines: what it has for a row (ENABL, and for a pair of rows the width, CTRLPF, and the
 ; move, an HMOVE) is set on the line before the row, with the row's color. To have the time for it on those lines, the first line of a row
-; reads four columns (31 cycles before the picture's stores): its third and fourth are read on the line before into bytes of scorepointers
-; (the pointers are not used by this loop; scorepointers+0 and +2 for the pass's first row, +1 and +3 for its second); the second line reads
-; four too, with the next row's index (the tables at +1: a table is in one page with a byte after it, see the build), and the sixth column is
-; still in X. The test for the last row is on the first line of a row: the last row's second line is then drawn by a copy of it that ends the
-; loop (pf48x2_4_ball_lastA, _lastB, after a WSYNC, so the branch's time does not count; with the index of that row, as the next one
-; can be 255). The loop's jmp is on the first line of the second
-; row, so the lines before a row do not take it. The top row's ENABL is set before the loop (stack2), its third and fourth columns read by the
-; card's setup; the loop starts at pf48x2_4_ball_loop (cycle 10).
-; Free cycles on each line (the sleeps): the line before the pass's second row 3 (the pair's width and move are set there), before the next
-; pass 13, the two lines inside the rows 2 and 6; a single color graphic has 10 more on each line before a row.
-pf48x2_4_ball_lastA
-	iny				;2 (the row's index: the next one can be 255, past the table at +1)
-	sta WSYNC			;3
-	sleep 13
-	lda bmp_48x2_4_00,y		;4
-	sta GRP0			;3
-	lda bmp_48x2_4_01,y		;4
-	sta GRP1			;3
-	lda bmp_48x2_4_02,y		;4
-	sta GRP0			;3
-	lda bmp_48x2_4_03,y		;4
-	ldy scorepointers		;3 (X still has the sixth column)
-	sta GRP1			;3
-	sty GRP0			;3
-	stx GRP1			;3
-	sty GRP0			;3
-	jmp pf48x2_XB_done
-
+; reads three columns and the sixth from the tables and its fourth from a byte of scorepointers, read on the line before (32 cycles before the
+; picture's stores: LDY has no abs,Y; the pointers are not used by this loop; scorepointers+0 for the pass's first row, +1 for its second); the
+; second line reads four too, with the next row's index (the tables at +1: a table is in one page with a byte after it, see the build), the
+; fourth from the same byte, and the sixth column is still in X. The test for the last row is on the first line of a row: the last row's second
+; line is then drawn by a copy of it that ends the loop (pf48x2_4_ball_lastA, _lastB, after a WSYNC, so the branch's time does not count;
+; with the index of that row, as the next one can be 255). The top row's ENABL is set before the loop (stack2), its fourth column read by the
+; card's setup; the loop starts at pf48x2_4_ball_loop (cycle 9).
+; Free cycles on each line (the sleeps): the first line of the pass's first row 9; the line before the pass's second row none after its
+; HMOVE (the pair's width is set there) and 10 before it on a single color graphic without ball colors (3 with them); the first line of the
+; pass's second row 6 (13 without the moves into every row); the line before the next pass none (7 without a ball color for a graphic with row
+; colors, 3 more without the moves; 10 more on a single color graphic without ball colors).
+; vcs-game-maker (2026-11-23): the moves into every row and a ball color a row or a pass (bmp_48x2_4_ballc into
+; COLUPF); then, for more free cycles, the third column of a row is no longer read on the line before into scorepointers+2 / +3 (7 cycles a
+; row): both rows of a pass start at cycle 9, not 10, which has the time to read it from its table (the loop's jmp is at the end of the first
+; line of the pass's second row, so the line before the pass's first row falls into the loop; draw_bmp_48x2_XB jumps to it a cycle sooner).
+; The move into the next pass's first row is bmp_48x2_4_ballhm2 into HMBL, its HMOVE at the end of the line before that row. The copies
+; that end the loop (lastA and lastB) are after it, in range of their branches.
 pf48x2_4_ball_next
-	; The second line of the pass's second row, then the line before the next pass's first row: its color and ENABL.
+	; Its second line, then the line before the next pass's first row: its color, its ball color, the move into it and its ENABL.
 	lda bmp_48x2_4_00+1,y		;4
 	sta GRP0			;3
 	lda bmp_48x2_4_01+1,y		;4
@@ -275,15 +266,35 @@ pf48x2_4_ball_next
 
 	ldy aux2			;3 (the next row)
  ifconst bmp_48x2_4_onecolor
+  ifconst bmp_48x2_4_ballcolors
+	lda bmp_48x2_4_ballc,y		;4 (the row's ball color, COLUPF: after the picture on this line)
+	sta COLUPF			;3
+	sleep 3
+  else
 	sleep 10			; (free: a single color graphic has no color to store)
+  endif
+	sleep 7				; (free)
  else
 	lda bmp_48x2_4_colors,y		;4
 	sta COLUP1			;3
 	sta COLUP0			;3
+  ifconst bmp_48x2_4_ballcolors
+	lda bmp_48x2_4_ballc,y		;4 (the pass's ball color, COLUPF: after the picture on this line)
+	sta COLUPF			;3
+  else
+	sleep 7				; (free)
+  endif
  endif
+ ifconst bmp_48x2_4_ballmoves
+	sta HMOVE			;3 (cycle 76)
+	lda bmp_48x2_4_ballen,y		;4 (ENABL on the row's first line, in the blank)
+	sta ENABL			;3
+	sleep 2				; (the loop starts at cycle 9)
+ else
 	lda bmp_48x2_4_ballen,y		;4
 	sta ENABL			;3
-	sleep 13			; (free)
+	sleep 5				; (free)
+ endif
 
 pf48x2_4_ball_loop
 	; The pass's first row, its first line.
@@ -294,7 +305,7 @@ pf48x2_4_ball_loop
 	lda bmp_48x2_4_02,y		;4
 	sta GRP0			;3
 	ldx bmp_48x2_4_05,y		;4
-	lda scorepointers+2		;3 (the third column, read on the line before)
+	lda bmp_48x2_4_03,y		;4 (the third column)
 	ldy scorepointers		;3 (the fourth column, read on the line before)
 	sta GRP1			;3
 	sty GRP0			;3
@@ -307,11 +318,9 @@ pf48x2_4_ball_loop
 	beq pf48x2_4_ball_lastA		;2 (this row is the last)
 	lda bmp_48x2_4_04,y		;4
 	sta scorepointers+1		;3 (the next row's fourth column)
-	lda bmp_48x2_4_03,y		;4
-	sta scorepointers+3		;3 (and its third)
 	lda bmp_48x2_4_ballhm+1,y	;4 (this row's: the move for the HMOVE at the end of the next line)
 	sta HMBL			;3
-	sleep 2				; (free)
+	sleep 9				; (free)
 
 	; Its second line, then the line before the second row: its color, ENABL, the pair's width and move.
 	lda bmp_48x2_4_00+1,y		;4
@@ -329,7 +338,13 @@ pf48x2_4_ball_loop
 
 	ldy aux2			;3 (the next row)
  ifconst bmp_48x2_4_onecolor
+  ifconst bmp_48x2_4_ballcolors
+	lda bmp_48x2_4_ballc,y		;4 (vcs-game-maker: the row's ball color, COLUPF: after the picture on this line)
+	sta COLUPF			;3
+	sleep 3
+  else
 	sleep 10			; (free: a single color graphic has no color to store)
+  endif
  else
 	lda bmp_48x2_4_colors,y		;4
 	sta COLUP1			;3
@@ -340,7 +355,7 @@ pf48x2_4_ball_loop
 	sta HMOVE			;3 (cycle 76: see draw_bmp_48x2_XB)
 	lda bmp_48x2_4_ballw,y		;4
 	sta CTRLPF			;3
-	sleep 3				; (free)
+	sleep 2				; (the second row starts at cycle 9)
 
 	; The pass's second row, its first line.
 	lda bmp_48x2_4_00,y		;4
@@ -350,7 +365,7 @@ pf48x2_4_ball_loop
 	lda bmp_48x2_4_02,y		;4
 	sta GRP0			;3
 	ldx bmp_48x2_4_05,y		;4
-	lda scorepointers+3		;3 (the third column, read on the line before)
+	lda bmp_48x2_4_03,y		;4 (the third column)
 	ldy scorepointers+1		;3 (the fourth column, read on the line before)
 	sta GRP1			;3
 	sty GRP0			;3
@@ -363,10 +378,33 @@ pf48x2_4_ball_loop
 	beq pf48x2_4_ball_lastB		;2 (this row is the last)
 	lda bmp_48x2_4_04,y		;4
 	sta scorepointers		;3 (the next row's fourth column)
-	lda bmp_48x2_4_03,y		;4
-	sta scorepointers+2		;3 (and its third)
+ ifconst bmp_48x2_4_ballmoves
+	lda bmp_48x2_4_ballhm2,y		;4 (the move into the next row, the first of the next pass: its HMOVE at the end of the next line)
+	sta HMBL			;3
 	sleep 6				; (free)
+ else
+	sleep 13			; (free)
+ endif
 	jmp pf48x2_4_ball_next		;3
+
+
+pf48x2_4_ball_lastA
+	iny				;2 (the row's index: the next one can be 255, past the table at +1)
+	sta WSYNC			;3
+	sleep 13
+	lda bmp_48x2_4_00,y		;4
+	sta GRP0			;3
+	lda bmp_48x2_4_01,y		;4
+	sta GRP1			;3
+	lda bmp_48x2_4_02,y		;4
+	sta GRP0			;3
+	lda bmp_48x2_4_03,y		;4
+	ldy scorepointers		;3 (X still has the sixth column)
+	sta GRP1			;3
+	sty GRP0			;3
+	stx GRP1			;3
+	sty GRP0			;3
+	jmp pf48x2_XB_done
 
 pf48x2_4_ball_lastB
 	iny				;2 (the row's index)

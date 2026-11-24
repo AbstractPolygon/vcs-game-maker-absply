@@ -1,5 +1,7 @@
 <template>
-  <div class="playfield-color-strip" :class="{'playfield-color-strip-right': side === 'right'}" :title="title">
+  <!-- (A press on the strip never starts the browser's drag of a card or frame around it, nor a text selection: the strip paints rows when
+       the mouse moves with the button held, see handleDragStart.) -->
+  <div class="playfield-color-strip" :class="{'playfield-color-strip-right': side === 'right'}" :title="title" @mousedown.left.prevent @dragstart.prevent>
     <!-- The colors are drawn on a canvas, scaled the way the canvas of the picture is (see drawBackdrop in PixelEditor.vue), so that the edge of each
          row is exactly where the edge of the picture's row is; the swatches over it only take the clicks. -->
     <canvas ref="paint" class="strip-paint" />

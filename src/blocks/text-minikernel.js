@@ -261,6 +261,26 @@ Blockly.defineBlocksWithJsonArray([
     'tooltip': 'Sets the color of text messages. "row 2" only affects the second line of a wrapped message. Defaults to "row 1".',
   },
   {
+    'type': 'text_minikernel_change_color',
+    'message0': `${COLOR_ICON} Text change %1 color by %2`,
+    'args0': [
+      {
+        'type': 'field_dropdown',
+        'name': 'ROW',
+        'options': [['row 1', '1'], ['row 2', '2'], ['both', 'both']],
+      },
+      {
+        'type': 'input_value',
+        'name': 'VALUE',
+        'check': 'Number',
+      },
+    ],
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': TEXT_COLOR,
+    'tooltip': 'Adds a number to the color of the text. 16 is the next hue at the same brightness: inside an "Every x frames" block it cycles the color. "row 2" only affects the second line of a wrapped message.',
+  },
+  {
     'type': 'text_minikernel_set_background',
     'message0': `${COLOR_ICON} Text set background color to %1`,
     'args0': [

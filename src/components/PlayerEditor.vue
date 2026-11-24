@@ -257,8 +257,8 @@
                     >16px</v-btn>
                   </v-btn-toggle>
 
-                  <!-- DPC+ and PXE: each row of the animation 2 lines tall (the standard kernel's look) or 1 line (twice the rows in the same
-                       height). The grid shows a 1 line row half as tall. See utils/sprite-lines.js. -->
+                  <!-- DPC+ and PXE: each row of the animation 1 line tall (twice the rows in the same height) or 2 lines (the standard kernel's
+                       look). The grid shows a 1 line row half as tall. See utils/sprite-lines.js. -->
                   <v-btn-toggle
                     v-if="!isCollapsed(animation) && isDpcPlus"
                     :value="animation.singleHeight ? 1 : 2"
@@ -267,8 +267,8 @@
                     mandatory
                     @change="(lines) => handleSetSingleHeight(animation, lines === 1)"
                   >
-                    <v-btn :value="2" x-small title="Each row 2 lines tall (as on the standard kernel)">2 lines</v-btn>
-                    <v-btn :value="1" x-small title="Each row 1 line tall: twice the rows in the same height (DPC+ and PXE)">1 line</v-btn>
+                    <v-btn :value="1" x-small title="Each row 1 line tall: twice the rows in the same height (DPC+ and PXE)">1 LINE</v-btn>
+                    <v-btn :value="2" x-small title="Each row 2 lines tall (as on the standard kernel)">2 LINE</v-btn>
                   </v-btn-toggle>
 
                   <div class="animation-corner-toolbar">
@@ -1012,7 +1012,7 @@ export default defineComponent({
     // color strip starts a drag: the frame only becomes draggable while the
     // mouse is pressed on such a part (a draggable frame all the time would turn
     // dragging over its labels into dragging the frame instead of selecting text).
-    const FRAME_DRAG_BLOCKED = 'canvas, input, textarea, select, button, a, .v-input, .v-btn, .playfield-color-strip';
+    const FRAME_DRAG_BLOCKED = 'canvas, input, textarea, select, button, a, .v-input, .v-btn, .playfield-color-strip, .editor-sidebar';
     const armedFrameKey = ref(null);
     const frameKey = (animation, frame) => `${animation.id}:${frame.id}`;
     const armFrameDrag = (event, animation, frame) => {

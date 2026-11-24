@@ -720,8 +720,12 @@ Blockly.BBasic.init = function(workspace) {
   // could actually write to it - a project using only row-1 color blocks
   // (or none at all) pays nothing for it.
   this.textBkColorBlockUsed = !isPxe(useConfigurationStorage().value) && workspace.getAllBlocks(false).some((block) => block.type === 'text_minikernel_set_background');
+  // "Change row colors" (palette cycling of the DPC+ row colors, see generators/bbasic/background.js): the kinds of rows a block changes.
+  this.rowColorCycleUsed = new Set(workspace.getAllBlocks(false).filter((block) => block.type === 'background_change_row_colors' && block.isEnabled())
+      .map((block) => (block.getFieldValue('VAR') === 'COLUBK' ? 'bk' : 'pf')));
   this.textRow2ColorBlockUsed = workspace.getAllBlocks(false).some((block) =>
-    block.type === 'text_minikernel_set_color' && block.getFieldValue('ROW') === '2');
+    (block.type === 'text_minikernel_set_color' && block.getFieldValue('ROW') === '2') ||
+    (block.type === 'text_minikernel_change_color' && block.getFieldValue('ROW') !== '1'));
   // "Show text row 1/2" (text_minikernel_show_row) always compiles in a real
   // 2-row entry, regardless of which single row it's actually setting (see
   // registerFreeTypedRowMessage's  comment in generators/bbasic/
@@ -1495,6 +1499,13 @@ Blockly.BBasic.init = function(workspace) {
       if (next.type === 'titlescreen_draw' && next.isEnabled()) this.titleStartDrawBlock = next;
     }
   });
+  // With no Draw title screen block after "Start title screen" but one inside While title screen is showing (in Title screen update), the loop draws the
+  // page the blocks pick all the same: a Draw block inside it stands for the loop's draw (Bricks of Olympus 0-0-26: Start title screen alone in
+  // Title screen start, its Draw blocks only in While title screen is showing, showed the game screen and never the title).
+  if (!this.titleStartDrawBlock && this.titleShowingDrawUsed) {
+    this.titleStartDrawBlock = codeBlocks(['titlescreen_draw']).find((block) => isInsideTitleShowing(block) &&
+      (eventOf(block) || {getFieldValue: () => ''}).getFieldValue('EVENT') === 'title_update') || null;
+  }
   this.titleScreenDrawUsed = drawnTitleScreenIds.size > 0 &&
     processTitleScreenStorageForBuild(useTitleScreenStorage()).screens.length > 0;
   // The Text tab messages that are built: the ones a "Show text" block names and the text cards of the title pages that are built; every
@@ -7768,7 +7779,10 @@ Blockly.BBasic.generateBackgrounds = function() {
   // syntax itself.
   const useDpcPlusPfColors = (configurationStorage && configurationStorage.value &&
     dpcPlusPfColorsOn(configurationStorage.value)) || false;
+  // (The most rows a background puts in the display memory, for "Change row colors": see rowColorCycleUsed.)
+  const colorCycleRows = {pf: 0, bk: 0};
   const buildDpcPlusPfcolors = (pixels, rowColors) => {
+    colorCycleRows.pf = Math.max(colorCycleRows.pf, pixels.length);
     const rows = pixels.map((_, i) =>
       '  ' + colorByteToBuildBBasic((rowColors && rowColors[i] != null) ? rowColors[i] : DEFAULT_ROW_COLOR));
     return ' pfcolors:\n' + rows.join('\n') + '\nend\n';
@@ -7778,6 +7792,7 @@ Blockly.BBasic.generateBackgrounds = function() {
   const useDpcPlusBkColors = (configurationStorage && configurationStorage.value &&
     configurationStorage.value.kernel === 'dpcplus' && configurationStorage.value.enableDpcPlusBkColors) || false;
   const buildDpcPlusBkcolors = (pixels, rowColors) => {
+    colorCycleRows.bk = Math.max(colorCycleRows.bk, pixels.length);
     const rows = pixels.map((_, i) =>
       '  ' + colorByteToBuildBBasic((rowColors && rowColors[i] != null) ? rowColors[i] : DEFAULT_BK_ROW_COLOR));
     return ' bkcolors:\n' + rows.join('\n') + '\nend\n';
@@ -8091,6 +8106,16 @@ end`);
       colorTableSaveLines +
       endLabel;
   }).join('\n\n');
+  // "Change row colors": temp1 added to each row color in the display memory (DF0 reads a row, DF1 writes it back; fast fetch is off between frames).
+  (this.rowColorCycleUsed || new Set()).forEach((kind) => {
+    const table = kind === 'bk' ? 'BKCOLS' : 'PFCOLS';
+    const rows = Math.min(255, colorCycleRows[kind] || 0);
+    const label = `_rowcolorcycle_${kind}_loop`;
+    this.subroutines[`_rowcolorcycle_${kind}`] = asSubroutineBody([' asm',
+      ...(rows ? [` lda #<${table}`, ' sta DF0LOW', ' sta DF1LOW', ` lda #(>${table}) & $0F`, ' sta DF0HI', ' sta DF1HI', ` ldx #${rows}`,
+        label, ' lda DF0DATA', ' clc', ' adc temp1', ' sta DF1WRITE', ' dex', ` bne ${label}`] : []),
+      'end'].join(String.fromCharCode(10)) + String.fromCharCode(10));
+  });
   if (dpcPlusDrawsAllRows && this.backgroundRainbowUsed) {
     const rainbowBits = rainbowBackgroundBits(backgrounds.length);
     const bitLines = Array.from({length: rainbowBits}, (_, bit) => ` if ${bgColorFlagRef(Blockly, bit, BG_RAINBOW_ID_FAMILY)} then temp6 = temp6 + ${1 << bit}`);

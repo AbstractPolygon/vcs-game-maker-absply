@@ -286,7 +286,7 @@ draw_bmp_48x2_XB
 	ldy aux2
 	sta WSYNC
 
-	; The loop starts at cycle 86 (10 of the next line): its first line takes 31 cycles before the picture (see pf48x2_N_ball_loop).
+	; The loop starts at cycle 85 (9 of the next line): its first line takes 32 cycles before the picture (see pf48x2_N_ball_loop).
 	; HMCLR is on this line, not before the WSYNC: there it came while position48's HMOVE was still moving the objects, and the ball then
 	; moved on every line. (In place of an inc and a dec of temp1, 10 cycles: temp1 is a picture pointer on the standard kernel,
 	; scorepointers+6, so the incs and decs have to stay in pairs.)
@@ -307,7 +307,7 @@ draw_bmp_48x2_XB
 	; The top row's ENABL (stack2, from the card's setup), after the place of the ball on this line (cycle 66).
 	lda stack2		;3
 	sta ENABL		;3
-	sleep 15
+	sleep 14		; (vcs-game-maker 2026-11-23: 15 before, the loop started at cycle 10)
 	jmp (aux5)		;5
 
 pf48x2_XB_done

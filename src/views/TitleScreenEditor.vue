@@ -651,13 +651,13 @@
                                       :height="frame.pixels.length || 1"
                                       :maxHeight="TITLE_GRAPHIC_MAX_HEIGHT"
                                       :aspectRatio="cardAspectRatio(card, frame.pixels.length)"
-                                      :value="ballModeOn(screen, card) ? (frame.ballPixels || null) : frame.pixels"
+                                      :value="ballModeOn(screen, card) ? drawnBall(frame) : frame.pixels"
                                       :fgColor="ballModeOn(screen, card) ? ballColorCss(screen, card, frame) : editorFgColor(card)"
-                                      :rowColors="ballModeOn(screen, card) ? null : editorRowColors(card, frame)"
+                                      :rowColors="ballModeOn(screen, card) ? ballRowCss(screen, card, frame) : editorRowColors(card, frame)"
                                       :columnBackdrop="cardBackdrop(screen, card, frame)"
                                       :cellColors="card.twoTone && !ballModeOn(screen, card) ? twoToneCellColors(card, frame) : ballCellColors(screen, card, frame)"
                                       :cellColorsCover="ballModeOn(screen, card) || !!card.twoTone"
-                                      :rowRunWidths="ballModeOn(screen, card) ? TITLE_BALL_WIDTHS : null"
+                                      :normalizePixels="ballModeOn(screen, card) ? drawnBallOf(frame) : null"
                                       :showClearButton="true"
                                       :showGrid="showPixelGrid"
                                       :windowRows="windowPreviewShown(screen, card) ? (Number(card.scrollWindow) || 0) : 0"
@@ -670,6 +670,7 @@
                                       @clear="() => { if (!ballModeOn(screen, card)) handleClearCardColors(card); }"
                                       @clear-colors="() => { if (!ballModeOn(screen, card)) handleClearCardColors(card); }"
                                       @move-rows="(move) => { if (!ballModeOn(screen, card)) handleMoveRows(card, frame, move); }"
+                                      @move-cells="(move) => { if (!ballModeOn(screen, card)) handleMoveBall(frame, move); }"
                                       @flip-rows="() => { if (!ballModeOn(screen, card)) handleFlipRowColors(card, frame); }"
                                       @activate="(editorInstance) => setActiveFrame(editorInstance, card.id, frame.id, screen.id)"
                                     >
@@ -714,12 +715,14 @@
                                             type="button"
                                             class="titlescreen-frame-box-cell"
                                             :style="{backgroundColor: cell.color}"
-                                            :title="`${cell.on ? 'Drawn in the picture background color' : 'Drawn in the page color'} - click to switch`"
-                                            @click="() => handleToggleFrameBoxCell(screen, card, frame, cell)"
+                                            :title="`${cell.on ? 'Drawn in the picture background color' : 'Drawn in the page color'} - click to switch (the Pencil turns it on, the Eraser off; drag across the blocks with them)`"
+                                            @mousedown="(event) => handleFrameBoxCellDown(event, screen, card, frame, cell)"
+                                            @mouseenter="(event) => handleFrameBoxCellEnter(event, screen, card, frame, cell)"
+                                            @click="(event) => handleFrameBoxCellClick(event, screen, card, frame, cell)"
                                           />
                                         </div>
                                         <div v-if="card.type === '48x2' && (ballModeOn(screen, card) || ballCaption(card, frame))" class="titlescreen-ball-caption">
-                                          {{ ballCaption(card, frame) || 'No ball in this frame: paint the cells it shows behind.' }}
+                                          {{ ballCaption(card, frame) || ((frame.ballPixels || []).some((row) => (row || []).some(Boolean)) ? '' : 'No ball in this frame: paint the cells it shows behind.') }}
                                         </div>
                                       </template>
                                       <template v-slot:toolbar-end>
@@ -882,7 +885,7 @@ import {chunk, max} from 'lodash';
 
 import {colorByteToCss} from '../utils/palette';
 import {resizePixelMatrixHeight, scaleRowColors, carryOverFrameColors} from '../utils/pixels';
-import {rowColorsForMove} from '../utils/row-color-move';
+import {rowColorsForMove, rowColorsAfterMove} from '../utils/row-color-move';
 import {saveAs} from 'file-saver';
 import {getDateInfix} from '../utils/date';
 import {loadImageFromFile, openFileDialog, openFileDialogMultiple, sortImportedAnimationFrameFiles} from '../utils/file';
@@ -924,10 +927,10 @@ import {buildTitleScreenPreviewRom, useBuildInProgress} from '../hooks/rom';
 import {clampFrameDuration} from '../utils/duration';
 import {DEFAULT_ROW_COLOR, clearRowColors} from '../blocks/background';
 import {TITLE_SCREEN_KERNEL_TYPES, MAX_KERNEL_COPIES_PER_TYPE, MAX_PLAYER_CARDS, MAX_SCORE_CARDS,
-  titleCardTypeInfo, isSingleColorDoubleLine, titleFrameBallLines, TITLE_BALL_WIDTHS, blankTitleScreenPixels, migrateCardFrames, processTitleScreenStorageDefaults, cardFrameHeight, titleScrollStartOf,
+  titleCardTypeInfo, isSingleColorDoubleLine, titleFrameBallLines, titleDrawnBallPixels, titleBallEraseTrim, TITLE_BALL_WIDTHS, blankTitleScreenPixels, migrateCardFrames, processTitleScreenStorageDefaults, cardFrameHeight, titleScrollStartOf,
   titleFrameBox} from '../blocks/titlescreen';
 import {processPlayerAnimationsStorageDefaults} from '../generators/bbasic/sprites';
-import {usePixelTool} from '../hooks/pixel-tool';
+import {usePixelTool, useDrawColor} from '../hooks/pixel-tool';
 import {listTextStrings} from '../blocks/text-strings';
 import {appVersionField} from '../utils/app-version';
 import {TITLE_PLAYER_SIZE_OPTIONS, titlePlayerSizeCode} from '../utils/title-player-size';
@@ -1318,6 +1321,28 @@ export default defineComponent({
       const box = titleFrameBox(card, frame, pageColorOf(screen));
       setFrameBox(screen, card, frame, {pf2: (box.pf2 ^ (1 << cell.bit)) & 0xff});
     };
+    // The blocks with the graphic editor's tools: the Pencil turns a block on and the Eraser off (a press, and every block the mouse enters
+    // with the button held); with another tool a click switches it.
+    const frameBoxToolValue = () => (usePixelTool().value === 'pencil' ? true : usePixelTool().value === 'eraser' ? false : null);
+    const setFrameBoxCell = (screen, card, frame, cell, on) => {
+      const box = titleFrameBox(card, frame, pageColorOf(screen));
+      const pf2 = on ? box.pf2 | (1 << cell.bit) : box.pf2 & ~(1 << cell.bit);
+      if ((pf2 & 0xff) !== box.pf2) setFrameBox(screen, card, frame, {pf2: pf2 & 0xff});
+    };
+    const handleFrameBoxCellDown = (event, screen, card, frame, cell) => {
+      const on = frameBoxToolValue();
+      if (on === null || event.button !== 0) return;
+      setFrameBoxCell(screen, card, frame, cell, on);
+    };
+    const handleFrameBoxCellEnter = (event, screen, card, frame, cell) => {
+      const on = frameBoxToolValue();
+      if (on === null || !(event.buttons & 1)) return;
+      setFrameBoxCell(screen, card, frame, cell, on);
+    };
+    const handleFrameBoxCellClick = (event, screen, card, frame, cell) => {
+      if (frameBoxToolValue() !== null) return;
+      handleToggleFrameBoxCell(screen, card, frame, cell);
+    };
     // What shows where the picture is off, per column: the page's background color, or the picture
     // background color where the block is switched on.
     const cardBackdrop = (screen, card, frame) => {
@@ -1471,12 +1496,65 @@ export default defineComponent({
     };
     const handleFrameEditorInput = (screen, card, frame, value) => {
       if (ballModeOn(screen, card)) {
+        const previousBall = frame.ballPixels;
         instance.proxy.$set(frame, 'ballPixels', value);
+        // The ball is drawn in the playfield's color: painting it with the Pencil or Fill gives the rows the stroke painted the toolbar swatch's
+        // color (frame.ballColors, see titleFrameBallLines: a row on a single color graphic, two rows at a time on one with row colors); the
+        // picture background blocks of those rows change with it, as on the TV.
+        const swatch = useDrawColor().value;
+        if (['pencil', 'fill'].includes(usePixelTool().value) && swatch !== null && swatch !== undefined) {
+          {
+            // (Against the ball as it was drawn: the canvas showed that, so only the cells the stroke added count.)
+            const before = previousBall ? titleDrawnBallPixels(previousBall, value.length) : [];
+            const rows = (value || []).map((row, y) => (row || []).some((cell, x) => cell && !(before[y] && before[y][x])) ? y : -1).filter((y) => y >= 0);
+            if (rows.length) {
+              recordFieldsChange([{owner: frame, fields: ['ballColors']}], () => {
+                const colors = Array.isArray(frame.ballColors) ? frame.ballColors.slice() : [];
+                // (A graphic with row colors: both rows of the pass, so the one the stroke painted is not left behind by the other's.)
+                const perPass = !isSingleColorDoubleLine(card);
+                rows.forEach((y) => {
+                  colors[y] = swatch;
+                  if (perPass && (y ^ 1) < value.length) colors[y ^ 1] = swatch;
+                });
+                instance.proxy.$set(frame, 'ballColors', Array.from({length: Math.max(colors.length, value.length)}, (_, y) => (colors[y] !== undefined ? colors[y] : null)));
+                saveAndRedraw();
+              }, {key: changeKeyOf(frame, 'ballColors'), afterChange: saveAndRedraw});
+            }
+          }
+        }
         handleChildChange();
         return;
       }
       frame.pixels = value;
       handleFramePixelsInput(card, frame);
+    };
+    // Ball mode's canvas shows the ball as drawn (as the canvas outside Ball mode does), and a stroke there is made into it (see normalizeStroke in
+    // PixelEditor.vue). Kept by the painted cells, so the canvas gets the same list while they are the same.
+    const drawnBallCache = new WeakMap();
+    const drawnBall = (frame) => {
+      if (!frame.ballPixels) return null;
+      const height = (frame.pixels && frame.pixels.length) || 1;
+      const cached = drawnBallCache.get(frame.ballPixels);
+      if (cached && cached.height === height) return cached.value;
+      const value = titleDrawnBallPixels(frame.ballPixels, height);
+      drawnBallCache.set(frame.ballPixels, {height, value});
+      return value;
+    };
+    // (An Eraser stroke makes a pair of rows narrower: see titleBallEraseTrim.)
+    const drawnBallOf = (frame) => (pixels, before) => {
+      const height = (frame.pixels && frame.pixels.length) || pixels.length;
+      return titleDrawnBallPixels(before ? titleBallEraseTrim(before, pixels, height) : pixels, height);
+    };
+    // The ball's color of each row (Ball mode's canvas): the frame's for a row that has one, else the picture background color. A graphic with
+    // row colors has one for two rows at a time (see titleFrameBallLines).
+    const ballRowCss = (screen, card, frame) => {
+      const height = (frame.pixels && frame.pixels.length) || 1;
+      const box = frameBoxColor(screen, card, frame) || 0;
+      const lines = titleFrameBallLines({ballPixels: [[1]], ballColors: frame.ballColors}, height, box, !isSingleColorDoubleLine(card));
+      return Array.from({length: height}, (_, y) => {
+        const css = colorByteToCss(lines && lines.rows[y] ? lines.rows[y].c : box);
+        return css === '#000000' ? '#010101' : css;
+      });
     };
     const ballColorCss = (screen, card, frame) => {
       const css = colorByteToCss(frameBoxColor(screen, card, frame) || 0);
@@ -1528,7 +1606,7 @@ export default defineComponent({
       const ballCss = ballColorCss(screen, card, frame);
       const rowCss = editorRowColors(card, frame);
       const inputs = painting ? [true, height, frame.pixels, rowCss ? rowCss.join() : editorFgColor(card)] :
-        [false, height, frame.ballPixels, ballCss];
+        [false, height, frame.ballPixels, ballCss, frame.ballColors ? frame.ballColors.join() : ''];
       const cached = ballCellCache.get(frame);
       if (cached && cached.inputs.length === inputs.length && cached.inputs.every((value, index) => value === inputs[index])) return cached.value;
       let value = null;
@@ -1539,9 +1617,9 @@ export default defineComponent({
       } else {
         const ball = titleFrameBallLines(frame, height);
         if (ball) {
-          value = [];
-          value = ball.rows.map((ballRow) =>
-            Array.from({length: 48}, (_, x) => (ballRow.on && x >= ballRow.x && x < ballRow.x + ballRow.width ? ballCss : null)));
+          const rowCss = ballRowCss(screen, card, frame);
+          value = ball.rows.map((ballRow, y) =>
+            Array.from({length: 48}, (_, x) => (ballRow.on && x >= ballRow.x && x < ballRow.x + ballRow.width ? rowCss[y] || ballCss : null)));
         }
       }
       ballCellCache.set(frame, {inputs, value});
@@ -1555,10 +1633,9 @@ export default defineComponent({
       const ball = cached && cached.height === height ? cached.ball : titleFrameBallLines(frame, height);
       if (frame.ballPixels) ballLinesCache.set(frame.ballPixels, {height, ball});
       if (!ball) return '';
-      return 'Ball: on for each row painted; its place and width (1, 2, 4 or 8) change for row 0, then rows 1-2, 3-4... ' +
-        '(Ball mode shows the cells as painted, the canvas without it the ball as drawn).' +
-        (ball.tooWide ? ' A pair of rows is painted wider than 8: the cells past 8 are left out.' : '') +
-        (ball.tooFar ? ' A step is more than 8 right or 7 left: the ball does not reach it (shown as drawn).' : '');
+      // (Short: the full rules are in titleFrameBallLines.)
+      const notes = [ball.tooWide ? 'a pair is wider than 8' : '', ball.tooFar ? 'a jump is too far (max 8 right, 7 left a row)' : ''].filter(Boolean);
+      return notes.length ? `Ball: ${notes.join('; ')}. Shown as drawn outside Ball mode.` : '';
     };
 
     const setRowColors = (frame, colors) => {
@@ -1578,6 +1655,58 @@ export default defineComponent({
     const handleFlipRowColors = (card, frame) => {
       if (!cardHasRowColors(card) || !frame.rowColors) return;
       handleRowColorsInput(frame, frame.rowColors.slice().reverse());
+    };
+    // The Move tool takes the ball's cells inside the selection along with the picture's pixels (PixelEditor.vue's 'move-cells'
+    // event; the user, 2026-11-23): each tick works from the ball the drag started with (only painted cells move, as the picture's;
+    // the cells they land on are painted, the ones they leave cleared; the ball colors of their rows go with them, as the picture's row
+    // colors do), and a finished move keeps the ball before and after it, so the picture's Undo and Redo put the ball back and forth with it.
+    const ballMoves = new WeakMap();
+    const handleMoveBall = (frame, move) => {
+      if (!frame.ballPixels && !ballMoves.has(frame)) return;
+      const state = ballMoves.get(frame) || {base: null, undo: [], redo: []};
+      ballMoves.set(frame, state);
+      const put = (ball) => {
+        instance.proxy.$set(frame, 'ballPixels', ball.pixels);
+        if (ball.colors) instance.proxy.$set(frame, 'ballColors', ball.colors);
+        handleChildChange();
+      };
+      const copy = (ball) => (ball || []).map((row) => (row || []).slice());
+      const current = () => ({pixels: copy(frame.ballPixels), colors: Array.isArray(frame.ballColors) ? frame.ballColors.slice() : null});
+      if (move.undo || move.redo) {
+        const step = (move.undo ? state.undo : state.redo).pop();
+        if (!step) return;
+        (move.undo ? state.redo : state.undo).push(step);
+        const ball = move.undo ? step.before : step.after;
+        put({pixels: copy(ball.pixels), colors: ball.colors && ball.colors.slice()});
+        return;
+      }
+      if (move.cancel) {
+        if (state.base) put(state.base);
+        state.base = null;
+        return;
+      }
+      if (move.end) {
+        if (state.base) {
+          state.undo.push({before: state.base, after: current()});
+          state.redo = [];
+        }
+        state.base = null;
+        return;
+      }
+      if (move.start || !state.base) state.base = current();
+      const base = state.base.pixels;
+      const next = copy(base);
+      const moving = (move.cells || []).map((key) => key.split(',').map(Number)).filter(([x, y]) => base[y] && base[y][x]);
+      moving.forEach(([x, y]) => {
+        next[y][x] = 0;
+      });
+      moving.forEach(([x, y]) => {
+        const nx = x + move.dx;
+        const ny = y + move.dy;
+        if (next[ny] && nx >= 0 && nx < next[ny].length) next[ny][nx] = 1;
+      });
+      const colors = state.base.colors && rowColorsAfterMove(state.base.colors, moving.map(([, y]) => y), move.dy);
+      put({pixels: next, colors});
     };
     const handleMoveRows = (card, frame, move) => {
       if (!cardHasRowColors(card)) return;
@@ -2019,7 +2148,7 @@ export default defineComponent({
     };
     // Any part of a frame that isn't the drawing, a field or a button starts a drag: the frame only becomes
     // draggable while the mouse is pressed on such a part.
-    const FRAME_DRAG_BLOCKED = 'canvas, input, textarea, select, button, a, .v-input, .v-btn, .playfield-color-strip';
+    const FRAME_DRAG_BLOCKED = 'canvas, input, textarea, select, button, a, .v-input, .v-btn, .playfield-color-strip, .editor-sidebar';
     const armedFrameKey = ref(null);
     const frameKey = (card, frame) => `${card.id}:${frame.id}`;
     const armFrameDrag = (event, card, frame) => {
@@ -2254,14 +2383,14 @@ export default defineComponent({
       screenDragAttrs, screenDragCardClass, screenDragHandleListeners, screenDragTargetListeners,
       TITLE_GRAPHIC_MAX_HEIGHT, cardWidth, editorWidth, cardAspectRatio, cardHasRowColors, editorRowColors, editorFgColor, cardTypeLabel,
       addCardOptions, canAddCardType, maxCopies, maxCopiesForType, playerAnimationOptions, playerCardOneLine, textCardOptions,
-      ballModeOn, toggleBallMode, handleFrameEditorInput, ballColorCss, ballCellColors, twoToneCellColors, twoToneRightColors, handleTwoToneRightInput, handleTwoToneToggle, ballCaption, TITLE_BALL_WIDTHS, handleWindowFieldFocus, windowPreviewShown,
+      ballModeOn, toggleBallMode, handleFrameEditorInput, ballColorCss, ballRowCss, drawnBall, drawnBallOf, ballCellColors, twoToneCellColors, twoToneRightColors, handleTwoToneRightInput, handleTwoToneToggle, ballCaption, TITLE_BALL_WIDTHS, handleWindowFieldFocus, windowPreviewShown,
       handleAddCard, handleDeleteCard, handleToggleCardHidden, handleDuplicateCard, titleScrollStartOf, handleScrollStartInput,
-      showPictureBackgroundControls, frameBoxColor, frameBoxCells, handleSetFrameBoxColor, handleToggleFrameBoxCell, cardBackdrop, handleFitBox,
+      showPictureBackgroundControls, frameBoxColor, frameBoxCells, handleSetFrameBoxColor, handleToggleFrameBoxCell, handleFrameBoxCellDown, handleFrameBoxCellEnter, handleFrameBoxCellClick, cardBackdrop, handleFitBox,
       handleClearBox,
       exportableScreen, handleExportTitleScreen, handleImportTitleScreen,
       handleSetBackgroundColor, handleSetCardColor, handleSetPlayerColor, handlePlayerStartChange, handleClearCardColors,
       TITLE_PLAYER_SIZE_OPTIONS, titlePlayerSizeCode, handlePlayerSizeChange,
-      handleFramePixelsInput, handleRowColorsInput, handleMoveRows, handleFlipRowColors, cardFrameHeight,
+      handleFramePixelsInput, handleRowColorsInput, handleMoveRows, handleMoveBall, handleFlipRowColors, cardFrameHeight,
       handleAddFrame, handleDeleteFrame, selectFrame, isFrameSelected, deleteFrameQuestion, frameOwner,
       frameDrag, armedFrameKey, frameKey, armFrameDrag, frameHandleListeners,
       handleImportCardFrames, replaceFramesOnImport, keepColorsOnImport, importMenuOpenCardRef,

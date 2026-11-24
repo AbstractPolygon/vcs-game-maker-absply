@@ -51,9 +51,16 @@ export const isSingleColorTitleCard = (card) => !!card && (card.type === '48x1' 
 // toward the next pair that has some, so that one is reached sooner.
 export const TITLE_BALL_WIDTHS = [1, 2, 4, 8];
 // The rows of a frame of the ball as the kernel draws it, for the build and for the canvas: x0 (the column the ball is placed at) and, for
-// each row: on (ENABL), the group's x and width, and the bytes of its tables (en: ENABL, w: CTRLPF, hm: HMBL). Null with no painted cell.
+// each row: on (ENABL), its x and its pair's width, and the bytes of its tables (en: ENABL, w: CTRLPF, hm: HMBL of the move into the next
+// row when that is the second row of a pass (an odd row), hm2: HMBL of the move into this row when it is the first row of a pass (an even row
+// from 2 on), c: the ball's color (COLUPF) for the row). Null with no painted cell.
+// The ball moves before every row (an HMOVE on the line before it), at most 8 pixels right or 7 left; its width (1, 2, 4 or 8) changes for row 0,
+// then rows 1-2, 3-4... A row is placed at its leftmost painted cell; its pair's width covers the painted cells of each of its rows from there. A
+// row with nothing painted moves the ball toward the next row that has some, so that one is reached sooner.
+// boxColor: the color of the rows whose ball has no color set (frame.ballColors, a byte a row): the frame's picture background color. perPass: a graphic
+// with row colors, whose loop sets the ball's color for two rows at a time (rows 0-1, 2-3...): the first of the two that has a color.
 const ballGroupOf = (row) => (row === 0 ? 0 : Math.ceil(row / 2));
-export const titleFrameBallLines = (frame, height) => {
+export const titleFrameBallLines = (frame, height, boxColor = 0, perPass = false) => {
   const painted = Array.from({length: height}, (_, y) => {
     const row = (frame && frame.ballPixels && frame.ballPixels[y]) || [];
     const cells = [];
@@ -64,44 +71,97 @@ export const titleFrameBallLines = (frame, height) => {
   });
   if (!painted.some(Boolean)) return null;
   const groupCount = ballGroupOf(height - 1) + 1;
-  // What each pair asks for: the leftmost painted cell and the width that covers the painted cells.
-  const asked = Array.from({length: groupCount}, () => null);
+  // The width each pair asks for: the widest of its rows, each from its leftmost cell.
+  const spans = Array.from({length: groupCount}, () => 0);
   painted.forEach((cells, y) => {
     if (!cells) return;
     const group = ballGroupOf(y);
-    const was = asked[group];
-    asked[group] = was ? {left: Math.min(was.left, cells.left), right: Math.max(was.right, cells.right)} : {...cells};
+    spans[group] = Math.max(spans[group], cells.right - cells.left + 1);
   });
-  const targets = asked.map((cells) => (cells ? {x: cells.left, span: cells.right - cells.left + 1} : null));
-  // (A pair with nothing painted goes toward the next one that has something, and keeps the width it has.)
-  for (let group = groupCount - 1, next = null; group >= 0; group--) {
-    if (targets[group]) next = targets[group];
-    else if (next) targets[group] = {x: next.x, span: 0};
+  // Where each row asks the ball to be (a row with nothing painted: the next painted row's place).
+  const targets = painted.map((cells) => (cells ? cells.left : null));
+  for (let y = height - 1, next = null; y >= 0; y--) {
+    if (targets[y] !== null) next = targets[y];
+    else if (next !== null) targets[y] = next;
   }
   let width = 1;
-  let x = targets[0] ? targets[0].x : 0;
+  const groupWidths = spans.map((span) => {
+    if (span) width = TITLE_BALL_WIDTHS.find((candidate) => candidate >= span) || 8;
+    return width;
+  });
+  let x = targets[0] !== null ? targets[0] : 0;
   const x0 = x;
-  const groups = targets.map((target, group) => {
+  const places = targets.map((target, y) => {
     let delta = 0;
-    if (target) {
-      if (target.span) width = TITLE_BALL_WIDTHS.find((candidate) => candidate >= target.span) || 8;
-      if (group > 0) delta = Math.max(-7, Math.min(8, target.x - x));
-    }
+    if (y > 0 && target !== null) delta = Math.max(-7, Math.min(8, target - x));
     x += delta;
-    return {x, width, delta, reached: !target || target.x === x, span: target ? target.span : 0};
+    return {x, delta, reached: !painted[y] || target === x};
   });
   const ctrl = (w) => 1 | (TITLE_BALL_WIDTHS.indexOf(w) << 4);
   // HMBL for a move (the HMOVE at the end of a line): 0 none, 1 to 7 that many pixels left, 8 to 15 the rest of 16 to the right.
   const hm = (delta) => (delta < 0 ? -delta : delta > 0 ? 16 - delta : 0) << 4;
+  const colors = (frame && frame.ballColors) || [];
   const rows = painted.map((cells, y) => {
-    const group = groups[ballGroupOf(y)];
-    // (The row read for a pair's width is the first of the pair, 0 for row 0; the move into a pair is read at the row two before its second.)
-    const widthGroup = y === 0 ? groups[0] : (y % 2 === 1 ? groups[ballGroupOf(y)] : groups[ballGroupOf(y - 1)]);
-    const moveGroup = y % 2 === 0 ? groups[ballGroupOf(y + 1)] : null;
-    return {on: !!cells, x: group.x, width: group.width, en: cells ? 2 : 0, w: ctrl(widthGroup.width), hm: moveGroup ? hm(moveGroup.delta) : 0};
+    // (The row read for a pair's width is the first of the pair, 0 for row 0.)
+    const widthGroup = y === 0 ? 0 : (y % 2 === 1 ? ballGroupOf(y) : ballGroupOf(y - 1));
+    const set = (row) => colors[row] !== undefined && colors[row] !== null;
+    const first = perPass ? y - (y % 2) : y;
+    const color = set(first) ? colors[first] : (perPass && set(first + 1) ? colors[first + 1] : boxColor);
+    return {on: !!cells, x: places[y].x, width: groupWidths[ballGroupOf(y)], en: cells ? 2 : 0, w: ctrl(groupWidths[widthGroup]),
+      hm: y % 2 === 0 && y + 1 < height ? hm(places[y + 1].delta) : 0, hm2: y % 2 === 0 && y > 0 ? hm(places[y].delta) : 0, c: color};
   });
-  return {x0, rows, groups, tooWide: asked.some((cells) => cells && cells.right - cells.left + 1 > 8),
-    tooFar: groups.some((group) => !group.reached)};
+  return {x0, rows, tooWide: spans.some((span) => span > 8), tooFar: places.some((place) => !place.reached),
+    evenMoves: rows.some((row) => row.hm2 !== 0)};
+};
+// The cells the ball is drawn on (a picture of 48 columns), from the cells painted: the Title tab shows this in Ball mode and outside it, and a
+// stroke in Ball mode is made into it (the user, 2026-11-23: the ball shown as drawn both ways).
+export const titleDrawnBallPixels = (ballPixels, height) => {
+  // (Only the cells: the colors do not matter here.)
+  const ball = titleFrameBallLines({ballPixels}, height);
+  return Array.from({length: height}, (_, y) => Array.from({length: 48}, (__, x) => {
+    const row = ball && ball.rows[y];
+    return row && row.on && x >= row.x && x < row.x + row.width ? 1 : 0;
+  }));
+};
+// A Ball mode stroke that only took cells off a pair of rows (the Eraser) makes the pair narrower: its width is the next allowed width down
+// (not up, as it is for painted cells) from the widest row the stroke shortened, and each row of the pair is cut to it from the side the
+// stroke did not move (its left, when both or neither moved). Gives the cells with those pairs cut (the others as they are), from the cells
+// before the stroke and after it; titleDrawnBallPixels then draws them at that width.
+export const titleBallEraseTrim = (before, after, height) => {
+  const runOf = (row) => {
+    const on = (row || []).map((cell, x) => (cell ? x : -1)).filter((x) => x >= 0);
+    return on.length ? {left: on[0], right: on[on.length - 1]} : null;
+  };
+  const cells = after.map((row) => (row || []).slice());
+  const pairs = new Map();
+  for (let y = 0; y < height; y++) {
+    const was = (before && before[y]) || [];
+    const now = (after && after[y]) || [];
+    const removed = was.some((cell, x) => cell && !now[x]);
+    const added = now.some((cell, x) => cell && !was[x]);
+    const group = ballGroupOf(y);
+    const pair = pairs.get(group) || {rows: [], removed: false, added: false, span: 0};
+    pair.rows.push(y);
+    pair.removed = pair.removed || removed;
+    pair.added = pair.added || added;
+    const run = runOf(now);
+    if (removed && run) pair.span = Math.max(pair.span, run.right - run.left + 1);
+    pairs.set(group, pair);
+  }
+  pairs.forEach((pair) => {
+    if (!pair.removed || pair.added || !pair.span) return;
+    const width = [...TITLE_BALL_WIDTHS].reverse().find((candidate) => candidate <= pair.span) || 1;
+    pair.rows.forEach((y) => {
+      const run = runOf(cells[y]);
+      if (!run || run.right - run.left + 1 <= width) return;
+      const was = runOf(before && before[y]);
+      // (The left kept unless the stroke moved it and not the right.)
+      const keepRight = was && run.left !== was.left && run.right === was.right;
+      const left = keepRight ? run.right - width + 1 : run.left;
+      cells[y] = cells[y].map((cell, x) => (x >= left && x < left + width ? 1 : 0));
+    });
+  });
+  return cells;
 };
 // Whether a graphic draws the ball (a 48x2 with a painted cell in a frame).
 export const titleCardHasBall = (card) => !!card && card.type === '48x2' && (card.frames || []).some((frame) =>

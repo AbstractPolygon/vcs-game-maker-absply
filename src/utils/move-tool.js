@@ -20,10 +20,12 @@ export default class Move {
    *     wherever the content actually ended up.
    * @param {string} bgColor - what a vacated cell becomes once its pixel
    *     has moved away from it.
-   * @param {Function=} onRowsMove ({rows, dy, start, end}) => void - told which rows the
-   *     dragged pixels came from and how many rows they have moved (down is positive), so a
-   *     graphic with a color for each row can move those rows' colors with them. `start` marks
-   *     the first report of a drag and `end` its release.
+   * @param {Function=} onRowsMove ({rows, dx, dy, cells, start, end}) => void - told which rows
+   *     the dragged pixels came from and how far they have moved (dx right, dy down), so a
+   *     graphic with a color for each row can move those rows' colors with them; `cells` are the
+   *     "x,y" keys selected when the drag started (empty ones too), for what else a graphic keeps
+   *     on its cells (the Title tab's ball). `start` marks the first report of a drag and `end`
+   *     its release.
    */
   constructor(getSelection, setSelection, bgColor, onRowsMove) {
     this.getSelection = getSelection;
@@ -66,6 +68,7 @@ export default class Move {
     this.lastDelta = {dx: 0, dy: 0};
     this.firstMove = true;
     this.rows = [...new Set(this.snapshot.map((cell) => cell.y))];
+    this.cells = [...selection];
     this.reportedRows = false;
   }
 
@@ -120,8 +123,8 @@ export default class Move {
     this.firstMove = false;
 
     this.lastDelta = {dx, dy};
-    if (this.onRowsMove && (dy !== 0 || this.reportedRows)) {
-      this.onRowsMove({rows: this.rows, dy, start: !this.reportedRows});
+    if (this.onRowsMove && (dy !== 0 || dx !== 0 || this.reportedRows)) {
+      this.onRowsMove({rows: this.rows, dx, dy, cells: this.cells, start: !this.reportedRows});
       this.reportedRows = true;
     }
     const movedSelection = new Set(

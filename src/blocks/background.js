@@ -1284,6 +1284,31 @@ Blockly.defineBlocksWithJsonArray([
     'colour': BACKGROUND_COLOR,
     'tooltip': 'Starts every playfield (or background) row at the brightness of the chosen color and fades each row to its real color from the Background editor over roughly this many frames. Needs "Enable per-row playfield colors" (Options tab; for background rows, "Enable per-row background colors" on DPC+) and a color from the color picker block. Trigger it once. Switching backgrounds cancels it. "Fade color to" does the opposite.',
   },
+  // Palette cycling of the row colors (DPC+): every row's color changes by a number.
+  {
+    'type': `background_change_row_colors`,
+    'message0': `${BACKGROUND_ICON} Change %1 row ${COLOR_ICON} colors by %2`,
+    'args0': [
+      {
+        'type': 'field_dropdown',
+        'name': 'VAR',
+        'options': [
+          ['Playfield', `COLUPF`],
+          ['Background', `COLUBK`],
+        ],
+      },
+      {
+        'type': 'input_value',
+        'name': 'VALUE',
+        'check': 'Number',
+      },
+    ],
+    'inputsInline': true,
+    'previousStatement': null,
+    'nextStatement': null,
+    'colour': BACKGROUND_COLOR,
+    'tooltip': 'DPC+ only: adds a number to the color of every playfield (or background) row. 16 is the next hue at the same brightness: inside an "Every x frames" block the rows cycle through the hues (palette cycling). Needs per-row playfield (or background) colors on the Options tab. Loading a background brings its row colors back. Takes about 16 cycles a row.',
+  },
   // Block for reading a playfield pixel
   {
     'type': `background_get_pixel`,

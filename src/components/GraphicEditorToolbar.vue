@@ -675,16 +675,16 @@ export default {
     handleUndo() {
       if (tryUndoCardDeletion()) return;
       if (tryUndoQuickColorDeletion(this.activeEditor)) return;
-      // A card, frame or background dragged into a new order comes back before older edits.
-      if (tryUndoReorder()) return;
-      if (this.activeEditor) {
-        this.activeEditor.undo();
-        settleEdits();
+      // Everything else on the tab is one list, newest first: the strokes and edits of every canvas, the row colors, the order of the
+      // cards (see hookTabHistory in PixelEditor.vue). A step that no longer fits (its canvas is gone, or its list was changed since) is
+      // dropped and the one before it taken.
+      for (let i = 0; i < 100 && canUndoReorder(); i++) {
+        if (tryUndoReorder()) break;
       }
+      settleEdits();
     },
     handleRedo() {
-      if (tryRedoReorder()) return;
-      if (this.activeEditor) this.activeEditor.redo();
+      tryRedoReorder();
     },
   },
 };

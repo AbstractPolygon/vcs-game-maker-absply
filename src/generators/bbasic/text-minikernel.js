@@ -958,6 +958,29 @@ ${body}
     return `TextColor = ${argument0}\n`;
   };
 
+  // Adds to the text color (palette cycling inside an Every x frames block). Row 1 follows the blink as Text set color does: in the off phase the
+  // saved color changes. Row 2's color byte is only there when something can show a second row (see init).
+  Blockly.BBasic['text_minikernel_change_color'] = function(block) {
+    markTextMinikernelUsed();
+    const delta = Blockly.BBasic.valueToCode(block, 'VALUE', Blockly.BBasic.ORDER_ASSIGNMENT) || '16';
+    const row = block.getFieldValue('ROW') || '1';
+    const lines = ['temp1 = ' + delta];
+    if (row !== '2') {
+      if (Blockly.BBasic.textBlinkUsed) {
+        const state = Blockly.BBasic.nameDB_.getName(textBlinkVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+        const saved = Blockly.BBasic.nameDB_.getName(textBlinkColorVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+        lines.push(`if ${state}{7} then ${saved} = ${saved} + temp1`, `if !${state}{7} then TextColor = TextColor + temp1`);
+      } else {
+        lines.push('TextColor = TextColor + temp1');
+      }
+    }
+    if (row !== '1' && (Blockly.BBasic.isTextRow2Used() || Blockly.BBasic.textRow2ColorBlockUsed)) {
+      const varName = Blockly.BBasic.nameDB_.getName(textRow2ColorVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
+      lines.push(`${varName} = ${varName} + temp1`);
+    }
+    return lines.join('\n') + '\n';
+  };
+
   // The scroll cursor's  color (see textScrollCursorColorVarName's
   // comment above).
   Blockly.BBasic['text_minikernel_set_cursor_color'] = function(block) {

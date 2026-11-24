@@ -148,6 +148,9 @@ export const useDragReorder = (getItems, setItems, getSelectedIndices = () => []
 
   const dragTargetListeners = (index) => ({
     dragover: (event) => {
+      // Only a drag this list started (a card's handle): another drag (a row color being painted, selected text, a card of a list
+      // around this one) shows no drop mark here and goes on to the list it belongs to.
+      if (draggedIndex.value == null) return;
       // Dropping is disallowed by default - preventDefault is what tells
       // the browser this element is a valid drop target.
       event.preventDefault();
@@ -169,12 +172,14 @@ export const useDragReorder = (getItems, setItems, getSelectedIndices = () => []
       event.stopPropagation();
     },
     dragleave: (event) => {
+      if (draggedIndex.value == null) return;
       if (isSideBySide() && event.currentTarget.contains(event.relatedTarget)) return;
       if (dragOverIndex.value === index) dragOverIndex.value = null;
       if (dragOverSide.value && dragOverSide.value.index === index) dragOverSide.value = null;
       event.stopPropagation();
     },
     drop: (event) => {
+      if (draggedIndex.value == null) return;
       event.preventDefault();
       event.stopPropagation();
       const from = draggedIndex.value;

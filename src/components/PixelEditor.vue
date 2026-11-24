@@ -120,7 +120,7 @@ import {loadImageFromFile, openFileDialog} from '../utils/file';
 import {createResizedCanvas} from '../utils/image';
 import {usePixelTool, useMirrorDraw, useDrawColor} from '../hooks/pixel-tool';
 import {colorByteToCss} from '../utils/palette';
-import {noteEdit, recordReorder} from '../hooks/reorder-history';
+import {recordReorder} from '../hooks/reorder-history';
 import {limitPixelHistory} from '../hooks/undo-limit';
 import {resizePixelMatrixHeight} from '../utils/pixels';
 
@@ -200,6 +200,9 @@ export default {
     // The widths a row's cells may have (the title screen's ball: 1, 2, 4 or 8 cells), null for any: with it, the cells that are on in a row are
     // one run of one of these widths, and a stroke that leaves a row otherwise is made to (see snapRowRuns).
     rowRunWidths: {type: Array, default: null},
+    // A function that turns the picture into what it really is (the Title tab's Ball mode: the cells the ball is drawn on), applied when a stroke
+    // ends, in the stroke's history entry (see normalizeStroke); it gets the picture and the picture before the stroke.
+    normalizePixels: {type: Function, default: null},
   },
   data() {
     return {
@@ -235,6 +238,10 @@ export default {
       // that can be undone or redone - see handleMoveRows. Plain data nothing renders from.
       rowMove: null,
       rowMoveUndo: [],
+      // The steps this canvas's history took since they were last put in the tab's list (see hookTabHistory), and whether an undo or redo
+      // from that list is being played back (its steps are not counted again).
+      pendingSteps: 0,
+      replayingSteps: false,
       rowMoveRedo: [],
       // See handleStrokeStart/cancelStroke - the state to roll back to if
       // the current drag leaves the canvas, or null while no button is down.
@@ -1055,7 +1062,28 @@ export default {
     handleStrokeEnd() {
       const start = this.strokeStart;
       this.strokeStart = null;
+      // (The stroke is one step of the tab's undo list: see hookTabHistory. After the snap of the runs below, which joins the stroke's entry.)
+      this.scheduleTabStep();
       if (this.rowRunWidths && start) setTimeout(() => this.snapRowRuns(start.pixels), 0);
+      if (this.normalizePixels && start) setTimeout(() => this.normalizeStroke(start.pixels), 0);
+    },
+
+    // With normalizePixels: the picture a stroke left made what it really is (the cells that change, in the stroke's history entry, so one Undo
+    // takes both away). Nothing when the stroke changed nothing (its entry is not on top then).
+    normalizeStroke(before) {
+      if (!this.editor || !this.normalizePixels) return;
+      const after = this.getPixels();
+      if (isMatrixEqual(before, after)) return;
+      const wanted = this.normalizePixels(after, before);
+      const changes = [];
+      after.forEach((row, y) => row.forEach((cell, x) => {
+        const on = !!(wanted[y] && wanted[y][x]);
+        if (!!cell !== on) changes.push({x, y, color: on ? this.onColorForRow(y) : this.bgColor});
+      }));
+      if (!changes.length) return;
+      this.editor.set(changes, true);
+      this.editor.history.squash();
+      this.$emit('input', this.getPixels());
     },
 
     // With rowRunWidths: each row a stroke changed (from the cells before it) gets one run of cells of a width allowed. A run that grew gets the
@@ -1105,7 +1133,6 @@ export default {
     // cancelStroke.
     handleStrokeStart() {
       if (!this.editor) return;
-      if (!this.outsideHistory) noteEdit();
       // A new gesture ends whatever could still be redone.
       this.rowMoveRedo = [];
       this.strokeStart = {
@@ -1147,7 +1174,8 @@ export default {
       this.selection = start.selection;
       // A Move drag abandoned like this puts the rows' colors back too.
       if (this.rowMove) {
-        this.$emit('move-rows', {rows: this.rowMove.rows, dy: 0});
+        if (this.rowMove.rowsReported) this.$emit('move-rows', {rows: this.rowMove.rows, dy: 0});
+        this.$emit('move-cells', {cancel: true});
         this.rowMove = null;
       }
     },
@@ -1262,7 +1290,9 @@ export default {
     },
 
     // Moving the selected pixels with the Move tool moves the colors of the rows they were on
-    // too (the 'move-rows' event - see utils/row-color-move.js for the graphics that have them).
+    // too (the 'move-rows' event - see utils/row-color-move.js for the graphics that have them),
+    // and tells what else a graphic keeps on the selected cells (the 'move-cells' event: the Title
+    // tab's ball; {cells, dx, dy, start} while dragging, then {end}, {cancel}, {undo} or {redo}).
     // A finished move is remembered here so undo and redo can move the colors back and forth
     // together with the pixels: `depth` is how many entries the pixel history had once it was done.
     handleMoveRows(move) {
@@ -1270,13 +1300,68 @@ export default {
         if (this.leavingCanvas) return;
         const done = this.rowMove;
         this.rowMove = null;
-        if (done && done.dy !== 0 && this.editor) {
+        if (done && (done.dy !== 0 || done.dx !== 0) && this.editor) {
           this.rowMoveUndo.push({depth: this.editor.history.undoStack.length, rows: done.rows, dy: done.dy});
+          this.$emit('move-cells', {end: true});
+        } else if (done) {
+          this.$emit('move-cells', {cancel: true});
         }
         return;
       }
-      this.rowMove = {rows: move.rows, dy: move.dy};
-      this.$emit('move-rows', move);
+      // (The rows' colors only once the pixels have gone up or down, as before.)
+      const rowsReported = !!(this.rowMove && this.rowMove.rowsReported);
+      this.rowMove = {rows: move.rows, dx: move.dx, dy: move.dy, rowsReported: rowsReported || move.dy !== 0};
+      if (move.dy !== 0 || rowsReported) this.$emit('move-rows', {rows: move.rows, dy: move.dy, start: !rowsReported});
+      this.$emit('move-cells', {cells: move.cells, dx: move.dx, dy: move.dy, start: move.start});
+    },
+
+    // One undo list for the whole tab (hooks/reorder-history.js, with the order of the cards, the row colors and the other fields): every
+    // step of this canvas's pixel history goes into it, so Undo takes back the last thing done on the tab, whichever canvas it was on, and
+    // the same for Redo. The history is counted as the tools use it: a step added (+1), two joined (squash, -1) and a step taken back while
+    // drawing (a preview tool's undo, -1); a stroke (mouse down to up) or the edits of one action (Clear, Flip, Paste, an image) is one entry
+    // of the list, which undoes or redoes as many steps of this history. (Before, the canvas's history and the tab's list were apart, and
+    // an Undo could take back a row color before the strokes made after it, or nothing on another canvas.)
+    hookTabHistory(history) {
+      if (this.outsideHistory || !history || history.tabHooked) return;
+      history.tabHooked = true;
+      [['push', 1], ['squash', -1], ['prev', -1]].forEach(([name, delta]) => {
+        const original = history[name].bind(history);
+        history[name] = (...args) => {
+          const result = original(...args);
+          if (!this.replayingSteps) {
+            this.pendingSteps += delta;
+            if (!this.strokeStart) this.scheduleTabStep();
+          }
+          return result;
+        };
+      });
+    },
+    scheduleTabStep() {
+      if (this.tabStepTimer) return;
+      this.tabStepTimer = setTimeout(() => {
+        this.tabStepTimer = null;
+        if (this.strokeStart) return;
+        const steps = this.pendingSteps;
+        this.pendingSteps = 0;
+        if (steps <= 0 || this._isDestroyed) return;
+        recordReorder({
+          undo: () => this.replaySteps(true, steps),
+          redo: () => this.replaySteps(false, steps),
+          isCurrent: () => !this._isDestroyed && !!this.editor && this.editor.history.undoStack.length >= steps,
+        });
+      }, 0);
+    },
+    replaySteps(back, steps) {
+      if (this._isDestroyed || !this.editor) return;
+      this.replayingSteps = true;
+      try {
+        for (let i = 0; i < steps; i++) {
+          if (back) this.undo();
+          else this.redo();
+        }
+      } finally {
+        this.replayingSteps = false;
+      }
     },
 
     undo() {
@@ -1291,7 +1376,8 @@ export default {
         this.rowMoveUndo.pop();
         this.rowMoveRedo.push(last);
         // The inverse of the move: the rows where its pixels ended up, moving back.
-        this.$emit('move-rows', {rows: last.rows.map((row) => row + last.dy), dy: -last.dy, start: true});
+        if (last.dy) this.$emit('move-rows', {rows: last.rows.map((row) => row + last.dy), dy: -last.dy, start: true});
+        this.$emit('move-cells', {undo: true});
       }
     },
 
@@ -1304,7 +1390,8 @@ export default {
       if (next && next.depth === depth + 1) {
         this.rowMoveRedo.pop();
         this.rowMoveUndo.push(next);
-        this.$emit('move-rows', {rows: next.rows, dy: next.dy, start: true});
+        if (next.dy) this.$emit('move-rows', {rows: next.rows, dy: next.dy, start: true});
+        this.$emit('move-cells', {redo: true});
       }
     },
 
@@ -1458,6 +1545,7 @@ export default {
       const initialTool = (this.stamp || this.noDrawing) ? this.noTool : this.toolFor(this.toggledTool);
       this.editor = new PixelEditor(canvas, this.width, rowCount, initialTool, history);
       limitPixelHistory(this.editor.history);
+      this.hookTabHistory(this.editor.history);
       // Every tool draws through editor.set(), so mirror drawing hooks in here
       // (see mirrorPixels).
       const set = this.editor.set.bind(this.editor);

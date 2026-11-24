@@ -79,12 +79,15 @@ const buildCardDataAsm = (card, key, typeInfo, ref, Blockly, pageColor) => {
   // A graphic with the ball (see titleFrameBallLines) has three tables beside its picture, a byte for each row in the order of the picture's
   // rows (ENABL, CTRLPF and HMBL): a frame's picture is stored again for other ball rows.
   const hasBall = titleCardHasBall(card);
-  const noBall = Array.from({length: frameHeight}, () => ({en: 0, w: 1, hm: 0}));
+  // (A row's ball color is the frame's picture background color unless the frame gives the row one: see titleFrameBallLines.)
+  const boxColorOf = (frame) => titleFrameBox(card, frame, pageColor).background;
+  const noBall = (frame) => Array.from({length: frameHeight}, () => ({en: 0, w: 1, hm: 0, hm2: 0, c: boxColorOf(frame)}));
   const withBall = (list) => list.map((frame, index) => ({...frame,
-    ballRows: hasBall ? ((titleFrameBallLines(frames[index], frameHeight) || {}).rows || noBall) : null}));
+    ballRows: hasBall ? ((titleFrameBallLines(frames[index], frameHeight, boxColorOf(frames[index]), !typeInfo.singleColor) || {}).rows ||
+      noBall(frames[index])) : null}));
   const paddedFrames = withBall(fadePlan ? padded.paddedFrames.map((frame) => ({...frame, colorRows: padded.paddedFrames[0].colorRows})) :
     padded.paddedFrames);
-  const ballKey = (frame) => (frame.ballRows ? '|' + JSON.stringify(frame.ballRows.map((row) => [row.en, row.w, row.hm])) : '');
+  const ballKey = (frame) => (frame.ballRows ? '|' + JSON.stringify(frame.ballRows.map((row) => [row.en, row.w, row.hm, row.hm2, row.c])) : '');
   // Frames are all the first frame's height (padTitleCardFrames pads or cuts them); the dedup pass right below
   // compares frames by exactly what would be written to ROM.
   // Animation frames are frequently repeated (a held pose, a blank/off
@@ -363,8 +366,17 @@ const buildCardDataAsm = (card, key, typeInfo, ref, Blockly, pageColor) => {
         '   endif',
         `bmp_${key}_ball`,
     );
-    // (The three tables, each in one page: the loop reads them with absolute addresses and a cycle more across a page would move the picture.)
-    [['ballen', 'en'], ['ballw', 'w'], ['ballhm', 'hm']].forEach(([name, field]) => lines.push(
+    // (The tables, each in one page: the loop reads them with absolute addresses and a cycle more across a page would move the picture.) The
+    // moves into the even rows (ballhm2) only when a frame has one (the ball moves before every row, see titleFrameBallLines; without them the loop
+    // keeps the free time it had), the ball's color (ballc) when a frame gives rows a ball color: a row on a single color graphic, two rows at a time on one
+    // with row colors (the color is COLUPF, so the picture background blocks of the rows take it too).
+    const allRows = pictureFrames.flatMap((frame) => frame.ballRows);
+    const evenMoves = allRows.some((row) => row.hm2 !== 0);
+    const rowColors = (card.frames || []).some((frame) => Array.isArray(frame.ballColors) &&
+      frame.ballColors.some((color) => color !== undefined && color !== null));
+    if (evenMoves) lines.push(`bmp_${key}_ballmoves = 1`);
+    if (rowColors) lines.push(`bmp_${key}_ballcolors = 1`);
+    [['ballen', 'en'], ['ballw', 'w'], ['ballhm', 'hm'], ...(evenMoves ? [['ballhm2', 'hm2']] : []), ...(rowColors ? [['ballc', 'c']] : [])].forEach(([name, field]) => lines.push(
         `   if >. != >[.+bmp_${key}_height]`,
         '\talign 256',
         '   endif',
