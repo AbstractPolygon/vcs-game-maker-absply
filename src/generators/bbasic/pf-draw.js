@@ -183,6 +183,10 @@ export const reservePfDrawVars = (Blockly, reserveDevVarRW, config, superchip, k
 };
 
 // Where the records are: the lines that read and write them (byte i of record r), for separate bytes or the display RAM.
+// (The records waiting are always the first ones, one after the other: a record is written into the first free one and the queue moves up when one
+// leaves. So the moving up stops at the first free record (its header 0, written into the one before it): one waiting record most of the time, not all
+// of the queue's bytes, about 170 cycles less on DPC+ when Bricks takes a record.)
+let removeLabels = 0;
 const recordStore = (pfDraw) => {
   const {queue: Q, records, recordBytes: size, displayRam} = pfDraw;
   const last = records - 1;
@@ -195,8 +199,12 @@ const recordStore = (pfDraw) => {
       // record `from` copied to `to`
       copy: (from, to) => Q[to].map((byte, i) => `${byte.write} = ${Q[from][i].read}`),
       // the records after r moved down by one, the last one freed
-      remove: (r) => [...Array.from({length: last - r}, (_, k) => Q[r + k].map((byte, i) => `${byte.write} = ${Q[r + k + 1][i].read}`)).flat(),
-        `${Q[last][0].write} = 0`],
+      remove: (r) => {
+        if (r >= last) return [`${Q[last][0].write} = 0`];
+        const done = `_pfd_rm${removeLabels++}`;
+        return [...Array.from({length: last - r}, (_, k) => Q[r + k].map((byte, i) => [`${byte.write} = ${Q[r + k + 1][i].read}`,
+          ...(i ? [] : [`if ${Q[r + k + 1][0].read} = 0 then goto ${done}`])]).flat()).flat(), `${Q[last][0].write} = 0`, `@ ${done}`];
+      },
       free: (r) => [`${Q[r][0].write} = 0`],
       // a block's number into byte i of the last record
       write: (i, code) => [`${Q[last][i].write} = ${code}`],
@@ -210,19 +218,39 @@ const recordStore = (pfDraw) => {
     read: (r, i, temp) => [asm([...aim(0, offset(r, i)), 'lda DF0DATA', `sta ${temp}`])],
     load: (r) => [asm([...aim(0, offset(r, 0)), ...Array.from({length: Math.min(size, 6)}, (_, i) => ['lda DF0DATA', `sta temp${i + 1}`]).flat()])],
     copy: (from, to) => [asm([...aim(0, offset(from, 0)), ...aim(1, offset(to, 0)), ...Array.from({length: size}, () => ['lda DF0DATA', 'sta DF1WRITE']).flat()])],
-    remove: (r) => [asm([...(r < last ? [...aim(0, offset(r + 1, 0)), ...aim(1, offset(r, 0)),
-      ...Array.from({length: (last - r) * size}, () => ['lda DF0DATA', 'sta DF1WRITE']).flat()] : []),
-    ...aim(1, offset(last, 0)), 'ldx #0', 'stx DF1WRITE'])],
+    // (The write fetcher is at the last record's header after the records moved up. A branch to the end that would be too far is a jmp past a bne.)
+    remove: (r) => {
+      if (r >= last) return [asm([...aim(1, offset(last, 0)), 'ldx #0', 'stx DF1WRITE'])];
+      const done = `_pfd_rm${removeLabels++}`;
+      const lines = [];
+      for (let k = r; k < last; k++) {
+        const after = (size - 1) * 6 + (last - k - 1) * (6 + 5 + (size - 1) * 6) + 5;
+        lines.push('lda DF0DATA', 'sta DF1WRITE', ...(after <= 127 ? [`beq ${done}`] : ['bne *+5', `jmp ${done}`]),
+            ...Array.from({length: size - 1}, () => ['lda DF0DATA', 'sta DF1WRITE']).flat());
+      }
+      return [asm([...aim(0, offset(r + 1, 0)), ...aim(1, offset(r, 0)), ...lines, 'ldx #0', 'stx DF1WRITE', `@${done}`])];
+    },
     free: (r) => [asm([...aim(1, offset(r, 0)), 'ldx #0', 'stx DF1WRITE'])],
     // (Into the record past the queue: see _pfd_submit.)
     write: (i, code) => [...(code === 'temp6' ? [] : [`temp6 = ${code}`]), asm([...aim(1, offset(records, i)), 'lda temp6', 'sta DF1WRITE'])],
   };
 };
 
+// The jump on a shape's number (in temp1, the lines that work it out before it in `number`) to its targets, the shapes without one going on to
+// `fallThrough`: nothing when no shape has one, an if for one shape (the table of an on ... goto is 2 bytes a shape and about 15 cycles more).
+const shapeJump = (targets, fallThrough, number) => {
+  const jumps = targets.map((target, n) => [target, n]).filter(([target]) => target !== fallThrough);
+  if (!jumps.length) return [];
+  if (jumps.length === 1) return [...number, `if temp1 = ${jumps[0][1]} then goto ${jumps[0][0]}`];
+  return [...number, `on temp1 goto ${targets.join(' ')}`];
+};
+
 // The engine, one subroutine with its entries (see the comment at the top).
 const buildEngine = (Blockly) => {
   const pfDraw = Blockly.BBasic.pfDraw;
   const {kinds, state: S, work: W, records, seeds: P, displayRam, armCircle, armTerrain, armGravity, circleSpread, circleStretch, speed, config} = pfDraw;
+  // (The same labels in every build.)
+  removeLabels = 0;
   const store = recordStore(pfDraw);
   const maxRow = Blockly.BBasic.maxRowText(config);
   const maxColumn = pfMaxColumn(config);
@@ -341,8 +369,7 @@ const buildEngine = (Blockly) => {
   const unitTargets = KINDS_BY_NUMBER.map((kind, n) => (n && used(n) && kind !== 'pixel' && !(kind === 'circle' && armCircle && !circleSpread) ? `_pfd_u${n}` : '_pfd_unone'));
   add(label('unit'),
       `if ${S.read} < 32 then goto _pfd_deq`,
-      `temp1 = ${S.read} / 32`,
-      `on temp1 goto ${unitTargets.join(' ')}`,
+      ...shapeJump(unitTargets, '_pfd_unone', [`temp1 = ${S.read} / 32`]),
       label('unone'),
       set(S, 0),
       ...header(0),
@@ -355,8 +382,7 @@ const buildEngine = (Blockly) => {
       ...store.load(0),
       'if temp1 = 0 then goto _pfd_anone',
       `${S.write} = temp1`,
-      'temp1 = temp1 / 32',
-      `on temp1 goto ${actTargets.join(' ')}`,
+      ...shapeJump(actTargets, '_pfd_anone', ['temp1 = temp1 / 32']),
       label('anone'),
       set(S, 0),
       label('shift'),
@@ -1250,12 +1276,15 @@ export const pfDrawBlockCode = (Blockly, kind, operation, numbers, flags = 0) =>
 export const pfDrawCircleCode = (Blockly, operation, cx, cy, radius, padLeft, padRight, padTop, padBottom, spread = false, stretch = false) => {
   if (!ensurePfDraw(Blockly)) return '';
   const store = recordStore(Blockly.BBasic.pfDraw);
+  // (Numbers in the blocks are worked out here, not by the game: 15 at the most.)
+  const number = (code) => (/^\s*\d+\s*$/.test(String(code)) ? Math.min(Number(code), 15) : null);
   // (Kept round: the radius, 15 at the most, with bit 7 set.)
-  const radiusCode = stretch && Blockly.BBasic.pfDraw.circleStretch ? [`temp3 = ${radius}`, 'if temp3 > 15 then temp3 = 15', 'temp3 = temp3 | 128', ...store.write(3, 'temp3')] : store.write(3, radius);
-  const pack = (low, high, i) => [`temp3 = ${low}`, `temp4 = ${high}`, 'if temp3 > 15 then temp3 = 15', 'if temp4 > 15 then temp4 = 15',
-    'temp4 = temp4 * 16', ...store.write(i, 'temp3 | temp4')];
+  const radiusCode = stretch && Blockly.BBasic.pfDraw.circleStretch ? (number(radius) !== null ? store.write(3, String(number(radius) | 128)) :
+    [`temp3 = ${radius}`, 'if temp3 > 15 then temp3 = 15', 'temp3 = temp3 | 128', ...store.write(3, 'temp3')]) : store.write(3, radius);
+  const pack = (low, high, i) => (number(low) !== null && number(high) !== null ? store.write(i, String(number(low) | (number(high) * 16))) :
+    [`temp3 = ${low}`, `temp4 = ${high}`, 'if temp3 > 15 then temp3 = 15', 'if temp4 > 15 then temp4 = 15', 'temp4 = temp4 * 16', ...store.write(i, 'temp3 | temp4')]);
   // (The top and the bottom: a row each, a byte, as many rows as a high pfres has.)
-  const row = (code, i) => [`temp3 = ${code}`, ...store.write(i, 'temp3')];
+  const row = (code, i) => store.write(i, code);
   return [...roomCall(Blockly), ...store.write(1, cx), ...store.write(2, cy), ...radiusCode,
     ...pack(padLeft, padRight, 4), ...row(padTop, 5), ...row(padBottom, 6), ...store.write(0, headerOf('circle', operation, spread ? 1 : 0)),
     ...(deferredSubmit(Blockly, spread) ? [`if ${Blockly.BBasic.pfDraw.state.read} = 0 then ${Blockly.BBasic.pfDraw.state.write} = 2`] :

@@ -1124,7 +1124,7 @@ const twoToneStdLines = (key, {height, left, right}) => {
 };
 
 const buildDriverAsm = (selectedIdVarName, screenPlans, usedKernelKeys, playerKernelLines, hasScoreCard, bgVarName, textCall, shareSetup = false, shareKeys = null, uniformUsed = false,
-    ballUsed = false, twoTone = new Map()) => {
+    ballUsed = false, twoTone = new Map(), reloadPlayers = []) => {
   const extraTicks = (textCall && textCall.length) || screenPlans.some((plan) => plan.hasTextCard) ? TITLE_TEXT_EXTRA_TICKS : 0;
   const lines = ['asm'];
 
@@ -1159,6 +1159,9 @@ const buildDriverAsm = (selectedIdVarName, screenPlans, usedKernelKeys, playerKe
       '\t#ifconst .title_vblank',
       '\tjsr .title_vblank',
       '\t#endif',
+      // DPC+: the Titlescreen Kernel works in the height bytes of Players 2 to 9 (see dpcfix.asm), so the animated ones are marked not loaded
+      // (bit 7 of the size byte): back in the game they load their picture, color and height again (the height is written only then).
+      ...reloadPlayers.flatMap((name) => [`\tlda ${name}size`, '\tand #$7F', `\tsta ${name}size`]),
       '',
       '@title_vblank_loop',
       '\tlda INTIM',
@@ -1813,7 +1816,7 @@ export const registerTitleScreenSubroutine = (Blockly, {selectedIdVarName}) => {
         Blockly.BBasic.titleBgUsed ?
           Blockly.BBasic.nameDB_.getName(TITLE_BG_COLOR_VAR_NAME, Blockly.Names.DEVELOPER_VARIABLE_TYPE) : null,
         buildTitleTextCall(Blockly), !!Blockly.BBasic.titleShareSetup, Blockly.BBasic.titleShareKeys, !!Blockly.BBasic.titleUniformUsed,
-        !!Blockly.BBasic.titleBallUsed, Blockly.BBasic.titleTwoToneKeys || new Map());
+        !!Blockly.BBasic.titleBallUsed, Blockly.BBasic.titleTwoToneKeys || new Map(), titleReloadPlayers(Blockly));
 };
 
 // With a Player card on several pages: when the page drawn is not the one drawn last, the page's Player card puts its sprites where they start
@@ -1832,6 +1835,15 @@ const titlePlayerPageSwitch = (Blockly, screenId) => {
       .map((player) => `player${player}size = player${player}size & $F8`);
   return [`if ${selectedVar} = ${screenId} then goto ${skip}`, ...titlePlayerCenterLines(page.card, heights),
     ...titlePlayerCardStartLines(page.card), ...oneCopy, `@ ${skip}`].join('\n') + '\n';
+};
+
+// The animated players of the DPC+ kernel whose height bytes the Titlescreen Kernel uses (Players 2 to 9, see DPCPLUS_TITLE_KERNEL_BYTES in
+// generators/bbasic.js): the title driver marks their pictures not loaded every frame it draws (see buildDriverAsm).
+const titleReloadPlayers = (Blockly) => {
+  const config = useConfigurationStorage().value || {};
+  if (config.kernel !== 'dpcplus' || isPxe(config)) return [];
+  const max = Blockly.BBasic.dpcPlusSpriteMax || 1;
+  return [...(Blockly.BBasic.animSkipPlayers || [])].filter((name) => /^player[2-9]$/.test(name) && Number(name.slice(6)) <= max).sort();
 };
 
 // Whether a block is inside a While title screen is showing block.

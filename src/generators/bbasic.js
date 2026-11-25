@@ -44,7 +44,7 @@ import {DEFAULT_ROW_COLOR, DEFAULT_BK_ROW_COLOR, processBackgroundStorageDefault
 import {buildGroupRowsLoad, GROUP_ROWS_TABLE, ensureArmProgram, resolveFireBatch} from './bbasic/offset-arm';
 import {narrowSubroutineReturns, SUBROUTINE_END_MARK, subroutineEndLabel} from './bbasic/return-kind';
 import {isSixtyFourK} from '../utils/bank64-returns';
-import {chooseSpill, chooseAllSpillable, applySpill, remainingUses, mergeAdjacentReads, displayRamSlotAddress, STACK_AREA} from './bbasic/spill';
+import {chooseSpill, chooseAllSpillable, applySpill, remainingUses, mergeAdjacentReads, mergeBitWrites, dropRepeatedTests, chainFetcherWrites, displayRamSlotAddress, STACK_AREA} from './bbasic/spill';
 import {functionCallDiscardVarName, functionCallArgVarName, functionParamVarName,
   MAX_FUNCTION_ARGS, functionCallResultVarName, functionCallsOfStatement} from '../blocks/function';
 import {dataTableSymbolName, processDataTablesStorageDefaults} from '../blocks/data';
@@ -4114,7 +4114,20 @@ Blockly.BBasic.init = function(workspace) {
       }
       return null;
     };
-    [...this.spillPlan].forEach((name) => {
+    // The bytes are given in an order that keeps the variables of each player together, its roles in the same order for every player (the ones a Sprite
+    // pool exchanges for every sprite first: frame, animation, realcolor, size; then the others by name): the exchanges of a pool's sprites then read and
+    // write each side at the next byte of the one before, and set the data fetchers once for the run (see exchangeRunLines in generators/bbasic/spill.js:
+    // 16 cycles less for each side that goes on, two to four times a frame for each sprite). The other variables keep the plan's order, before them.
+    const ROLE_FIRST = ['frame', 'animation', 'realcolor', 'size'];
+    const roleKey = (role) => (ROLE_FIRST.includes(role) ? `0${ROLE_FIRST.indexOf(role)}` : `1${role}`);
+    const playerVar = (name) => /^player(\d+)([A-Za-z]\w*)$/.exec(name);
+    const planOrder = [...this.spillPlan];
+    const ordered = [...planOrder.filter((name) => !playerVar(name)), ...planOrder.filter((name) => playerVar(name)).sort((x, y) => {
+      const [, numberX, roleX] = playerVar(x);
+      const [, numberY, roleY] = playerVar(y);
+      return Number(numberX) - Number(numberY) || (roleKey(roleX) < roleKey(roleY) ? -1 : roleKey(roleX) > roleKey(roleY) ? 1 : 0);
+    })];
+    ordered.forEach((name) => {
       if (this.displayRamVars.size >= this.displayRamSpillCapacity) return;
       // (Not a variable hosted in a Title Screen scratch byte: that byte is set back to 0 when gameplay starts.)
       for (const pool of [this.dpcPlusVars, this.dpcPlusSpriteVars]) {
@@ -9672,6 +9685,38 @@ Blockly.BBasic.generateAnimations = function() {
       const colorLow = oneColor ? `#<${oneColor}` : `${at('ColorLow')},y`;
       const colorHigh = oneColor ? `#(${highOf(oneColor)})` : `${at('ColorHigh')},y`;
       const heightOperand = oneHeight !== null ? `#${oneHeight}` : `${at('Heights')},y`;
+      // DPC+ with one color for every picture: the color is written when the animation is loaded (the loaded flag clear), not again at each
+      // picture after that (about 22 cycles a picture): what else changes the color clears the flag or sets the override first (a color set or
+      // fade, the rainbow's stop). Its lines go before the picture's then, and the start of a picture goes past them (Pic).
+      const colorFirst = isDpcPlus && rowColored && !!oneColor;
+      // The same for one height for every picture (about 10 cycles a picture, 16 in a pool's shared code): what else changes the height marks the
+      // picture not loaded (a hidden player's blank, the title driver for the heights the Titlescreen Kernel works in, see titleReloadPlayers).
+      // Before the color's lines, which an override skips. Not in a project with a Height limit block: the limit lowers the height every frame
+      // and a higher limit (or none) leaves it to the animation to write it again (see generatePlayerHeightLimitChecks).
+      const heightFirst = isDpcPlus && oneHeight !== null && !(Blockly.BBasic.playerHeightLimitUsedFor && Blockly.BBasic.playerHeightLimitUsedFor.size);
+      const firstPic = colorFirst || heightFirst;
+      // (The shared code of a pool sets the height of the sprite it runs for: the heights are an array, the number of places after the first sprite is half of temp6.)
+      const heightLines = poolRefs ? ['  lda temp6', '  lsr', '  tax', `  lda ${heightOperand}`, `  sta ${name}height,x`] : [`  lda ${heightOperand}`, `  sta ${refHeight}`];
+      const colorLines = !rowColored ? [] : [
+        // (The shared code of a pool gets the flag, already masked, in temp1.)
+        ...(override ? [`  lda ${override[1]}`, `  and #${1 << Number(override[2])}`, `  bne ${at(colorFirst ? 'Pic' : 'Height')}`] :
+          overrideFlag ? ['  lda temp1', `  bne ${at(colorFirst ? 'Pic' : 'Height')}`] : []),
+        ...(slot ? [
+          `  lda #<(playerpointers+${colorSlot})`,
+          '  sta DF0LOW',
+          `  lda #(>(playerpointers+${colorSlot})) & $0F`,
+          '  sta DF0HI',
+          `  lda ${colorLow}`,
+          '  sta DF0WRITE',
+          `  lda ${colorHigh}`,
+          '  sta DF0WRITE',
+        ] : [
+          `  lda ${colorLow}`,
+          `  sta ${name}color`,
+          `  lda ${colorHigh}`,
+          `  sta ${name}color+1`,
+        ]),
+      ];
       const code = [
         ' asm',
         `  lda ${refFrame}`,
@@ -9692,12 +9737,15 @@ Blockly.BBasic.generateAnimations = function() {
           `  bpl ${at('Load')}`,
           `  lda ${refFrame}`,
           `  cmp ${at('Starts')},y`,
-          `  beq ${at('Load')}`,
+          `  beq ${at(firstPic ? 'Pic' : 'Load')}`,
           `  jmp .${animationLabel}animationEnd`,
           at('Load'),
           `  lda ${refSize}`,
           '  ora #$80',
           `  sta ${refSize}`,
+          ...(heightFirst ? heightLines : []),
+          ...(colorFirst ? colorLines : []),
+          ...(firstPic ? [at('Pic')] : []),
         ] : []),
         ...(wide ? [
           `  lda ${refSize}`,
@@ -9724,28 +9772,9 @@ Blockly.BBasic.generateAnimations = function() {
           `  lda ${at('GraphicHigh')},y`,
           `  sta ${name}pointerhi`,
         ]),
-        ...(rowColored ? [
-          // (The shared code of a pool gets the flag, already masked, in temp1.)
-          ...(override ? [`  lda ${override[1]}`, `  and #${1 << Number(override[2])}`, `  bne ${at('Height')}`] : overrideFlag ? ['  lda temp1', `  bne ${at('Height')}`] : []),
-          ...(slot ? [
-            `  lda #<(playerpointers+${colorSlot})`,
-            '  sta DF0LOW',
-            `  lda #(>(playerpointers+${colorSlot})) & $0F`,
-            '  sta DF0HI',
-            `  lda ${colorLow}`,
-            '  sta DF0WRITE',
-            `  lda ${colorHigh}`,
-            '  sta DF0WRITE',
-          ] : [
-            `  lda ${colorLow}`,
-            `  sta ${name}color`,
-            `  lda ${colorHigh}`,
-            `  sta ${name}color+1`,
-          ]),
-        ] : []),
+        ...(colorFirst ? [] : colorLines),
         at('Height'),
-        // (The shared code of a pool sets the height of the sprite it runs for: the heights are an array, the number of places after the first sprite is half of temp6.)
-        ...(poolRefs ? ['  lda temp6', '  lsr', '  tax', `  lda ${heightOperand}`, `  sta ${name}height,x`] : [`  lda ${heightOperand}`, `  sta ${refHeight}`]),
+        ...(heightFirst ? [] : heightLines),
         `  jmp .${animationLabel}animationEnd`,
         at('Starts'),
         '  .byte 0',
@@ -10022,13 +10051,20 @@ Blockly.BBasic.generateAnimations = function() {
       // (A label of a unit is in the shared code; the first one runs when the number is none of the others, as the code before it did.)
       // (One animation: nothing to choose, so its number is not read.)
       const dispatchLines = group.used.length === 1 ? [' asm', `  jsr ${unitLabel(first)}`, '@end'] : group.used.length ? [' asm', `  lda ${resolve(`${name}animation`)}`, ...dispatch, `  jsr ${unitLabel(first)}`, `@${stepName}_done`, '@end'] : [];
+      // A step with the picture loaded (bit 7 of the size byte: the frame counter got to the next picture) does not need the color tables: their
+      // subroutine does nothing then, so it is not called and the color it would pick is not read (on DPC+ a byte in the display memory, about 17
+      // cycles, and the call about 20). Not with an exchange (the names are exchanged around the call).
+      const skipColor = group.hasColor && !swapCall.length;
+      const colorSkipLabel = `${stepName}_c`;
       Blockly.BBasic.subroutines[stepName] = [
         ...lines(`lda #${delta}`, 'sta temp6', `lda ${name}size`, 'sta temp4', `lda ${name}frame`, 'sta temp5',
             ...(group.hasNext ? [`lda ${resolve(animNextVarName(name))}`, 'sta temp3'] : []),
-            ...(group.colorLadder ? [`lda ${name}realcolor`, 'sta temp2'] : []),
-            ...(override ? [`lda ${override[1]}`, `and #${1 << Number(override[2])}`, 'sta temp1'] : [])),
+            ...(override ? [`lda ${override[1]}`, `and #${1 << Number(override[2])}`, 'sta temp1'] : []),
+            ...(skipColor ? ['bit temp4', `bmi .${colorSkipLabel}`] : []),
+            ...(group.colorLadder ? [`lda ${name}realcolor`, 'sta temp2'] : [])),
         ...swapCall,
         ...(group.hasColor ? [`  gosub ${colorSubName}`] : []),
+        ...(skipColor ? [`@${colorSkipLabel}`] : []),
         ...dispatchLines,
         ...swapCall,
         ...lines('lda temp4', `sta ${name}size`, 'lda temp5', `sta ${name}frame`, ...(group.hasNext ? ['lda temp3', `sta ${resolve(animNextVarName(name))}`] : [])),
@@ -10299,7 +10335,13 @@ Blockly.BBasic.workspaceToCodeAllPasses = function(workspace) {
       continue;
     }
     const left = (typeof code === 'string' && this.displayRamVars) ? remainingUses(code, [...this.displayRamVars.keys()]) : [];
-    if (!left.length) return typeof code === 'string' && !isPxe(useConfigurationStorage().value || {}) ? mergeAdjacentReads(code) : code;
+    // (The bit writes not with Superchip RAM, whose variables are read and written by two names.)
+    if (!left.length) {
+      if (typeof code !== 'string') return code;
+      const tested = dropRepeatedTests(code);
+      return !isPxe(useConfigurationStorage().value || {}) ?
+        chainFetcherWrites(mergeAdjacentReads(superchipOn(useConfigurationStorage().value || {}) ? tested : mergeBitWrites(tested))) : tested;
+    }
     left.forEach((name) => this.displayRamExcluded.add(name));
   }
   return this.workspaceToCodeOnce(workspace);

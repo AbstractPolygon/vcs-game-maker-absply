@@ -394,47 +394,41 @@ const pointerLines = (indent, {area, byte}) => {
 };
 
 // The lines that set two data fetchers (a read one and a write one, so that reading does not move the one that writes) to the byte of a spilled name: the
-// exchange of two bytes (see exchangeLines) reads through the first and writes through the second.
+// exchange of two bytes (see exchangeRunLines) reads through the first and writes through the second.
 const fetcherPointerLines = (indent, {area, byte}, readFetcher, writeFetcher) => {
   const address = displayRamSlotAddress({area, byte});
   return [`${indent}lda #<(${address})`, `${indent}sta DF${readFetcher}LOW`, `${indent}sta DF${writeFetcher}LOW`,
     `${indent}lda #(>(${address})) & $0F`, `${indent}sta DF${readFetcher}HI`, `${indent}sta DF${writeFetcher}HI`];
 };
 
-// The exchange of two bytes the pools make (lda A, ldx B, sta B, stx A), when one of them or both are spilled: the display memory is read and written through
-// the data fetchers 0 to 3, not through the generic rewrite of each access (a load and a store of a spilled name take 13 and 17 bytes). A and X are
-// the registers the four lines use already, and Y is not touched. `a` and `b` are the names; null when neither is spilled.
-const exchangeLines = (indent, a, b, slots) => {
-  const slotA = slots.get(a);
-  const slotB = slots.get(b);
-  if (!slotA && !slotB) return null;
-  if (slotA && slotB) {
-    return [...fetcherPointerLines(indent, slotA, 0, 1), ...fetcherPointerLines(indent, slotB, 2, 3),
-      `${indent}lda DF0DATA`, `${indent}ldx DF2DATA`, `${indent}stx DF1WRITE`, `${indent}sta DF3WRITE`];
-  }
-  if (slotA) {
-    return [...fetcherPointerLines(indent, slotA, 0, 1), `${indent}lda DF0DATA`, `${indent}ldx ${b}`, `${indent}stx DF1WRITE`, `${indent}sta ${b}`];
-  }
-  return [...fetcherPointerLines(indent, slotB, 2, 3), `${indent}lda ${a}`, `${indent}ldx DF2DATA`, `${indent}sta DF3WRITE`, `${indent}stx ${a}`];
-};
-
-// A run of exchanges one after the other (each lda A, ldx B, sta B, stx A: {a, b, original: its four lines}): they do not depend on each other, so the ones with both
-// bytes in the display memory are put in the order of the addresses, and where the next byte of both sides follows the one before (the fetchers move on by one
-// after each read and write) the pointers are not set again: 40 cycles and 16 bytes less for each. Null when no byte of the run is spilled.
+// A run of exchanges one after the other (each lda A, ldx B, sta B, stx A, the exchanges the pools make: {a, b, original: its four lines}), when one byte or both
+// of some of them are spilled: the display memory is read and written through the data fetchers 0 and 1 (the first side: one reads, one writes, so reading does
+// not move the one that writes) and 2 and 3 (the second side), not through the generic rewrite of each access (a load and a store of a spilled name take 13 and
+// 17 bytes). A and X are the registers the four lines use already, and Y is not touched. The exchanges do not depend on each other, so the ones with a byte in
+// the display memory are put in the order of the addresses (of the second side's byte, or the first's when the second is not there), and a side whose byte
+// follows the one its fetchers were last at (they move on by one after each read and write) is not pointed again: 16 cycles and 10 bytes less for each side
+// that goes on (the exchanges of a Sprite pool's sprites, whose bytes are given in that order: see the spill plan's order in generators/bbasic.js). Null when
+// no byte of the run is spilled.
 const exchangeRunLines = (indent, run, slots) => {
   if (!run.some(({a, b}) => slots.has(a) || slots.has(b))) return null;
   const lines = [];
-  let before = null;
-  run.filter(({a, b}) => slots.has(a) && slots.has(b)).map((exchange) => ({...exchange, slotA: slots.get(exchange.a), slotB: slots.get(exchange.b)}))
-      .sort((x, y) => (x.slotA.area === y.slotA.area ? x.slotA.byte - y.slotA.byte : (x.slotA.area < y.slotA.area ? -1 : 1)))
-      .forEach((exchange) => {
-        const next = before && before.slotA.area === exchange.slotA.area && exchange.slotA.byte === before.slotA.byte + 1 &&
-          before.slotB.area === exchange.slotB.area && exchange.slotB.byte === before.slotB.byte + 1;
-        if (!next) lines.push(...fetcherPointerLines(indent, exchange.slotA, 0, 1), ...fetcherPointerLines(indent, exchange.slotB, 2, 3));
-        lines.push(`${indent}lda DF0DATA`, `${indent}ldx DF2DATA`, `${indent}stx DF1WRITE`, `${indent}sta DF3WRITE`);
-        before = exchange;
+  const at = {a: null, b: null};
+  const sameByte = (x, y) => !!x && !!y && x.area === y.area && x.byte === y.byte;
+  const point = (side, slot) => {
+    if (!sameByte(at[side], slot)) lines.push(...fetcherPointerLines(indent, slot, side === 'a' ? 0 : 2, side === 'a' ? 1 : 3));
+    at[side] = {area: slot.area, byte: slot.byte + 1};
+  };
+  const keyOf = ({slotA, slotB}) => slotB || slotA;
+  run.filter(({a, b}) => slots.has(a) || slots.has(b)).map((exchange) => ({...exchange, slotA: slots.get(exchange.a), slotB: slots.get(exchange.b)}))
+      .sort((x, y) => (keyOf(x).area === keyOf(y).area ? keyOf(x).byte - keyOf(y).byte : (keyOf(x).area < keyOf(y).area ? -1 : 1)))
+      .forEach(({a, b, slotA, slotB}) => {
+        if (slotA) point('a', slotA);
+        if (slotB) point('b', slotB);
+        if (slotA && slotB) lines.push(`${indent}lda DF0DATA`, `${indent}ldx DF2DATA`, `${indent}stx DF1WRITE`, `${indent}sta DF3WRITE`);
+        else if (slotA) lines.push(`${indent}lda DF0DATA`, `${indent}ldx ${b}`, `${indent}stx DF1WRITE`, `${indent}sta ${b}`);
+        else lines.push(`${indent}lda ${a}`, `${indent}ldx DF2DATA`, `${indent}sta DF3WRITE`, `${indent}stx ${a}`);
       });
-  run.filter(({a, b}) => !(slots.has(a) && slots.has(b))).forEach(({a, b, original}) => lines.push(...(exchangeLines(indent, a, b, slots) || original)));
+  run.filter(({a, b}) => !slots.has(a) && !slots.has(b)).forEach(({original}) => lines.push(...original));
   return lines;
 };
 
@@ -738,6 +732,105 @@ const readBlockAt = (lines, at) => {
   const [, table, offset] = parts[1];
   if (parts[3][1] !== table || parts[3][2] !== offset) return null;
   return {table, offset: Number(offset)};
+};
+// Lines next to each other (blank lines between them only) that each set (or each clear) a bit of the same variable, "x{4} = 0" then "x{5} = 0",
+// as one statement: "x = x & 207" (one load and one store for the run, 6 cycles and 4 bytes less for each line after the first). A run of a mix
+// of sets and clears is split where the value changes. Not across a label or anything else.
+const BIT_WRITE = /^(\s+)([A-Za-z_][A-Za-z0-9_]*)\{([0-7])\} = ([01])\s*$/;
+export const mergeBitWrites = (code) => {
+  const lines = code.split(/\r?\n/);
+  const out = [];
+  for (let at = 0; at < lines.length; at++) {
+    const first = BIT_WRITE.exec(lines[at]);
+    if (!first) {
+      out.push(lines[at]);
+      continue;
+    }
+    let mask = 1 << Number(first[3]);
+    let end = at;
+    for (let next = at + 1; next < lines.length; next++) {
+      if (lines[next].trim() === '') continue;
+      const more = BIT_WRITE.exec(lines[next]);
+      if (!more || more[2] !== first[2] || more[4] !== first[4]) break;
+      mask |= 1 << Number(more[3]);
+      end = next;
+    }
+    if (end === at) {
+      out.push(lines[at]);
+      continue;
+    }
+    const [, indent, name, , value] = first;
+    out.push(value === '1' ? `${indent}${name} = ${name} | ${mask}` : `${indent}${name} = ${name} & ${255 & ~mask}`);
+    at = end;
+  }
+  return out.join('\n');
+};
+// A test right after one of the same byte against the same thing that went elsewhere when it was true ("if a <> b then goto x"), blank lines
+// between them only: "if a <> b then ..." is never true there (left out), and "if a = b then ..." always is (its statement alone). The blocks that
+// show a hidden sprite test it again inside a test of it (about 9 cycles and 7 bytes each). Not a test with an else, or with a lone word after
+// then (a label, or return).
+const NOT_EQUAL_GOTO = /^\s*if ([A-Za-z_]\w*) <> (\w+) then goto \w+\s*$/;
+const SAME_TEST = /^(\s*)if ([A-Za-z_]\w*) (<>|=) (\w+) then (.+?)\s*$/;
+export const dropRepeatedTests = (code) => {
+  const out = [];
+  let known = null;
+  code.split(/\r?\n/).forEach((line) => {
+    if (line.trim() === '') {
+      out.push(line);
+      return;
+    }
+    const test = known && SAME_TEST.exec(line);
+    if (test && test[2] === known[1] && test[4] === known[2] && !/(^|\s)else(\s|$)/.test(test[5]) && !/^\w+$/.test(test[5])) {
+      if (test[3] === '<>') return;
+      out.push(`${test[1]}${test[5]}`);
+      known = null;
+      return;
+    }
+    known = NOT_EQUAL_GOTO.exec(line);
+    out.push(line);
+  });
+  return out.join('\n');
+};
+// DPC+: an asm block that writes one byte through a data fetcher (ldx #n, stx DFkLOW, ldx #h, stx DFkHI, a load, sta DFkWRITE: the Draw blocks'
+// record bytes, see recordStore in generators/bbasic/pf-draw.js) right after one that wrote the byte before it through the same fetcher, with only
+// lines between them that cannot move it: the pointer is where the first write left it, and the second does not set it again (12 cycles and 10 bytes
+// less a byte). Lines that cannot move it: assignments (not to an upper case name: the console's and the cartridge's registers, CALLFUNCTION
+// runs the coprocessor) and ifs of assignments with no call (no name followed by a parenthesis) and no array, and asm
+// blocks that do not name that fetcher, jump, call or have a label. Anything else (a label, a gosub, a goto, any other statement) forgets where the
+// fetcher is.
+const ONE_WRITE = [/^ldx #(\d+)$/, /^stx DF([0-7])LOW$/, /^ldx #(\S+)$/, /^stx DF([0-7])HI$/, /^lda (?!DF)[\w#$<>()+]+$/, /^sta DF([0-7])WRITE$/];
+const PLAIN_ASSIGNMENT = /^\s+(if [^:]+ then )?(?![A-Z][A-Z0-9_]*\b)[A-Za-z_]\w*(\{\d\})? = [^:]+$/;
+export const chainFetcherWrites = (code) => {
+  const lines = code.split(/\r?\n/);
+  const out = [];
+  let at = null;
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    if (line.trim() !== 'asm') {
+      const keeps = line.trim() === '' || /^\s+rem\b/.test(line) ||
+        (PLAIN_ASSIGNMENT.test(line) && !/[A-Za-z_]\w*\s*\(/.test(line) && !/\[/.test(line) && !/\b(gosub|goto|return|pop)\b/.test(line));
+      if (!keeps) at = null;
+      out.push(line);
+      continue;
+    }
+    let end = index + 1;
+    while (end < lines.length && lines[end].trim() !== 'end') end++;
+    const body = lines.slice(index + 1, end);
+    const parts = body.length === ONE_WRITE.length ? body.map((text, i) => ONE_WRITE[i].exec(text.trim())) : [];
+    const fetcher = parts.length && parts.every(Boolean) && parts[1][1] === parts[3][1] && parts[1][1] === parts[5][1] ? parts[1][1] : null;
+    if (fetcher !== null) {
+      const place = {fetcher, low: Number(parts[0][1]), high: parts[2][1]};
+      const same = at && at.fetcher === place.fetcher && at.low === place.low && at.high === place.high;
+      out.push(line, ...(same ? body.slice(4) : body), ...(end < lines.length ? [lines[end]] : []));
+      at = {...place, low: place.low + 1};
+    } else {
+      if (at && body.some((text) => /^\S/.test(text) || new RegExp(`\\bDF${at.fetcher}`).test(text) || /\b(jsr|jmp|rts|rti|brk|BS_\w*)\b/i.test(text) ||
+          /^\s*b(eq|ne|cc|cs|pl|mi|vc|vs)\b/i.test(text))) at = null;
+      out.push(...lines.slice(index, end + 1));
+    }
+    index = end;
+  }
+  return out.join('\n');
 };
 export const mergeAdjacentReads = (code) => {
   const lines = code.split(/\r?\n/);

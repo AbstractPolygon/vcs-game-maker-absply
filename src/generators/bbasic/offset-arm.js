@@ -188,7 +188,9 @@ export const buildPixArmCall = ({fn, args, read = 0, after = [], tail = []}) => 
   'asm',
   'lda #<C_function', 'sta DF0LOW', 'lda #(>C_function) & $0F', 'sta DF0HI',
   `lda #${fn}`, 'sta DF0WRITE',
-  ...args.flatMap((lines) => [...lines, 'sta DF0WRITE']),
+  // (A constant the same as the one before it is still in A: only its store.)
+  ...args.flatMap((lines, i) => [...(i && lines.length === 1 && /^lda #/.test(lines[0]) && args[i - 1].length === 1 && args[i - 1][0] === lines[0] ? [] : lines),
+    'sta DF0WRITE']),
   'lda #255', 'sta CALLFUNCTION',
   // The bytes it gives back, read in order from one setting of the pointer (each read of DF0DATA moves it on by one): each read once, then stored
   // in its temp and its place (6 cycles less a byte than setting the pointer again for each).
