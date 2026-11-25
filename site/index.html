@@ -101,23 +101,23 @@
 
     <section class="downloads" id="download">
       <h2>Download VCS GAME MAKER</h2>
-      <p class="count" id="dl-version">Version 0.54.1</p>
+      <p class="count" id="dl-version">Version 0.55.0</p>
       <div class="dl-groups">
         <div class="dl-group">
           <p class="dl-title">Windows</p>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-Windows-Setup.msi" data-asset="Windows-Setup.msi">Intel / AMD (installer)</a>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-Windows-arm64-Setup.msi" data-asset="Windows-arm64-Setup.msi">ARM (installer)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.55.0/VCS-Game-Maker-0.55.0-Windows-Setup.msi" data-asset="Windows-Setup.msi">Intel / AMD (installer)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.55.0/VCS-Game-Maker-0.55.0-Windows-arm64-Setup.msi" data-asset="Windows-arm64-Setup.msi">ARM (installer)</a>
         </div>
         <div class="dl-group">
           <p class="dl-title">macOS</p>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-macOS-arm64.dmg" data-asset="macOS-arm64.dmg">Apple silicon (dmg)</a>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-macOS-x64.dmg" data-asset="macOS-x64.dmg">Intel (dmg)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.55.0/VCS-Game-Maker-0.55.0-macOS-arm64.dmg" data-asset="macOS-arm64.dmg">Apple silicon (dmg)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.55.0/VCS-Game-Maker-0.55.0-macOS-x64.dmg" data-asset="macOS-x64.dmg">Intel (dmg)</a>
         </div>
         <div class="dl-group">
           <p class="dl-title">Linux</p>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-Linux-x64.AppImage.tar.gz" data-asset="Linux-x64.AppImage.tar.gz">Intel / AMD (AppImage)</a>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-Linux-arm64.AppImage.tar.gz" data-asset="Linux-arm64.AppImage.tar.gz">ARM (AppImage)</a>
-          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.54.1/VCS-Game-Maker-0.54.1-Linux-x64-VCS-portable.tar.gz" data-asset="Linux-x64-VCS-portable.tar.gz">2021 VCS (portable)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.55.0/VCS-Game-Maker-0.55.0-Linux-x64.AppImage.tar.gz" data-asset="Linux-x64.AppImage.tar.gz">Intel / AMD (AppImage)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.55.0/VCS-Game-Maker-0.55.0-Linux-arm64.AppImage.tar.gz" data-asset="Linux-arm64.AppImage.tar.gz">ARM (AppImage)</a>
+          <a class="button" href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/download/0.55.0/VCS-Game-Maker-0.55.0-Linux-x64-VCS-portable.tar.gz" data-asset="Linux-x64-VCS-portable.tar.gz">2021 VCS (portable)</a>
         </div>
       </div>
     </section>
@@ -234,8 +234,8 @@
 
     <section class="feature wide" id="updates">
       <h2>Latest updates</h2>
-      <p><strong>Version 0.54.1</strong> (<a href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/latest">release page</a>)</p>
-      <p>Games run faster and take less ROM: subroutine and Function returns are shorter when every call to them is from the same bank (or every one from another), a value stored and loaded straight back is not loaded again, Set score from a value takes at most about 90 cycles, and on DPC+ the colour registers are no longer written before each frame (the kernel writes them itself), Function calls with simple arguments need no variables, and a player of one picture or one animation needs fewer bytes, so fewer variables go to the slower display memory. The coprocessor Fire movement and Bounce are faster. Players are moved below the screen (y 200) when the title screen ends, and the Sprite pool releases and the Player block hide a sprite at y 200. Copy, cut and paste of pixel selections work between the graphic canvases. Fixed: playfields drawn wrong on DPC+ in projects that go straight to the title screen, powerups going through the paddle, and several offset areas in one project.</p>
+      <p><strong>Version 0.55.0</strong> (<a href="https://github.com/AbstractPolygon/vcs-game-maker-absply/releases/latest">release page</a>)</p>
+      <p>Harmony Cart support: a Harmony icon on the emulator toolbar writes the ROM into the cart over USB, saves it to the SD card with the right extension (or as autorom.bin for the Atari 2600+ / 7800+), or updates the BIOS. The Draw blocks share one drawing engine that spreads big shapes over frames, with new Playfield fill, Set playfield draw speed and Playfield gravity blocks, a circle that stays round on short rows, and terrain overhangs on both sides. The Gravity block can stop flush on the playfield and use the sprite's drawn width, and a new When collision block runs once when a collision starts. A project can switch between several score layouts while it runs, with new Score left and Score right value blocks. On the title screen: a While title screen is showing block, two-tone 48x2 graphics, and a ball that can move and change color on every row. Single-height sprites on DPC+ and PXE, palette cycling blocks, selecting and deleting several frames at once, copy and paste of pixels between canvases, and one Undo list for every canvas of a tab. Games run faster (Bricks' game logic went from about 1757 to about 1510 cycles a frame) and builds are faster on every bankswitched ROM. Fixed: the DPC+ screen rolling when the timer ran out on a sprite line, a DPC+ stack overflow, Run once firing again on PXE, and several title screen and build problems.</p>
       <p><strong>Version 0.54.0</strong></p>
       <p>The block toolbox groups its blocks in drawers inside the categories: Sprites has Animation, Behaviors (Bounce, Fade, Fire, Inertia, Lock, Move, Platform, Scroll), Pooling and VFX; Playfield has Behaviors, Collision, Utility and VFX; Input has Collision, Joystick, Keypad and Utility; Title, Score, Music and Event have drawers too. A category with drawers opens and closes with its arrow, or with a double-click on its name, and a single click only shows its blocks. The Player rainbow colors blocks show on DPC+ without the per-row color option. The example blocks that wrapped Platform in a joystick if, the repeat 30 times and the Title screen update example are gone. The wiki lists the blocks on each page, with block images.</p>
       <p><strong>Version 0.53.21</strong></p>
