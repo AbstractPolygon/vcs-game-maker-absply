@@ -832,6 +832,63 @@ export const chainFetcherWrites = (code) => {
   }
   return out.join('\n');
 };
+// A value put in a temp byte only to be written through a data fetcher ("tempN = x", then an asm block that ends with "lda tempN" and
+// "sta DFkWRITE": the Draw blocks' record bytes, see recordStore in generators/bbasic/pf-draw.js) is written straight from x (a number with
+// ldx, which DPC+'s fast fetch never changes; a variable with lda): 6 cycles and 4 bytes less a byte. Only when x is a number or a variable
+// (not a const, which bB loads as a number, nor rand, a call) and the temp byte is written again before anything could read it (a later
+// line that names it, a label, a jump, a call or a return keep the line as it is).
+const TEMP_VALUE = /^\s+(temp[1-6]) = ((?:\$[0-9A-Fa-f]+|%[01]+|\d+)|[A-Za-z_]\w*)\s*$/;
+const isNumber = (text) => /^(\$[0-9A-Fa-f]+|%[01]+|\d+)$/.test(text);
+const tempDeadAfter = (lines, from, temp) => {
+  const named = new RegExp(`\\b${temp}\\b`);
+  const written = new RegExp(`^\\s+${temp} = (.*)$`);
+  for (let at = from; at < lines.length; at++) {
+    const line = lines[at];
+    const trimmed = line.trim();
+    if (trimmed === '' || /^\s+rem\b/.test(line)) continue;
+    if (trimmed === 'asm') {
+      let end = at + 1;
+      while (end < lines.length && lines[end].trim() !== 'end') end++;
+      const body = lines.slice(at + 1, end);
+      if (body.some((text) => named.test(text) || /^\S/.test(text) || /\b(jsr|jmp|rts|rti|brk|BS_\w*)\b/i.test(text) || /^\s*b(eq|ne|cc|cs|pl|mi|vc|vs)\b/i.test(text))) return false;
+      at = end;
+      continue;
+    }
+    if (/^\S/.test(line)) return false;
+    const write = written.exec(line);
+    if (write) return !named.test(write[1]);
+    if (named.test(line) || /\b(goto|gosub|return|pop|on|drawscreen)\b/.test(line)) return false;
+  }
+  return false;
+};
+export const directFetcherOperands = (code) => {
+  const lines = code.split(/\r?\n/);
+  const consts = new Set([...code.matchAll(/^\s*const\s+([A-Za-z_]\w*)\s*=/gm)].map((match) => match[1]));
+  const out = [];
+  for (let index = 0; index < lines.length; index++) {
+    const value = TEMP_VALUE.exec(lines[index]);
+    if (!value || lines[index + 1] === undefined || lines[index + 1].trim() !== 'asm' || consts.has(value[2]) || value[2] === 'rand' || /^temp\d$/.test(value[2])) {
+      out.push(lines[index]);
+      continue;
+    }
+    const [, temp, operand] = value;
+    let end = index + 2;
+    while (end < lines.length && lines[end].trim() !== 'end') end++;
+    const body = lines.slice(index + 2, end);
+    const load = body.length >= 2 ? body[body.length - 2].trim() : '';
+    const store = body.length >= 2 ? /^sta (DF[0-7]WRITE)$/.exec(body[body.length - 1].trim()) : null;
+    const named = new RegExp(`\\b${temp}\\b`);
+    if (load !== `lda ${temp}` || !store || body.slice(0, -2).some((text) => named.test(text)) || !tempDeadAfter(lines, end + 1, temp)) {
+      out.push(lines[index]);
+      continue;
+    }
+    const indent = /^\s*/.exec(body[body.length - 2])[0];
+    const direct = isNumber(operand) ? [`${indent}ldx #${operand}`, `${indent}stx ${store[1]}`] : [`${indent}lda ${operand}`, body[body.length - 1]];
+    out.push(lines[index + 1], ...body.slice(0, -2), ...direct, ...(end < lines.length ? [lines[end]] : []));
+    index = end;
+  }
+  return out.join('\n');
+};
 export const mergeAdjacentReads = (code) => {
   const lines = code.split(/\r?\n/);
   const drop = new Set();

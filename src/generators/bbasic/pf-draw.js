@@ -105,9 +105,11 @@ const SEED_OFFSET = 128;
 // project uses take to start.
 const STEP_TIMER_COUNTS = {standard: [5, 4, 4, 8, 4, 5, 7, 10], dpcplus: [7, 4, 4, 8, 4, 5, 5, 11]};
 const startCounts = (config, kinds) => {
-  // (A record of the coprocessor's circle: about 1130 cycles in Bricks, a circle of radius 1 with padding (the start, the call, and the call's time in the
-  // emulator), with the queue moved up after it about 1410 (the profiler by routine): 24 counts; at 9 a frame that had 9 counts left drew five queued circles and was 313 lines.)
-  if (config.kernel === 'dpcplus') return kinds.has('circle') ? 24 : STEP_TIMER_COUNTS.dpcplus[0];
+  // (A record of the coprocessor's circle: about 460 cycles at the most in Bricks of Olympus 0-0-27 (2026-11-24: the read 88, the call 111, the queue moved up
+  // with three waiting 260), 8 counts. It was 24 (about 1130 cycles measured before the queue moved up only the records waiting): Bricks' frames have about 8
+  // counts left at the steps, so a circle was drawn only when the queue overflowed, four brick hits late, and the bricks went where an older hit was. At 9
+  // a frame once drew five queued circles and was 313 lines: one circle a frame at the most, see _pfd_stc.)
+  if (config.kernel === 'dpcplus') return kinds.has('circle') ? 8 : STEP_TIMER_COUNTS.dpcplus[0];
   return [...kinds].every((kind) => kind === 'pixel') ? 4 : STEP_TIMER_COUNTS.standard[0];
 };
 // PXE: the steps of a frame (see _pfd_step). Not measured on a real PXE cartridge: the emulator does not model the coprocessor's speed.
@@ -301,9 +303,12 @@ const buildEngine = (Blockly) => {
         `if ${S.read} >= 32 then goto _pfd_stu`,
         ...header(0),
         'if temp1 = 0 then goto _pfd_stz',
+        // (The coprocessor's circle: one a frame, then the steps are done.)
+        ...(armCircle && has('circle') ? [`temp1 = temp1 / 32`, `if temp1 = ${KIND_NUMBER.circle} then goto _pfd_stc`] : []),
         label('stu'),
         'gosub _pfd_unit',
         'goto _pfd_step',
+        ...(armCircle && has('circle') ? [label('stc'), 'gosub _pfd_unit', 'return'] : []),
         label('stz'),
         set(S, 0),
         ...stagedKeep,

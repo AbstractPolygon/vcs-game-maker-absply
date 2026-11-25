@@ -120,9 +120,11 @@ import {loadImageFromFile, openFileDialog} from '../utils/file';
 import {createResizedCanvas} from '../utils/image';
 import {usePixelTool, useMirrorDraw, useDrawColor} from '../hooks/pixel-tool';
 import {colorByteToCss} from '../utils/palette';
-import {recordReorder} from '../hooks/reorder-history';
+import {isReplaying, recordReorder, recordedJustNow} from '../hooks/reorder-history';
 import {limitPixelHistory} from '../hooks/undo-limit';
 import {resizePixelMatrixHeight} from '../utils/pixels';
+
+const copyMatrix = (matrix) => (matrix || []).map((row) => (row || []).slice());
 
 export default {
   props: {
@@ -242,6 +244,8 @@ export default {
       // from that list is being played back (its steps are not counted again).
       pendingSteps: 0,
       replayingSteps: false,
+      // The picture as the tab's undo list last saw it (after the entry recorded last, a load, or a change from the tab): the "before" of the next entry.
+      committedPixels: null,
       rowMoveRedo: [],
       // See handleStrokeStart/cancelStroke - the state to roll back to if
       // the current drag leaves the canvas, or null while no button is down.
@@ -326,6 +330,8 @@ export default {
     window.addEventListener('mouseup', this.handleWindowMouseUp);
   },
   beforeDestroy() {
+    // (A step not yet put in the tab's list goes in now, while the tab's listeners are still here.)
+    if (this.pendingSteps > 0 && !this.strokeStart) this.recordTabStep();
     unregisterPixelEditor(this);
     window.removeEventListener('mouseup', this.handleWindowMouseUp);
     this.handleWindowDragEnd();
@@ -568,10 +574,15 @@ export default {
       // editor is the source of truth until the stroke ends, and the final
       // post-stroke emit matches it.
       if (this.strokeStart) return;
+      // A change the tab's undo list is playing back, or one the tab recorded itself just now (a pasted frame), is not an edit of this
+      // canvas's history: logged, it was one more entry of the list, which took the place of the Redo and had the next Undo put the
+      // change back.
       if (newValue.length !== this.editor.height) {
         this.initEditor(newValue.length, newValue);
       } else if (!isMatrixEqual(newValue, this.getPixels())) {
-        this.setPixels(newValue);
+        const log = !isReplaying() && !recordedJustNow();
+        this.setPixels(newValue, log);
+        if (!log) this.committedPixels = copyMatrix(newValue);
       }
     },
   },
@@ -1336,20 +1347,32 @@ export default {
         };
       });
     },
+    // An entry also keeps the picture before and after it, and the tab's input listeners: once this canvas is gone (its card collapsed,
+    // the tab left and opened again, the frames shown again) its history went with it, and Undo and Redo put the picture back through
+    // the tab instead (the canvas shown for that frame then, if any, takes it as its value). Before, those entries were dropped, so an
+    // Undo skipped every stroke made before a card was collapsed or the tab was left and took back an older Set height instead.
     scheduleTabStep() {
       if (this.tabStepTimer) return;
-      this.tabStepTimer = setTimeout(() => {
-        this.tabStepTimer = null;
-        if (this.strokeStart) return;
-        const steps = this.pendingSteps;
-        this.pendingSteps = 0;
-        if (steps <= 0 || this._isDestroyed) return;
-        recordReorder({
-          undo: () => this.replaySteps(true, steps),
-          redo: () => this.replaySteps(false, steps),
-          isCurrent: () => !this._isDestroyed && !!this.editor && this.editor.history.undoStack.length >= steps,
-        });
-      }, 0);
+      this.tabStepTimer = setTimeout(() => this.recordTabStep(), 0);
+    },
+    recordTabStep() {
+      if (this.tabStepTimer) clearTimeout(this.tabStepTimer);
+      this.tabStepTimer = null;
+      if (this.strokeStart) return;
+      const steps = this.pendingSteps;
+      this.pendingSteps = 0;
+      if (steps <= 0 || !this.editor) return;
+      const before = this.committedPixels;
+      const after = copyMatrix(this.getPixels());
+      this.committedPixels = after;
+      const listeners = this.$listeners.input;
+      const write = (matrix) => [].concat(listeners || []).forEach((listener) => listener(copyMatrix(matrix)));
+      const live = () => !this._isDestroyed && !!this.editor && this.editor.history.undoStack.length >= steps;
+      recordReorder({
+        undo: () => (live() ? this.replaySteps(true, steps) : write(before)),
+        redo: () => (!this._isDestroyed && this.editor ? this.replaySteps(false, steps) : write(after)),
+        isCurrent: () => live() || (!!listeners && !!before),
+      });
     },
     replaySteps(back, steps) {
       if (this._isDestroyed || !this.editor) return;
@@ -1362,6 +1385,7 @@ export default {
       } finally {
         this.replayingSteps = false;
       }
+      this.committedPixels = copyMatrix(this.getPixels());
     },
 
     undo() {
@@ -1499,14 +1523,20 @@ export default {
               const previousPixels = this.getPixels();
               const previousHeight = this.editor.height;
               this.initEditor(targetHeight, pixels);
+              // (Through the tab once this canvas is gone, see recordTabStep.)
+              const listeners = this.$listeners.input;
               const restore = (height, matrix) => {
+                if (this._isDestroyed || !this.editor) {
+                  [].concat(listeners || []).forEach((listener) => listener(copyMatrix(matrix)));
+                  return;
+                }
                 this.initEditor(height, matrix);
                 this.$emit('input', matrix);
               };
               recordReorder({
                 undo: () => restore(previousHeight, previousPixels),
                 redo: () => restore(targetHeight, pixels),
-                isCurrent: () => !!this.editor && this.editor.height === targetHeight,
+                isCurrent: () => (this._isDestroyed ? !!listeners : !!this.editor && this.editor.height === targetHeight),
               });
             } else {
               this.setPixels(pixels);
@@ -1568,6 +1598,7 @@ export default {
       // an entry it made Undo (once the strokes were undone, or on its own)
       // wipe the whole graphic back to empty.
       this.setPixels(pixelMatrix, false);
+      this.committedPixels = copyMatrix(this.getPixels());
       this.handleMouse();
       // Row count (this.editor.height) is what the grid overlay actually
       // draws against, not the "height" PROP (only ever a construction-time

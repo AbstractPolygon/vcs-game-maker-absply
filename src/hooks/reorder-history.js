@@ -17,20 +17,44 @@ import {getUndoLimit} from './undo-limit';
 // only when it is the most recent thing done on the tab. After one of those edits is undone
 // (settleEdits) the reorders made before it are reachable again.
 
-let undoEntries = [];
-let redoEntries = [];
-let counter = 0;
-let lastEdit = 0;
 const COALESCE_MS = 700;
-const version = ref(0);
 const currentRoute = () => window.location.hash.split('?')[0];
-const route = ref(currentRoute());
-window.addEventListener('hashchange', () => {
-  route.value = currentRoute();
+// The lists and counters are kept on the window, one set for the page: the development server's hot reload makes this module again when
+// it changes, and the components it reloaded then recorded into a new empty list while the toolbars (not reloaded) still undid from the
+// old one, so Undo did nothing until the page was reloaded.
+const state = window.__vcsgmTabUndo || (window.__vcsgmTabUndo = {
+  undoEntries: [], redoEntries: [], counter: 0, lastEdit: 0, version: ref(0), route: ref(currentRoute()), replaying: false, recordedNow: false,
 });
+if (!state.listening) {
+  state.listening = true;
+  window.addEventListener('hashchange', () => {
+    state.route.value = currentRoute();
+  });
+}
+const version = state.version;
+const route = state.route;
 
 const changed = () => {
   version.value++;
+};
+
+// While an Undo or Redo of this list is being played back, and for the rest of that turn of the page's work (the watchers of what it
+// changed run after it): a canvas that sees its picture change then does not take the change as a new edit of its history (see the
+// value watcher of PixelEditor.vue). The same for a change a tab recorded here itself in this turn (a pasted frame, a Set height):
+// it is one step, not one more for each canvas it reached.
+export const isReplaying = () => state.replaying;
+export const recordedJustNow = () => state.recordedNow;
+const markReplaying = () => {
+  state.replaying = true;
+  setTimeout(() => {
+    state.replaying = false;
+  }, 0);
+};
+const markRecorded = () => {
+  state.recordedNow = true;
+  setTimeout(() => {
+    state.recordedNow = false;
+  }, 0);
 };
 
 const available = (entries) => entries.some((entry) => entry.route === route.value);
@@ -46,13 +70,13 @@ const trimTab = (entries, here) => {
 export const canUndoReorder = () => {
   // eslint-disable-next-line no-unused-expressions
   version.value;
-  return available(undoEntries);
+  return available(state.undoEntries);
 };
 
 export const canRedoReorder = () => {
   // eslint-disable-next-line no-unused-expressions
   version.value;
-  return available(redoEntries);
+  return available(state.redoEntries);
 };
 
 /**
@@ -63,41 +87,42 @@ export const canRedoReorder = () => {
  *     moment of each other, merge into one step.
  */
 export const recordReorder = (entry) => {
+  markRecorded();
   const here = currentRoute();
   const now = Date.now();
   // Changes to the same thing that follow each other quickly (painting a run of row colors) are
   // one step: the earlier one keeps its undo and takes the later one's redo.
-  const last = undoEntries[undoEntries.length - 1];
+  const last = state.undoEntries[state.undoEntries.length - 1];
   if (entry.key !== undefined && last && last.route === here && last.key === entry.key &&
       now - last.time < COALESCE_MS) {
     last.redo = entry.redo;
     last.isCurrent = entry.isCurrent;
     last.time = now;
-    last.stamp = ++counter;
-    redoEntries = redoEntries.filter((other) => other.route !== here);
+    last.stamp = ++state.counter;
+    state.redoEntries = state.redoEntries.filter((other) => other.route !== here);
     changed();
     return;
   }
-  undoEntries.push({...entry, route: here, stamp: ++counter, time: now});
-  undoEntries = trimTab(undoEntries, here);
-  redoEntries = redoEntries.filter((other) => other.route !== here);
+  state.undoEntries.push({...entry, route: here, stamp: ++state.counter, time: now});
+  state.undoEntries = trimTab(state.undoEntries, here);
+  state.redoEntries = state.redoEntries.filter((other) => other.route !== here);
   changed();
 };
 
 // Called when something with an undo of its own is edited: it is now the most recent thing, and
 // whatever could have been redone no longer can be.
 export const noteEdit = () => {
-  lastEdit = ++counter;
+  state.lastEdit = ++state.counter;
   const here = currentRoute();
-  if (redoEntries.some((entry) => entry.route === here)) {
-    redoEntries = redoEntries.filter((entry) => entry.route !== here);
+  if (state.redoEntries.some((entry) => entry.route === here)) {
+    state.redoEntries = state.redoEntries.filter((entry) => entry.route !== here);
     changed();
   }
 };
 
 // Called after an edit with an undo of its own has been undone.
 export const settleEdits = () => {
-  lastEdit = 0;
+  state.lastEdit = 0;
 };
 
 const lastFor = (entries, here) => {
@@ -112,16 +137,17 @@ const lastFor = (entries, here) => {
  * @return {boolean} Whether it undid one.
  */
 export const tryUndoReorder = () => {
-  const entry = lastFor(undoEntries, currentRoute());
-  if (!entry || entry.stamp < lastEdit) return false;
-  undoEntries = undoEntries.filter((other) => other !== entry);
+  const entry = lastFor(state.undoEntries, currentRoute());
+  if (!entry || entry.stamp < state.lastEdit) return false;
+  state.undoEntries = state.undoEntries.filter((other) => other !== entry);
   if (!entry.isCurrent()) {
     changed();
     return false;
   }
+  markReplaying();
   entry.undo();
-  redoEntries.push(entry);
-  redoEntries = trimTab(redoEntries, entry.route);
+  state.redoEntries.push(entry);
+  state.redoEntries = trimTab(state.redoEntries, entry.route);
   changed();
   return true;
 };
@@ -131,12 +157,13 @@ export const tryUndoReorder = () => {
  * @return {boolean} Whether it redid one.
  */
 export const tryRedoReorder = () => {
-  const entry = lastFor(redoEntries, currentRoute());
+  const entry = lastFor(state.redoEntries, currentRoute());
   if (!entry) return false;
-  redoEntries = redoEntries.filter((other) => other !== entry);
+  state.redoEntries = state.redoEntries.filter((other) => other !== entry);
+  markReplaying();
   entry.redo();
-  undoEntries.push(entry);
-  undoEntries = trimTab(undoEntries, entry.route);
+  state.undoEntries.push(entry);
+  state.undoEntries = trimTab(state.undoEntries, entry.route);
   changed();
   return true;
 };
