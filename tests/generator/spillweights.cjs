@@ -18,6 +18,15 @@ const cases = [
   ['gosub inside an if', [' if a then gosub sub1 bank2'], ['sub1', ' v1 = v1 + 1', ' return otherbank'], 25],
   ['a gosub inside a Function', [' c = fn1(a, b)'], [' function fn1', ' gosub sub1', ' return 1', ' end', 'sub1', ' v1 = v1 + 1', ' return thisbank'], 100],
   ['an asm jmp', [' asm', '  jmp .lab1', 'end'], ['lab1', ' v1 = v1 + 1', ' goto main'], 100],
+  // (The body of an If block, which the test jumps over, runs on some of the frames: a quarter, and the code after its end label the full weight again.)
+  ['the body of an If block', [' if a then goto _if_7_end', ' v1 = v1 + 1', '_if_7_end', ' b = 2'], ['unit1', ' b = 3', ' return'], 25],
+  ['a Function called from an If body', [' if a then goto _if_3_end', ' c = fn1(a, b)', '_if_3_end'], [' function fn1', ' gosub sub1', ' return 1', ' end', 'sub1', ' v1 = v1 + 1', ' return thisbank'], 25],
+  // (The end label after a subroutine's return is not a way into the next one.)
+  ['a subroutine after the end label of another', [' if a then gosub sub1'], ['sub0', ' b = 1', ' return', 'sub0__end', 'sub1', ' v1 = v1 + 1', ' return', 'sub1__end'], 25],
+  // (One label of an on ... goto list runs each time.)
+  ['a label of an on goto list', [' on a goto lab1 lab2 lab3 lab4'], ['lab1', ' b = 1', ' goto main', 'lab2', ' v1 = v1 + 1', ' goto main', 'lab3', ' goto main', 'lab4', ' goto main'], 25],
+  // (A sprite pool's step counts as every frame code, even from an event: a spawn's frame is the longest one.)
+  ['a pool step called from an if', [' if a then gosub _poolstep_1_2_for_body'], ['_poolstep_1_2_for_body', ' v1 = v1 + 1', ' return'], 100],
 ];
 (async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spillweights-'));
