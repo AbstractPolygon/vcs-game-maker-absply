@@ -218,9 +218,12 @@ const selfScratch = (shape) => !!shape && shape.type === 'set' && SCRATCH.includ
 // Which of the names can be spilled, and how many lines each is used in.
 // How often a line runs, as a weight for the uses of a name in it: the code of the main loop and of what it calls on every pass counts for more than the code
 // of the events that run once, because a use of a spilled name costs its cycles on each run. The first label of a section decides (the code has no other marks):
-// the labels in the two lists below, the others keep what the section before them had.
+// the labels in the two lists below, the others keep what the section before them had. The exchanges and steps of a sprite pool (and the body
+// they call) count as every frame code even when an event that seldom happens calls them: a spawn makes the frame it is in the longest one (measured
+// on Bricks of Olympus 0-0-25: with the spawn's animation and color bytes in the display memory, 30 per cent more lines past the frame end, though
+// the frames on average had fewer display memory reads).
 const HOT_WEIGHT = 100;
-const HOT_LABELS = /^(main|commongamelogic|_fire_checks|_seek_checks|_lock_checks|_inertia_checks|_platformer_checks|_sprite_box_checks|_pfbox_|_run_once_edge_reset|_poolanim|_bouncestage|_bouncepix|_missilefire|_gravity_checks)/;
+const HOT_LABELS = /^(main|commongamelogic|_fire_checks|_seek_checks|_lock_checks|_inertia_checks|_platformer_checks|_sprite_box_checks|_pfbox_|_run_once_edge_reset|_poolanim|_poolswap_|_poolstep_|_bouncestage|_bouncepix|_missilefire|_gravity_checks)/;
 const COLD_LABELS = /^(_program_setup|system_start|title_|gameover_|gameplay_start|_dpc_score_font|resetGameVars|_background_load|_background_rainbow_restore|__dpcplus|fullgameloop|_titlestep)/;
 // Bytes that hold a value only around a rare event, wherever their code sits: a Function's arguments and result (set at a call, read in its body),
 // and where Find playfield pixel found a pixel (a hit). The section weights above take their code in the main loop for code that runs every frame,
@@ -244,28 +247,76 @@ const isSectionLabel = (line, kind, asm) => isCodeLine(kind, asm) && /^[A-Za-z_]
 const REACH = /\b(?:gosub|goto)\s+([A-Za-z_]\w*)/g;
 const ASM_REACH = /^\s*(?:jmp|jsr)\s+\.?([A-Za-z_]\w*)/;
 const FUNCTION_START = /^\s*function\s+([A-Za-z_]\w*)/;
+// An on ... goto (or gosub) list: one of its labels is reached each time the line runs, so each takes a share of the line's weight, and the line
+// after an on ... goto is not fallen into. (Before, only the first label of the list was seen as reached: the others kept the weight of the code
+// before them, so the copies of a player in a playfield box test, one of which runs, counted as all running.)
+const ON_JUMP = /^on\s+.+?\s+(goto|gosub)\s+([A-Za-z_]\w*(?:\s+[A-Za-z_]\w*)*)\s*$/;
+// The labels the blocks of the project jump to over their bodies (If, Every N frames, Run once, a scene test). Not the ones of the routines the
+// generator writes itself: those mostly jump over the rest when there is nothing to do (the text blink, the platformer checks when the player did not
+// move), and the lines after the test are the ones that run on most frames (measured on Bricks of Olympus: quartering them sent textBlink, read
+// about 3 times a frame, and collisionOldY0, 2.5, to the display memory).
+const SKIP_LABELS = /^_(if_\d+_(end|else)|frame_every_n_\d+_end|run_once_\d+_end|scene_if_\d+_done)$/;
 const lineWeights = (lines) => {
   const functionNames = new Set(lines.map(({line}) => FUNCTION_START.exec(line)).filter(Boolean).map((match) => match[1]));
   const callsOf = (line) => [...line.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)].map((match) => match[1]).filter((name) => functionNames.has(name));
+  const labelAt = new Map();
+  lines.forEach(({line, kind, asm}, i) => {
+    if (isSectionLabel(line, kind, asm) && !labelAt.has(line)) labelAt.set(line, i);
+  });
   let reached = new Map();
+  // (The labels only an on list reaches: one inside a routine of the list above takes its share, not the routine's weight.)
+  let listedOnly = new Set();
   let weights = [];
   for (let round = 0; round < 6; round++) {
     let weight = 1;
     let fallsIn = true;
-    weights = lines.map(({line, kind, asm}) => {
+    // The ifs that jump forward over the lines after them (the body of an If block, of an every N frames event, of a collision event: the test is
+    // made the other way round, to jump over it) still to reach their label: the lines in between run on some of the passes only, a quarter as the
+    // lines a jump in an if reaches, and the label after them takes back the weight the if had. (Before, the body kept the full weight of the code
+    // around it, so a Function or a subroutine called from an event that seldom happens counted as running on every frame, and the names it used
+    // stayed in the RAM while names read on every frame went to the display memory.)
+    let skips = [];
+    weights = lines.map(({line, kind, asm}, i) => {
       const functionStart = FUNCTION_START.exec(line);
-      if (functionStart && reached.has(functionStart[1])) weight = reached.get(functionStart[1]);
-      else if (isSectionLabel(line, kind, asm)) {
-        if (HOT_LABELS.test(line)) weight = HOT_WEIGHT;
-        else if (COLD_LABELS.test(line)) weight = 1;
+      if (functionStart && reached.has(functionStart[1])) {
+        weight = reached.get(functionStart[1]);
+        skips = [];
+      } else if (isSectionLabel(line, kind, asm)) {
+        const hot = HOT_LABELS.test(line) && !listedOnly.has(line);
+        const cold = !hot && COLD_LABELS.test(line);
+        if (hot) weight = HOT_WEIGHT;
+        else if (cold) weight = 1;
         else if (reached.has(line)) weight = Math.max(fallsIn ? weight : 0, reached.get(line));
+        if (hot || cold) skips = [];
+        else {
+          skips.filter((skip) => skip.at === i).forEach((skip) => {
+            weight = Math.max(weight, skip.weight);
+          });
+          skips = skips.filter((skip) => skip.at > i);
+        }
       }
-      if (isCodeLine(kind, asm)) fallsIn = !/^(goto|return)\b/.test(line.trim());
-      else if (kind === 'block') fallsIn = true;
-      return kind === 'statement' && EVERY_FRAME_LINE.test(line) ? 4 * HOT_WEIGHT : weight;
+      const here = kind === 'statement' && EVERY_FRAME_LINE.test(line) ? 4 * HOT_WEIGHT : weight;
+      if (isCodeLine(kind, asm)) {
+        // (The end label the generator puts after a subroutine's return is not a way in: the next subroutine's label, after it, took the weight
+        // of the one before through it, so a Function called from a seldom event counted as often as the pool step routine the layout put before it.)
+        if (!(fallsIn === false && /__end$/.test(line.trim()))) fallsIn = !/^(goto|return)\b/.test(line.trim());
+        const on = ON_JUMP.exec(line.trim());
+        if (on && on[1] === 'goto') fallsIn = false;
+        const skip = /^if\b.*\bthen\s+goto\s+([A-Za-z_]\w*)\s*$/.exec(line.trim());
+        if (skip && SKIP_LABELS.test(skip[1]) && labelAt.get(skip[1]) > i) {
+          skips.push({at: labelAt.get(skip[1]), weight});
+          weight = Math.max(1, Math.round(weight / 4));
+        }
+      } else if (kind === 'block') fallsIn = true;
+      return here;
     });
     const next = new Map();
-    const reach = (label, share) => next.set(label, Math.max(next.get(label) || 0, share));
+    const listed = new Set();
+    const jumped = new Set();
+    const reach = (label, share, fromList = false) => {
+      next.set(label, Math.max(next.get(label) || 0, share));
+      (fromList ? listed : jumped).add(label);
+    };
     lines.forEach(({line, kind, asm}, i) => {
       if (kind === 'block' && asm) {
         const match = ASM_REACH.exec(line);
@@ -274,11 +325,20 @@ const lineWeights = (lines) => {
       }
       if (!isCodeLine(kind, asm)) return;
       const share = /^if\b/.test(line.trim()) ? Math.max(1, Math.round(weights[i] / 4)) : weights[i];
-      for (const match of line.matchAll(REACH)) reach(match[1], share);
+      const on = ON_JUMP.exec(line.trim());
+      if (on) {
+        const targets = on[2].split(/\s+/);
+        targets.forEach((label) => reach(label, Math.max(1, Math.round(share / targets.length)), true));
+      } else {
+        for (const match of line.matchAll(REACH)) reach(match[1], share);
+      }
       callsOf(line).forEach((name) => reach(name, share));
     });
-    if (next.size === reached.size && [...next].every(([label, value]) => reached.get(label) === value)) break;
+    const nextListedOnly = new Set([...listed].filter((label) => !jumped.has(label)));
+    if (next.size === reached.size && [...next].every(([label, value]) => reached.get(label) === value) &&
+        nextListedOnly.size === listedOnly.size && [...nextListedOnly].every((label) => listedOnly.has(label))) break;
     reached = next;
+    listedOnly = nextListedOnly;
   }
   return weights;
 };
