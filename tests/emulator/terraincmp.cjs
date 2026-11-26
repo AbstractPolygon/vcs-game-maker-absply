@@ -81,6 +81,43 @@ const ROWS = 11;
     depths.push(depth);
   }
   if (over && !gaps) errors.push('overhangs asked for and none found');
+  // With overhangs (the ledge over the void, since 2026-11-20 at least a pixel over the ground; its top sinking toward the tip, 2026-11-23): at every
+  // position at most two runs of pixels, the ground from the edge (at least the least height) and a ledge over a void, and every pixel joined to the
+  // ground through its neighbours (8 ways round): a ledge hangs from the hill it leaves, none floats.
+  if (over) {
+    for (let position = 0; position < length; position++) {
+      const runs = [];
+      for (let k = 0; k < size; k++) {
+        if (at(position, k) && !(k && at(position, k - 1))) runs.push([k, k]);
+        if (at(position, k)) runs[runs.length - 1][1] = k;
+      }
+      if (runs.length > 2) errors.push(`${runs.length} runs of pixels at ${position}`);
+      if (!runs.length || runs[0][0] !== 0) errors.push(`no ground at ${position}`);
+      else if (runs[0][1] + 1 < least) errors.push(`ground ${runs[0][1] + 1} high under a ledge at ${position}`);
+    }
+    const seen = new Set();
+    const queue = [];
+    for (let position = 0; position < length; position++) {
+      if (at(position, 0)) {
+        seen.add(`${position},0`); queue.push([position, 0]);
+      }
+    }
+    while (queue.length) {
+      const [p, k] = queue.pop();
+      for (let dp = -1; dp <= 1; dp++) {
+        for (let dk = -1; dk <= 1; dk++) {
+          const [np, nk] = [p + dp, k + dk];
+          if (np < 0 || np >= length || nk < 0 || nk >= size || seen.has(`${np},${nk}`) || !at(np, nk)) continue;
+          seen.add(`${np},${nk}`); queue.push([np, nk]);
+        }
+      }
+    }
+    for (let position = 0; position < length; position++) {
+      for (let k = 0; k < size; k++) {
+        if (at(position, k) && !seen.has(`${position},${k}`)) errors.push(`pixel ${k} up at ${position} not joined to the ground`);
+      }
+    }
+  }
   // (How smooth it flows: the times the slope turns from up to down or back, steps of 0 left out.)
   let turns = 0;
   let last = 0;

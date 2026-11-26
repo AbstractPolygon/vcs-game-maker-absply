@@ -1,5 +1,6 @@
 // usage: node framecmp.cjs romA romB frames [seed] -> runs two DPC+ ROMs with the same joystick input (a pattern of fire, left, right, up, down from the seed)
-// and compares every frame's picture; prints the first frames that differ and how many differ (PNG=prefix SHOW=frame: that frame of each as a PNG)
+// and compares every frame's picture; prints the first frames that differ and how many differ (PNG=prefix SHOW=frame: that frame of each as a PNG;
+// NORNG=1: DPC+'s random number generator held still)
 const P = require('../lib/paths.cjs');
 const fs = require('fs');
 const ROOT = P.REPO + '';
@@ -16,6 +17,8 @@ const run = async (file, frames, seed) => {
   if (kind === 'pxe') { const C = require(ROOT + 'tools/stellerator/pxe/CartridgePXE.js'); cart = new C(rom, {tvSpec: 'NTSC'}); await cart.init(); ticks = 456; } else { cart = await new CF().createCartridge(rom, cartridgeTypeOf(rom)); if (kind === 'dpc') matchDriverFractionalFetchers(cart, rom); }
   const config = Config.create({tvMode: 0, enableAudio: false, pcmAudio: false, emulatePaddles: false, randomSeed: 1, frameStart: 23, cpuType: CpuFactory.Type.stateMachine});
   const board = new Board(config, cart); let n = 0; const hashes = [];
+  // NORNG=1: DPC+'s random number generator held still (a build whose code moved can make a page-crossing indexed read touch it, see tests/README.md).
+  if (process.env.NORNG && cart._advanceRng) { cart._advanceRng = () => {}; cart._rewindRng = () => {}; }
   board.getVideoOutput().setSurfaceFactory(() => ({buf: new Uint32Array(160 * 400), getBuffer() { return this.buf; }, getWidth() { return 160; }, getHeight() { return 400; }}));
   const J = board.getJoystick0();
   let r = seed * 7919 + 13; const rnd = () => (r = (r * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
