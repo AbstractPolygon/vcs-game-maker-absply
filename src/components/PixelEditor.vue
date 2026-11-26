@@ -1729,7 +1729,8 @@ export default {
       return true;
     },
     // The 'selection-cells' event: Copy ({copy: [[x, y]], left, top}, the tab may set `extra`, kept with the copied pixels), Paste
-    // ({paste: [{x, y, dx, dy}], extra}) and Delete ({clear: [[x, y]]}) tell the tab which cells they took, so it can do the same with
+    // ({paste: [{x, y, dx, dy}], extra}), Delete ({clear: [[x, y]]}) and Flip ({flip: [[x, y, new x, new y]]}, `rows` when the whole
+    // picture turned upside down) tell the tab which cells they took, so it can do the same with
     // what it keeps on them (the Title tab's ball). A tab that changed something sets `changed`: that change is then undone and redone
     // with this edit's step of the picture (the 'move-cells' {undo} and {redo} events, as for a Move).
     reportSelectionCells(payload) {
@@ -1769,6 +1770,12 @@ export default {
       const pixels = this.getPixels().map((row) => [...row].reverse());
       this.setPixels(pixels);
       this.$emit('input', pixels);
+      this.reportSelectionCells({flip: this.wholeFlipCells(pixels, ([x, y], width) => [width - 1 - x, y])});
+    },
+    // Every cell of the picture with where a flip of the whole picture puts it ([x, y, new x, new y]), for the 'selection-cells' event.
+    wholeFlipCells(pixels, target) {
+      const height = pixels.length;
+      return pixels.flatMap((row, y) => row.map((_, x) => [x, y, ...target([x, y], row.length, height)]));
     },
 
     // Reverses the row order top-to-bottom. A caller with per-row colors (rowColors) is told with 'flip-rows' so it can turn them
@@ -1781,6 +1788,7 @@ export default {
       // The whole picture turned upside down: a graphic with a color for each row turns its colors with it (the tab that holds them
       // does it, see "flip-rows").
       this.$emit('flip-rows');
+      this.reportSelectionCells({flip: this.wholeFlipCells(pixels, ([x, y], width, height) => [x, height - 1 - y]), rows: true});
     },
 
     // With a selection, flips only the selected pixels, within the box that surrounds the selection, and
@@ -1811,6 +1819,7 @@ export default {
       this.setPixels(pixels);
       this.selection = flipped;
       this.$emit('input', pixels);
+      this.reportSelectionCells({flip: cells.map((cell) => [...cell, ...target(cell)])});
       return true;
     },
 

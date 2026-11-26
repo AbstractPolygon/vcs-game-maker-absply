@@ -44,7 +44,7 @@ import {DEFAULT_ROW_COLOR, DEFAULT_BK_ROW_COLOR, processBackgroundStorageDefault
 import {buildGroupRowsLoad, GROUP_ROWS_TABLE, ensureArmProgram, resolveFireBatch} from './bbasic/offset-arm';
 import {narrowSubroutineReturns, SUBROUTINE_END_MARK, subroutineEndLabel} from './bbasic/return-kind';
 import {isSixtyFourK} from '../utils/bank64-returns';
-import {chooseSpill, chooseAllSpillable, applySpill, remainingUses, mergeAdjacentReads, mergeBitWrites, dropRepeatedTests, chainFetcherWrites, directFetcherOperands, displayRamSlotAddress, STACK_AREA} from './bbasic/spill';
+import {chooseSpill, chooseAllSpillable, applySpill, remainingUses, mergeAdjacentReads, mergeBitWrites, dropRepeatedTests, chainFetcherWrites, directFetcherOperands, restStackFetcher, displayRamSlotAddress, STACK_AREA} from './bbasic/spill';
 import {functionCallDiscardVarName, functionCallArgVarName, functionParamVarName,
   MAX_FUNCTION_ARGS, functionCallResultVarName, functionCallsOfStatement} from '../blocks/function';
 import {dataTableSymbolName, processDataTablesStorageDefaults} from '../blocks/data';
@@ -10351,8 +10351,11 @@ Blockly.BBasic.workspaceToCodeAllPasses = function(workspace) {
     if (!left.length) {
       if (typeof code !== 'string') return code;
       const tested = dropRepeatedTests(code);
-      return !isPxe(useConfigurationStorage().value || {}) ?
-        directFetcherOperands(chainFetcherWrites(mergeAdjacentReads(superchipOn(useConfigurationStorage().value || {}) ? tested : mergeBitWrites(tested)))) : tested;
+      const config = useConfigurationStorage().value || {};
+      if (isPxe(config)) return tested;
+      const fetched = directFetcherOperands(chainFetcherWrites(mergeAdjacentReads(superchipOn(config) ? tested : mergeBitWrites(tested))));
+      // (DPC+: the display memory byte used most read and written through the stack's fetcher, which stays on it, see restStackFetcher.)
+      return config.kernel === 'dpcplus' ? restStackFetcher(fetched) : fetched;
     }
     left.forEach((name) => this.displayRamExcluded.add(name));
   }

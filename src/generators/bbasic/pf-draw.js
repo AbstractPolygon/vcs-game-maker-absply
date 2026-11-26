@@ -586,7 +586,11 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         'if temp5 >= temp1 then goto _pfd_u3xt',
         `temp6 = ${depth.read} + temp2`,
         'temp3 = temp1 - temp5',
-        'if temp3 > temp6 then temp1 = temp3',
+        // (Where the ground under it leaves no room for all of it, it sinks as far as there is room: a tip left at the full height would float, away from
+        // the sunk ledge next to it.)
+        'temp6 = temp6 + 1',
+        'if temp3 < temp6 then temp3 = temp6',
+        'if temp3 < temp1 then temp1 = temp3',
         label('u3xt'),
         `if ${pixel.read} >= temp1 then goto _pfd_u3n`,
         'temp2 = temp1 - temp2',
@@ -733,6 +737,14 @@ and #3`, least: 'temp2', most: 'temp3', rough: 'temp4', packed: 'temp5', seed: '
         // up there at the end (see _pfd_u3r). The high bits of over are the length less 1 (2 or more: to the left).
         label('u3lo'),
         `if ${depth.read} >= ${most.read} then goto _pfd_u3v`,
+        // (Not where its end, where the ground goes up to the ledge, is past the last position: the ledge would hang from nothing on the screen.)
+        `temp1 = ${pos.read} + temp4`,
+        `if ${S.read}{1} then goto _pfd_u3le`,
+        `if temp1 > ${maxColumn} then goto _pfd_u3v`,
+        'goto _pfd_u3lf',
+        label('u3le'),
+        `if temp1 > ${maxRow} then goto _pfd_u3v`,
+        label('u3lf'),
         `temp1 = ${depth.read} / 16`,
         'temp1 = temp1 + temp4',
         `temp2 = ${depth.read} / 8`,

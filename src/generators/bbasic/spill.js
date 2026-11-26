@@ -969,3 +969,111 @@ export const mergeAdjacentReads = (code) => {
   }
   return drop.size ? lines.filter((line, i) => !drop.has(i)).join('\n') : code;
 };
+
+// DPC+: data fetcher 7 is the bB stack of push and pull, which nothing else moves (the kernel uses fetcher 7's fractional fetcher, a separate pointer, see
+// DPCplus_kernel.asm and DPCstartup.asm). In a program without push, pull and stack it is set once, at the start, on the display memory byte whose
+// accesses it makes the most bytes smaller, and stays there (the user, 2026-11-25: put the DPC+ stack to more use): a read with a load is the load
+// from DF7DATA (the pointer moves on) and a store of the same register to DF7PUSH (the pointer moves back, the byte written as it was; the flags of the
+// load are kept), a read that is changed and written back (the pointer set again between them) the load, the change and a store to DF7PUSH, and a
+// write a store to DF7WRITE and the same store to DF7PUSH. The four lines that set the pointer (10 bytes, 12 cycles) and the stack saves of A and the
+// flags around them are left out. A read with another instruction (cmp, adc, ...) keeps fetcher 6. An access whose fetcher 6 is used after it without
+// being set again (the next byte read through it) is left as it is. Not when the program is too small a gain for the 10 bytes of the setting at the start.
+const STACK_WORDS = /^\s*(?:if\b.*\bthen\s+)?(push|pull|stack)\b|:\s*(push|pull|stack)\b|\bDF7(LOW|HI|DATA|WRITE|PUSH)\b/m;
+const SETUP_LOW = /^(\s*)ld([axy]) #<\(([\w+]+)\)\s*$/;
+const STACK_LOAD = /^(\s*)(ld[axy]) DF6DATA\s*$/;
+const STACK_STORE = /^(\s*)(st[axy]) DF6WRITE\s*$/;
+const DF6_SET = /\bDF6LOW\b/;
+const DF6_USE = /\bDF6(DATA|WRITE)\b/;
+export const restStackFetcher = (code) => {
+  if (STACK_WORDS.test(code.split(/\r?\n/).filter((line) => !/^\s*rem\b/.test(line)).join('\n'))) return code;
+  const lines = code.split(/\r?\n/);
+  const t = (at) => (lines[at] === undefined ? '' : lines[at].trim());
+  // The pointer lines of fetcher 6 at line `at`: {address, register}, or null.
+  const setupAt = (at) => {
+    const low = SETUP_LOW.exec(lines[at] || '');
+    if (!low) return null;
+    const r = low[2];
+    if (t(at + 1) !== `st${r} DF6LOW` || t(at + 2) !== `ld${r} #(>(${low[3]})) & $0F` || t(at + 3) !== `st${r} DF6HI`) return null;
+    return {address: low[3], register: r};
+  };
+  // Whether fetcher 6 is set again before it is used, from line `from` on.
+  const setBeforeUse = (from) => {
+    for (let at = from; at < lines.length; at++) {
+      if (DF6_SET.test(lines[at])) return true;
+      if (DF6_USE.test(lines[at])) return false;
+    }
+    return true;
+  };
+  // The rewrite of the access whose pointer lines are at `at` for the byte at `address`: {from, to, lines, saved} (lines from..to replaced), or null.
+  const rewriteAt = (at, address) => {
+    let from = at;
+    let after = at + 4;
+    // (The saves of A, or of the flags and A, around the pointer lines.)
+    const pha = t(at - 1) === 'pha';
+    const php = pha && t(at - 2) === 'php';
+    if (pha) from = php ? at - 2 : at - 1;
+    if (pha && t(after) === 'pla') after++;
+    const load = STACK_LOAD.exec(lines[after] || '');
+    if (load && !(pha && t(at + 4) !== 'pla')) {
+      const r = load[2].slice(2);
+      // A read, a change and the write back, the pointer set again between (setbit, name = name + 1 and the like, see simpleLines in applySpill).
+      for (let k = after + 1; k < lines.length && k < after + 8; k++) {
+        const text = t(k);
+        const reset = /^ldx #<\(([\w+]+)\)$/.exec(text);
+        if (reset && reset[1] === address && t(k + 1) === 'stx DF6LOW') {
+          let write = k + 2;
+          if (t(write) === `ldy #(>(${address})) & $0F` && t(write + 1) === 'sty DF6HI') write += 2;
+          const store = STACK_STORE.exec(lines[write] || '');
+          if (!store || store[2] !== `st${r}` || !setBeforeUse(write + 1)) return null;
+          return {from, to: write, lines: [`${load[1]}${load[2]} DF7DATA`, ...lines.slice(after + 1, k), `${store[1]}${store[2]} DF7PUSH`]};
+        }
+        if (/^\S/.test(lines[k]) || DF6_USE.test(text) || /^(jmp|jsr|rts|b(eq|ne|cc|cs|pl|mi|vc|vs)|end)\b/i.test(text) || /^(ldx|stx|tax|inx|dex)\b/.test(text)) break;
+      }
+      if (!setBeforeUse(after + 1)) return null;
+      return {from, to: after, lines: [`${load[1]}${load[2]} DF7DATA`, `${load[1]}st${r} DF7PUSH`]};
+    }
+    // A write: right after the pointer lines, after one load of a number or a plain byte, or (stx, sty) with A and the flags kept around it.
+    let store = STACK_STORE.exec(lines[after] || '');
+    let between = [];
+    if (!store && !pha && /^ld[axy] (#|(?!DF)[A-Za-z_])/.test(t(after)) && STACK_STORE.exec(lines[after + 1] || '')) {
+      between = [lines[after]];
+      store = STACK_STORE.exec(lines[after + 1]);
+      after++;
+    }
+    if (!store) return null;
+    let to = after;
+    if (php && store[2] === 'sta' && t(to + 1) === 'plp') to++;
+    else if (php && store[2] !== 'sta' && t(to + 1) === 'pla' && t(to + 2) === 'plp') to += 2;
+    else if (pha) return null;
+    if (!setBeforeUse(to + 1)) return null;
+    return {from, to, lines: [...between, `${store[1]}${store[2]} DF7WRITE`, `${store[1]}${store[2]} DF7PUSH`]};
+  };
+  // The bytes saved for each address: an access's lines before, less the ones after.
+  const plans = new Map();
+  for (let at = 0; at < lines.length; at++) {
+    const setup = setupAt(at);
+    if (!setup) continue;
+    const rewrite = rewriteAt(at, setup.address);
+    if (!rewrite) continue;
+    const plan = plans.get(setup.address) || {saved: 0, rewrites: []};
+    plan.saved += (rewrite.to - rewrite.from + 1) * 2 - rewrite.lines.length * 2.5;
+    plan.rewrites.push(rewrite);
+    plans.set(setup.address, plan);
+    at = rewrite.to;
+  }
+  const best = [...plans.entries()].sort((a, b) => b[1].saved - a[1].saved)[0];
+  if (!best || best[1].saved < 20) return code;
+  const [address, {rewrites}] = best;
+  const out = [];
+  let next = 0;
+  rewrites.forEach(({from, to, lines: replaced}) => {
+    out.push(...lines.slice(next, from), ...replaced);
+    next = to + 1;
+  });
+  out.push(...lines.slice(next));
+  // The setting at the start, in front of the first line that runs (after the set, dim, const and def lines). (X: DPC+'s fast fetch never changes an ldx.)
+  const first = out.findIndex((line) => line.trim() !== '' && !/^\s*(set|dim|const|def|rem|includesfile|include|inline)\b/.test(line));
+  if (first < 0) return code;
+  out.splice(first, 0, ' asm', `  ldx #<(${address})`, '  stx DF7LOW', `  ldx #(>(${address})) & $0F`, '  stx DF7HI', 'end');
+  return out.join('\n');
+};

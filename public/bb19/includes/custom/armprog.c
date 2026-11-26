@@ -344,7 +344,15 @@ static void terrain(volatile b8 *p)
         t4=t3>=2?t3-(over&15):(over&15);
         t2=(ledge>>4)+1+t4;
         t4=((6-t4)>>1)+((seed>>5)&1);
-        if (t4<t1&&t1-t4>depth+t2) t1-=t4;
+        // (Where the ground under it leaves no room for all of it, it sinks as far as there is room: a tip left at the full height would float, away from the
+        // sunk ledge next to it.)
+        // (t1, the ledge, is more than 3 and t4 at most 4: no wrap.)
+        t3=depth+t2;
+        if (t1>t3+1)
+        {
+          t1-=t4;
+          if (t1<=t3) t1=t3+1;
+        }
         if (pixel>=t1) break;
         if (t2<t1&&pixel<t1-t2) pixel=t1-t2;
       }
@@ -396,7 +404,6 @@ static void terrain(volatile b8 *p)
     if (t5>t6) goto k;
   mv:
     t1=caves>>4;
-    if (t1==0) t1=1;
     t2=(seed>>2)&3;
     if (t2==1) t1>>=1;
     if (t2==0) t1=1;
@@ -446,7 +453,8 @@ static void terrain(volatile b8 *p)
     // The ground drops under the ledge by more than the ledge is thick (see the overhang start in pf-draw.js), so a void shows under it. Where the ground is rising,
     // an overhang to the left: the ground stays low for the length of it, under a ledge at the height it goes up to (thin at its tip, thicker toward the hill), and
     // goes up there at the end (see r).
-    if (deeper?depth>=most:depth<=least) goto v;
+    // (Not one to the left whose end, where the ground goes up to the ledge, is past the last position: it would hang from nothing on the screen.)
+    if (deeper?depth>=most||pos+t4>last:depth<=least) goto v;
     t1=(depth>>4)+t4;
     t2=(depth>>3)+t1+2;
     t3=deeper?most-depth:depth-least;

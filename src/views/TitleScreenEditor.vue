@@ -1703,7 +1703,9 @@ export default defineComponent({
     // Copy, Cut, Paste and Delete of a marquee take the ball along too (PixelEditor.vue's 'selection-cells' event; the user, 2026-11-25):
     // a copy keeps, for every selected cell, whether the ball is on it, and the ball colors of the rows it is on; a paste puts that back on
     // the cells the picture went to (a ball cell or none, as the picture's pixels; a frame without a ball gets one) with those colors, and
-    // a Delete (or Cut) clears the ball's cells in the selection. Undo and Redo go with the picture's step (as a Move's, see handleMoveBall).
+    // a Delete (or Cut) clears the ball's cells in the selection, and a Flip (of the selection or the whole picture; asked 2026-11-25) puts
+    // the ball's cells where the picture's went, the ball colors of their rows going with them (the whole picture upside down: every row's).
+    // Undo and Redo go with the picture's step (as a Move's, see handleMoveBall).
     const handleBallCells = (frame, cells) => {
       const ballOn = (x, y) => !!(frame.ballPixels && frame.ballPixels[y] && frame.ballPixels[y][x]);
       if (cells.copy) {
@@ -1718,7 +1720,7 @@ export default defineComponent({
       }
       const ball = cells.paste ? cells.extra && cells.extra.ball : null;
       if (cells.paste && !ball) return;
-      if (cells.clear && !frame.ballPixels) return;
+      if ((cells.clear || cells.flip) && !frame.ballPixels) return;
       const height = (frame.pixels && frame.pixels.length) || 1;
       const width = Math.max(48, ...(frame.pixels || []).map((row) => (row || []).length));
       const before = {pixels: frame.ballPixels ? frame.ballPixels.map((row) => (row || []).slice()) : null,
@@ -1730,6 +1732,25 @@ export default defineComponent({
         cells.clear.forEach(([x, y]) => {
           if (next[y]) next[y][x] = 0;
         });
+      } else if (cells.flip) {
+        const inside = ([x, y]) => !!next[y] && x >= 0 && x < next[y].length;
+        cells.flip.forEach(([x, y]) => {
+          if (inside([x, y])) next[y][x] = 0;
+        });
+        const moved = before.colors && !cells.rows ? before.colors.slice() : null;
+        cells.flip.forEach(([x, y, nx, ny]) => {
+          if (!inside([x, y]) || !inside([nx, ny]) || !start[y][x]) return;
+          next[ny][nx] = 1;
+          if (moved && ny !== y && before.colors[y] !== undefined) {
+            while (moved.length <= ny) moved.push(null);
+            moved[ny] = before.colors[y];
+          }
+        });
+        if (cells.rows && before.colors) {
+          colors = Array.from({length: height}, (_, y) => (before.colors[height - 1 - y] === undefined ? null : before.colors[height - 1 - y]));
+        } else if (moved) {
+          colors = moved;
+        }
       } else {
         const on = new Set(ball.on);
         cells.paste.forEach(({x, y, dx, dy}) => {
