@@ -1,6 +1,7 @@
 import Vue from 'vue';
 import VueRouter from 'vue-router';
 import Home from '../views/Home.vue';
+import {noteRouteChange} from '../hooks/reorder-history';
 
 Vue.use(VueRouter);
 
@@ -89,5 +90,8 @@ const routes = [
 const router = new VueRouter({
   routes,
 });
+
+// The tab's undo list follows the tab shown (see hooks/reorder-history.js).
+router.afterEach((to) => noteRouteChange(to.path));
 
 export default router;

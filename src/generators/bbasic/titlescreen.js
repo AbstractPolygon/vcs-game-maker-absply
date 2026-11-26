@@ -14,7 +14,7 @@ import {MAX_KERNEL_COPIES_PER_TYPE,
 } from '../../blocks/titlescreen';
 import {useTitleScreenStorage, usePlayerAnimationsStorage,
   useConfigurationStorage, appendCompileLog} from '../../hooks/project';
-import {processPlayerAnimationsStorageDefaults, ctrlpfShadowVarName} from './sprites';
+import {processPlayerAnimationsStorageDefaults, ctrlpfShadowVarName, hiddenSpriteY} from './sprites';
 import {clampFrameDuration} from '../../utils/duration';
 import {isSingleHeight} from '../../utils/sprite-lines';
 import {flagPoolVar, flagPoolBit} from './flag-pool';
@@ -2082,14 +2082,16 @@ export default (Blockly) => {
     return `${titleBgOverrideVar()}{${titleBgOverrideBit()}} = 0\n`;
   };
 
-  // Stops the kernel and goes back to the top of Title screen update, which from then on draws the
-  // regular game screen (see generateGameLoopEvent). The documentation asks for the missile
-  // heights to be zeroed when leaving the Titlescreen Kernel, which uses the missile registers.
   // Its blocks are made in the Title Screen loop (see generateGameLoopEvent): nothing here.
   Blockly.BBasic['titlescreen_while_showing'] = function() {
     return 'rem "While title screen is showing": its blocks run in the Title Screen loop\n';
   };
 
+  // Stops the kernel and goes back to the top of Title screen update, which from then on draws the
+  // regular game screen (see generateGameLoopEvent). The 48x2 kernels keep colors in missile0y while they draw, so both missiles
+  // go below the screen (as the players do), at the y of a hidden sprite. Their heights stay as they are: they were set to 0
+  // here before, and on DPC+ and PXE a missile of height 0 is not drawn, so no missile fired after the title showed
+  // (Blammo_0-0-1, 2026-11-25; only the program's setup gives them a height).
   Blockly.BBasic['titlescreen_end'] = function(block) {
     if (!Blockly.BBasic.titleEndUsed) return 'rem No title screen kernel to end\n';
     if (Blockly.BBasic.currentEventName !== 'title_update') {
@@ -2100,8 +2102,8 @@ export default (Blockly) => {
     const shadowVar = Blockly.BBasic.ctrlpfShadowUsed ? Blockly.BBasic.nameDB_.getName(
         ctrlpfShadowVarName(), Blockly.Names.DEVELOPER_VARIABLE_TYPE) : null;
     return `${titleKernelEndedVar()}{${titleKernelEndedBit()}} = 1\n` +
-      'missile0height = 0\n' +
-      'missile1height = 0\n' +
+      `missile0y = ${hiddenSpriteY()}\n` +
+      `missile1y = ${hiddenSpriteY()}\n` +
       (shadowVar ? `CTRLPF = ${shadowVar}\n` : '') +
       // (Every player below the screen: see titleEndPlayerLines in generators/bbasic.js.)
       Blockly.BBasic.titleEndPlayerLines().map((line) => `${line}\n`).join('') +

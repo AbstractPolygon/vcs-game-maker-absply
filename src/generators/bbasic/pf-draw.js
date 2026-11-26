@@ -296,7 +296,8 @@ const buildEngine = (Blockly) => {
     const stagedKeep = armCircle && has('circle') ? [...store.read(records, 0, 'temp1'), `if temp1 then ${S.write} = 2`] : [];
     add(label('step'),
         ...stagedLines,
-        ...(speed ? [['asm', `lda ${speedName(Blockly)}`, `and #${PFD_SPEED_MAX << speedBase()}`, 'bne ._pfd_sps', '@end'].join('\n')] : []),
+        // (A jmp to the steps of a speed: the step in between is longer than a branch reaches with the DPC+ circle, Blammo_0-0-1.)
+        ...(speed ? [['asm', `lda ${speedName(Blockly)}`, `and #${PFD_SPEED_MAX << speedBase()}`, 'beq _pfd_nsp', 'jmp ._pfd_sps', '@_pfd_nsp', '@end'].join('\n')] : []),
         timeLeft('bcs ._pfd_stgo'),
         'return',
         label('stgo'),

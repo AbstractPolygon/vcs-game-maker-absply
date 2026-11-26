@@ -112,7 +112,7 @@ import {SCORE_LAYOUTS, SCORE_LAYOUT_FLAGS_FAMILY} from './bbasic/score-layout';
 import {rainbowRangeIsConstant, rainbowRangeOf, rainbowTableItems, sameRainbowRange, RAINBOW_PLAYFIELD_ROWS} from './bbasic/rainbow-range';
 import {placeKernelTables} from '../utils/bank-tables';
 import {collisionWhenFamilies, reserveCollisionWhenDevVars} from './bbasic/collision-when';
-import {ANY_SPRITE_NAMES} from './bbasic/collision-names';
+import {firstObjectNames} from './bbasic/collision-names';
 import {overlapTargetsOf, overlapPairsOf, overlapFamilies, overlapSpriteFlagBits, reserveOverlapDevVars, generateOverlapChecks} from './bbasic/sprite-overlap';
 import {prepareTriggers, triggerFamilies, reserveTriggerDevVars} from './bbasic/triggers';
 import {resolveProjectMusic, MUSIC_PLAY_RESET_NAME, MUSIC_PLAY_BY_ID_NAME,
@@ -346,11 +346,9 @@ const RUN_ONCE_EDGE_RESET_NAME = '_run_once_edge_reset';
 // always has all six.
 // The Collided block and the one that runs its blocks when a collision starts are told by the same test (see generators/bbasic/collision-when.js).
 const isCollisionBlock = (block) => block.type === 'collision_get' || block.type === 'collision_when';
-// The pairs of objects a collision block tests: its two objects, or with "Any sprite" as the first one every sprite (see ANY_SPRITE_NAMES in
-// generators/bbasic/collision.js) but the second object itself, with the second.
-const collisionNamePairs = (block) => (block.getFieldValue('VAR0') === 'any' ?
-  ANY_SPRITE_NAMES.filter((name) => name !== block.getFieldValue('VAR1')).map((name) => [name, block.getFieldValue('VAR1')]) :
-  [[block.getFieldValue('VAR0'), block.getFieldValue('VAR1')]]);
+// The pairs of objects a collision block tests: its two objects, or with "Any sprite" or "Player sprites" as the first one each of those (see
+// firstObjectNames in generators/bbasic/collision-names.js) but the second object itself, with the second.
+const collisionNamePairs = (block) => firstObjectNames(block.getFieldValue('VAR0'), block.getFieldValue('VAR1')).map((name) => [name, block.getFieldValue('VAR1')]);
 const scoreDigitsOf = (config) => cycleScoreOn(config) ? 6 : config.scoreDigits;
 // The font the score's digits are drawn with: the Score tab's, or the default one for the debug scores (the remaining cycles, the scanlines).
 const primaryScoreFontOf = (config) => (cycleScoreOn(config) || config.enableScanlinesDebug ? null : config.scoreFont);
@@ -9004,7 +9002,11 @@ Blockly.BBasic.planBackgroundTilemap = function(backgrounds, config, withTileSet
   this.pfTilemapDpcKept = null;
   this.pfRunsKept = null;
   // (Runs: DPC+ only, see below.)
-  const runsOn = !!config && config.kernel === 'dpcplus' && !!config.dpcPlusRuns;
+  // (pfTilesArmOff: the coprocessor program with the part for the runs or the tiles is too big for a bank, see armProgramOf in rom.js: the rows
+  // then, unless a Set playfield tile block needs the tiles.)
+  const armOff = !!this.pfTilesArmOff && config && config.kernel === 'dpcplus';
+  const runsOn = !!config && config.kernel === 'dpcplus' && !!config.dpcPlusRuns && !armOff;
+  if (armOff && !withTileSet) return null;
   if (!config || isPxe(config) || !(config.dpcPlusTilemap || runsOn) || this.backgroundScrollOverflowBackgrounds.length > 0) return null;
   if (config.kernel !== 'dpcplus') {
     // The standard kernel (see planStandardTilemap): the rows each background's load fills (as the "playfield:" statement), and the tiles only
@@ -10191,6 +10193,8 @@ import background, {backgroundGetPixelDevVarsNeeded,
 import bit from './bbasic/bit';
 import {reservePfDrawVars, pfDrawKindsUsed, pfDrawKindOf, pfDrawStartupLines, PF_DRAW_CONTROL_TYPES, generatePfDrawStep, PFD_TERRAIN_DONE_FAMILY, PFD_SPEED_FAMILY, PFD_SPEED_BITS} from './bbasic/pf-draw';
 import collision from './bbasic/collision';
+import {installCollidingSprite, collidingVariants} from './bbasic/colliding-sprite';
+import {resolveCollidingMarks} from './bbasic/colliding-index';
 import color from './bbasic/color';
 import colour from './bbasic/colour';
 import data, {dataDispatchArg1VarName, dataDispatchArg2VarName,
@@ -10230,6 +10234,8 @@ import {collectChipChannels, createDpcPlusAudioPlan, DPC_AUDIO_SUBROUTINE_NAME, 
 [background, bit, collision, color, colour, data, event, functionGenerators, input, logic, loops, math, music,
   palette, random, score, sound, soundfx, speech, avoxMemory, sprites, spritePool, spriteLock, spriteOverlap, subroutine, text, textMinikernel, titlescreen, triggers, variables]
     .forEach((init) => init(Blockly));
+// (After the generators are in: "Colliding sprite" wraps some of them, see bbasic/colliding-sprite.js.)
+installCollidingSprite(Blockly);
 
 // With the AtariVox off (Options tab, ROM Options) its blocks build to nothing (a value block says 0): see prepareSpeech.
 Object.keys(Blockly.BBasic).filter((name) => /^(speech_|avox_)/.test(name)).forEach((name) => {
@@ -10264,12 +10270,13 @@ Blockly.BBasic.generateOnce = function(workspace) {
   this.spillProbe = false;
   this.tooMany = null;
   try {
-    return generateWithoutUnusedSystemVars.call(this, workspace);
+    // (The choices "Colliding sprite" left in the code, made once its names are known, see bbasic/colliding-index.js.)
+    return resolveCollidingMarks(generateWithoutUnusedSystemVars.call(this, workspace), this.INDENT);
   } catch (error) {
     if (!isTooManyVariables(error)) throw error;
     this.spillProbe = true;
     try {
-      const probeCode = generateWithoutUnusedSystemVars.call(this, workspace);
+      const probeCode = resolveCollidingMarks(generateWithoutUnusedSystemVars.call(this, workspace), this.INDENT);
       this.tooMany = error;
       return probeCode;
     } finally {
@@ -10292,7 +10299,12 @@ Blockly.BBasic.workspaceToCode = function(workspace) {
   wrapped.forEach((name) => {
     workspace[name] = function(...args) {
       const key = `${name}|${args.map((arg) => String(arg)).join('|')}`;
-      if (!answers.has(key)) answers.set(key, Object.getPrototypeOf(this)[name].apply(this, args).filter(inProgram));
+      // (A block with "Colliding sprite" is seen once for each sprite it can stand for, see bbasic/colliding-sprite.js; not by getTopBlocks, whose blocks
+      // are made into code.)
+      if (!answers.has(key)) {
+        const blocks = Object.getPrototypeOf(this)[name].apply(this, args).filter(inProgram);
+        answers.set(key, name === 'getTopBlocks' ? blocks : blocks.flatMap(collidingVariants));
+      }
       return answers.get(key).slice();
     };
   });

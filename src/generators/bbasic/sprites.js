@@ -35,7 +35,7 @@ const rawAsmLines = (lines) => {
 const pfRowDivisorFor = (config) => Math.max(1, Math.round(exactRowDivisorFor(config)));
 import {flagPoolVar, flagPoolBit} from './flag-pool';
 import {PF_BOX_X, PF_BOX_Y, PF_BOX_HIT, callPfBox} from './pf-box-sub';
-import {ANY_SPRITE_NAMES} from './collision-names';
+import {firstObjectNames} from './collision-names';
 import {fadeFlagsVarName, fadeActiveBit, effectiveBackgroundRows} from '../../blocks/background';
 
 // The high byte of the pointers of the noise (memory read as graphics or colors): DPC+ reads the display memory at $04xx; PXE reads a page of
@@ -605,8 +605,7 @@ export const stopGravityBackOutNames = (block) => {
     if (up.type !== 'collision_when') continue;
     const playfieldFirst = up.getFieldValue('VAR0') === 'playfield';
     if (!playfieldFirst && up.getFieldValue('VAR1') !== 'playfield') return [];
-    const sprites = playfieldFirst ? [up.getFieldValue('VAR1')] : up.getFieldValue('VAR0') === 'any' ? ANY_SPRITE_NAMES.filter((name) => name !== 'playfield') :
-      [up.getFieldValue('VAR0')];
+    const sprites = playfieldFirst ? [up.getFieldValue('VAR1')] : firstObjectNames(up.getFieldValue('VAR0'), 'playfield');
     const object = block.getFieldValue('OBJECT');
     return object === 'colliding' ? sprites : sprites.filter((name) => name === object);
   }
@@ -2015,13 +2014,20 @@ export const generateMissileFireChecks = (Blockly) => {
     // 3 pixels, but the program is 720 to 840 bytes and a speed of 1 takes more cycles than the 6502 code; an object that does not check the playfield has about
     // 100 cycles of 6502 code, less than the call, so it is never moved this way). One row height and no scrolling, as for the pixel finding.
     const throttleContinueLabel = `_missilefire_${name}_throttlecontinue`;
-    // Off screen (see below): the lines that stop it.
+    // Off screen (see below): the lines that stop it. It goes to the y of a hidden sprite (y 0 is on the screen on DPC+, where a shot that left
+    // it showed at the top left), and an object with Gravity has its gravity stopped too: still pulled, it fell down the left edge from there and
+    // came round again and again (Blammo_0-0-1, 2026-11-25).
+    const gravityStop = (Blockly.BBasic.objectGravityUsedFor || new Set()).has(name) ? [
+      ` ${Blockly.BBasic.superchipRwPairs[objectGravitySpeedVarName(name)].write} = 0`,
+      ` ${resolveVar(objectGravityFlagsVarName())}{${objectGravityBit(name)}} = 0`,
+    ] : [];
     const edgeLines = (Blockly.BBasic.missileEdgeBounceUsedFor || new Set()).has(name) ? [] : [
       ` if ${name}x < 160 && ${name}y < ${bottomY} then goto ${edgeDoneLabel}`,
       ` ${flagsVar}{${activeBit}} = 0`,
       ...(offscreenUsed.has(name) ? [` ${offscreenVar}{${fireOffscreenBit(name)}} = 1`] : []),
+      ...gravityStop,
       ` ${name}x = 0`,
-      ` ${name}y = 0`,
+      ` ${name}y = ${hiddenSpriteY()}`,
     ];
     if (fireArm) {
       // Moved on the coprocessor with the others that are (see armObjects below): here only whether it moves this frame, and what stops it off screen.

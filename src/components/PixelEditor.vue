@@ -1690,7 +1690,11 @@ export default {
       if (!cells.length) return false;
       const left = Math.min(...cells.map(([x]) => x));
       const top = Math.min(...cells.map(([, y]) => y));
-      setPixelClipboard({x: left, y: top, cells: cells.map(([x, y]) => ({dx: x - left, dy: y - top, on: pixels[y][x] ? 1 : 0}))});
+      // (What else the graphic keeps on those cells goes along: the tab sets `extra`, see the 'selection-cells' event.)
+      const copied = {copy: cells, left, top, extra: undefined};
+      this.$emit('selection-cells', copied);
+      setPixelClipboard({x: left, y: top, cells: cells.map(([x, y]) => ({dx: x - left, dy: y - top, on: pixels[y][x] ? 1 : 0})),
+        extra: copied.extra});
       return true;
     },
     // Ctrl+X: copies the selected cells, then clears them.
@@ -1708,18 +1712,32 @@ export default {
       const pixels = this.getPixels();
       const at = this.hoverCell || {x: pixelClipboard.x, y: pixelClipboard.y};
       const selected = new Set();
+      const placed = [];
       pixelClipboard.cells.forEach(({dx, dy, on}) => {
         const x = at.x + dx;
         const y = at.y + dy;
         if (!pixels[y] || x < 0 || x >= pixels[y].length) return;
         pixels[y][x] = on;
         selected.add(`${x},${y}`);
+        placed.push({x, y, dx, dy});
       });
       if (!selected.size) return false;
       this.setPixels(pixels);
       this.$emit('input', pixels);
       this.selection = selected;
+      this.reportSelectionCells({paste: placed, extra: pixelClipboard.extra});
       return true;
+    },
+    // The 'selection-cells' event: Copy ({copy: [[x, y]], left, top}, the tab may set `extra`, kept with the copied pixels), Paste
+    // ({paste: [{x, y, dx, dy}], extra}) and Delete ({clear: [[x, y]]}) tell the tab which cells they took, so it can do the same with
+    // what it keeps on them (the Title tab's ball). A tab that changed something sets `changed`: that change is then undone and redone
+    // with this edit's step of the picture (the 'move-cells' {undo} and {redo} events, as for a Move).
+    reportSelectionCells(payload) {
+      payload.changed = false;
+      this.$emit('selection-cells', payload);
+      if (!payload.changed || !this.editor) return;
+      this.rowMoveUndo.push({depth: this.editor.history.undoStack.length, rows: [], dy: 0});
+      this.rowMoveRedo = [];
     },
 
     // Turns every currently-selected cell off - a plain pixel-matrix edit
@@ -1730,12 +1748,17 @@ export default {
     deleteSelection() {
       if (!this.selection || !this.selection.size) return;
       const pixels = this.getPixels();
+      const cleared = [];
       this.selection.forEach((key) => {
         const [x, y] = key.split(',').map(Number);
-        if (pixels[y] && x >= 0 && x < pixels[y].length) pixels[y][x] = 0;
+        if (pixels[y] && x >= 0 && x < pixels[y].length) {
+          pixels[y][x] = 0;
+          cleared.push([x, y]);
+        }
       });
       this.setPixels(pixels);
       this.$emit('input', pixels);
+      this.reportSelectionCells({clear: cleared});
     },
 
     // Mirrors the picture (or just the selected pixels, when a marquee is active) left-to-right: a plain

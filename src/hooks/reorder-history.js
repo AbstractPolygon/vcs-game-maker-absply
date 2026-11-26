@@ -57,7 +57,20 @@ const markRecorded = () => {
   }, 0);
 };
 
-const available = (entries) => entries.some((entry) => entry.route === route.value);
+// The tab shown is read from the address each time; route is there for the buttons' disabled state to follow a change of tab. (The router
+// moves between tabs with pushState, which sends no hashchange: route kept the tab the page was loaded on, so the Undo of every other tab
+// found nothing to undo. noteRouteChange is called by the router after each change, see router/index.js.)
+const available = (entries) => {
+  // eslint-disable-next-line no-unused-expressions
+  route.value;
+  const here = currentRoute();
+  return entries.some((entry) => entry.route === here);
+};
+
+// Called by the router after it shows another tab (path: the route's path, as in the address after the #).
+export const noteRouteChange = (path) => {
+  route.value = '#' + path;
+};
 
 // A tab remembers at most the app's number of steps back (see hooks/undo-limit.js): the oldest of its entries go first.
 const trimTab = (entries, here) => {

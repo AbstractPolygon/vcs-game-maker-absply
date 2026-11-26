@@ -5,7 +5,7 @@
 // do there). Like the terrain's "When playfield terrain is done" it is a block with a body that stands in code that runs every frame (an event, or loose in the
 // workspace, where gameplay code runs every frame).
 //
-// With "Any sprite" as the first object the block is worked out for each sprite (see ANY_SPRITE_NAMES), a bit for each, and the blocks inside are made once
+// With "Any sprite" or "Player sprites" as the first object the block is worked out for each sprite (see ANY_SPRITE_NAMES), a bit for each, and the blocks inside are made once
 // for each sprite, so that "Colliding sprite" in a block inside (the Start / Stop gravity block) is the sprite whose collision started.
 //
 // Each block keeps a bit for each sprite it tells apart: whether the sprites collided when it was last run. The bits of blocks fill bytes (see flag-pool.js).
@@ -13,38 +13,57 @@
 
 import {flagPoolVar, flagPoolBit} from './flag-pool';
 import {invertCondition} from './logic';
-import {ANY_SPRITE_NAMES} from './collision-names';
+import {firstObjectNames} from './collision-names';
 
 const BITS_PER_BYTE = 8;
 export const collisionWhenFamily = (index) => `collisionWhenFlags${index}`;
 
-// The sprites a block tells apart: the sprite it names, or with "Any sprite" every sprite but the second object.
-export const collisionWhenNames = (block) => (block.getFieldValue('VAR0') === 'any' ?
-  ANY_SPRITE_NAMES.filter((name) => name !== block.getFieldValue('VAR1')) : [block.getFieldValue('VAR0')]);
+// The sprites a block tells apart: the sprite it names, or with "Any sprite" or "Player sprites" each of those but the second object.
+export const collisionWhenNames = (block) => firstObjectNames(block.getFieldValue('VAR0'), block.getFieldValue('VAR1'));
 
-// Where each block's bits are: [{family, bits}] in the order of the blocks (the bits of a block stay in one byte).
+// Where each block's bits are: [{family, bits, pend}] in the order of the blocks (the bits of a group stay in one byte). A block of more than one sprite
+// also has a bit for each sprite whose collision started this frame, the blocks inside not yet run for it (pend: {family, bits}, else null; see
+// collisionWhenSharedCode).
 export const collisionWhenSlots = (blocks) => {
   let family = 0;
   let used = 0;
-  return blocks.map((block) => {
-    const need = collisionWhenNames(block).length;
+  const take = (need) => {
     if (used + need > BITS_PER_BYTE) {
       family++;
       used = 0;
     }
-    const slot = {family: collisionWhenFamily(family), bits: Array.from({length: need}, (_, i) => used + i)};
+    const group = {family: collisionWhenFamily(family), bits: Array.from({length: need}, (_, i) => used + i)};
     used += need;
-    return slot;
+    return group;
+  };
+  return blocks.map((block) => {
+    const need = collisionWhenNames(block).length;
+    const slot = take(need);
+    return {...slot, pend: need > 1 ? take(need) : null};
   });
 };
 
 // The families the plan needs for these blocks: [{family, bits}].
-export const collisionWhenFamilies = (blocks) => collisionWhenSlots(blocks).reduce((families, slot) => {
-  let entry = families.find((candidate) => candidate.family === slot.family);
-  if (!entry) families.push(entry = {family: slot.family, bits: []});
-  entry.bits.push(...slot.bits);
-  return families;
-}, []);
+export const collisionWhenFamilies = (blocks) => collisionWhenSlots(blocks).flatMap((slot) => [slot, ...(slot.pend ? [slot.pend] : [])])
+    .reduce((families, group) => {
+      let entry = families.find((candidate) => candidate.family === group.family);
+      if (!entry) families.push(entry = {family: group.family, bits: []});
+      entry.bits.push(...group.bits);
+      return families;
+    }, []);
+
+// A bit of a group, as batari Basic names it.
+const bitRef = (Blockly, group, part) =>
+  `${Blockly.BBasic.nameDB_.getName(flagPoolVar(group.family), Blockly.Names.DEVELOPER_VARIABLE_TYPE)}{${flagPoolBit(group.family, group.bits[part])}}`;
+const slotOf = (Blockly, block) => {
+  const index = (Blockly.BBasic.collisionWhenBlocks || []).findIndex((candidate) => candidate.id === block.id);
+  return index < 0 ? null : collisionWhenSlots(Blockly.BBasic.collisionWhenBlocks)[index];
+};
+// The pending bits of a block of more than one sprite, in the order of its sprites (see collisionWhenSharedCode), or null.
+export const collisionWhenPendRefs = (Blockly, block) => {
+  const slot = slotOf(Blockly, block);
+  return slot && slot.pend ? slot.pend.bits.map((_, part) => bitRef(Blockly, slot.pend, part)) : null;
+};
 
 export const reserveCollisionWhenDevVars = (reserveDevVar, blocks) => {
   collisionWhenFamilies(blocks).forEach(({family}) => {
@@ -56,11 +75,9 @@ export const reserveCollisionWhenDevVars = (reserveDevVar, blocks) => {
 // is jumped on the way the If block does it (see controls_if in logic.js): the opposite of the condition when there is one (a chain of tests joined by ||
 // has none that batari Basic takes in the other form past three tests), else "then goto ... else goto ...".
 export const collisionWhenCode = (Blockly, block, part, collided, body) => {
-  const index = (Blockly.BBasic.collisionWhenBlocks || []).findIndex((candidate) => candidate.id === block.id);
-  if (index < 0) return '';
-  const slot = collisionWhenSlots(Blockly.BBasic.collisionWhenBlocks)[index];
-  const name = Blockly.BBasic.nameDB_.getName(flagPoolVar(slot.family), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
-  const was = `${name}{${flagPoolBit(slot.family, slot.bits[part])}}`;
+  const slot = slotOf(Blockly, block);
+  if (!slot) return '';
+  const was = bitRef(Blockly, slot, part);
   const step = Blockly.BBasic.blockNumbers.next('collwhen');
   const off = `_collwhen_${step}_off`;
   const end = `_collwhen_${step}_end`;
@@ -75,6 +92,30 @@ export const collisionWhenCode = (Blockly, block, part, collided, body) => {
     `@ ${off}`,
     `${was} = 0`,
     `@ ${end}`,
+    '',
+  ].join(String.fromCharCode(10));
+};
+
+// A block of more than one sprite ("Any sprite", "Player sprites"): the blocks inside are made once, not once for each sprite. The test of each sprite only
+// sets its pending bit when its collision starts (the part is that of collisionWhenCode, with the pending bit for the blocks inside); then the blocks inside
+// run once for each pending sprite, lowest first, and its bit is cleared after them. Inside, "Colliding sprite" is the lowest pending sprite (see
+// colliding-sprite.js); the bits stay set through a Wait block inside.
+export const collisionWhenSharedCode = (Blockly, block, tests, body) => {
+  const pend = collisionWhenPendRefs(Blockly, block);
+  if (!pend) return '';
+  const step = Blockly.BBasic.blockNumbers.next('collwhenrun');
+  const loop = `_collwhenrun_${step}_loop`;
+  const run = `_collwhenrun_${step}_run`;
+  const done = `_collwhenrun_${step}_done`;
+  return [
+    ...tests.map(({part, collided}) => collisionWhenCode(Blockly, block, part, collided, `${pend[part]} = 1`)),
+    `@ ${loop}`,
+    ...pend.map((bit) => `if ${bit} then goto ${run}`),
+    `goto ${done}`,
+    `@ ${run}`,
+    body,
+    ...pend.map((bit) => `if ${bit} then ${bit} = 0 : goto ${loop}`),
+    `@ ${done}`,
     '',
   ].join(String.fromCharCode(10));
 };

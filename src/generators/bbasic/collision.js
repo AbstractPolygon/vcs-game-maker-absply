@@ -6,8 +6,10 @@ import {PF_BOX_X, PF_BOX_Y, PF_BOX_HIT, PF_BOX_EXT, pfHitVarName, callPfBox, cal
 import {useConfigurationStorage} from '../../hooks/project';
 import {EXTRA_PLAYER_NAME} from '../../utils/pxe';
 import {pairKey, boxHitRef, isPlayerName} from './sprite-box-width';
-import {collisionWhenCode, collisionWhenNames} from './collision-when';
-import {ANY_SPRITE_NAMES} from './collision-names';
+import {collisionWhenCode, collisionWhenNames, collisionWhenSharedCode, collisionWhenPendRefs} from './collision-when';
+import {collidingSpriteOf, collidingRuns} from './colliding-sprite';
+import {CHOICE_MARK, CHOICE_OR_MARK, CHOICE_END_MARK} from './colliding-index';
+import {firstObjectNames} from './collision-names';
 
 // Names of the hidden bytes each player's collision-check block backs up its
 // pre-move position into (see bbasic.js's pre-scan, which pushes these
@@ -155,10 +157,11 @@ export default (Blockly) => {
     Blockly.BBasic.nameDB_.getName(pfHitVarName(player, feet), Blockly.Names.DEVELOPER_VARIABLE_TYPE);
 
   Blockly.BBasic[`collision_get`] = function(block) {
-    // "Any sprite" as the first object: true when any sprite (but the second object) collides with the second, each pair told as the block tells it.
-    if (block.getFieldValue('VAR0') === 'any') {
+    // "Any sprite" (or "Player sprites") as the first object: true when any of those sprites (but the second object) collides with the second, each pair
+    // told as the block tells it.
+    if (block.getFieldValue('VAR0') === 'any' || block.getFieldValue('VAR0') === 'anyplayer') {
       const second = block.getFieldValue('VAR1');
-      const tests = ANY_SPRITE_NAMES.filter((name) => name !== second).map((name) => {
+      const tests = firstObjectNames(block.getFieldValue('VAR0'), second).map((name) => {
         const pair = {getFieldValue: (field) => (field === 'VAR0' ? name : block.getFieldValue(field))};
         return Blockly.BBasic.collision_get(pair)[0];
       });
@@ -209,17 +212,46 @@ export default (Blockly) => {
 
   // When ... collide: the blocks inside run once, in the frame in which the collision starts (see collision-when.js); the collision itself is told as
   // "Collided" tells it.
-  // With "Any sprite" the code is made for each sprite, and a block inside can name the Colliding sprite (Blockly.BBasic.collidingSprite, see the Start / Stop
-  // gravity block).
+  // With "Any sprite" or "Player sprites" the code is made for each sprite, and a block inside can name the Colliding sprite (Blockly.BBasic.collidingSprite,
+  // see colliding-sprite.js; the other object when the first is the Playfield).
+  // A block of more than one sprite makes the blocks inside once for all of them (see collisionWhenSharedCode; the user, 2026-11-25: "blocks should share
+  // code, not rewrite it for every sprite"): there "Colliding sprite" is told by the pending bits (Blockly.BBasic.collidingShared).
   Blockly.BBasic['collision_when'] = function(block) {
-    const outer = Blockly.BBasic.collidingSprite;
-    const code = collisionWhenNames(block).map((name, part) => {
-      const [collided] = Blockly.BBasic.collision_get({getFieldValue: (field) => (field === 'VAR0' ? name : block.getFieldValue(field))});
-      Blockly.BBasic.collidingSprite = name;
-      const body = Blockly.BBasic.statementToCode(block, 'DO').trim();
-      return collisionWhenCode(Blockly, block, part, collided, body);
-    }).join(String.fromCharCode(10));
-    Blockly.BBasic.collidingSprite = outer;
+    const outer = {sprite: Blockly.BBasic.collidingSprite, shared: Blockly.BBasic.collidingShared};
+    const names = collisionWhenNames(block);
+    const collidedOf = (name) => Blockly.BBasic.collision_get({getFieldValue: (field) => (field === 'VAR0' ? name : block.getFieldValue(field))})[0];
+    const pend = names.length > 1 ? collisionWhenPendRefs(Blockly, block) : null;
+    // (The blocks inside made for each sprite, as before.)
+    const eachSprite = () => {
+      Blockly.BBasic.collidingShared = null;
+      return names.map((name, part) => {
+        Blockly.BBasic.collidingSprite = collidingSpriteOf(block, name);
+        const body = Blockly.BBasic.statementToCode(block, 'DO').trim();
+        return collisionWhenCode(Blockly, block, part, collidedOf(name), body);
+      }).join(String.fromCharCode(10));
+    };
+    let code;
+    try {
+      if (pend) {
+        Blockly.BBasic.collidingSprite = null;
+        const shared = names.map((name, part) => ({sprite: collidingSpriteOf(block, name), pend: pend[part]}));
+        Blockly.BBasic.collidingShared = shared;
+        // (The "Colliding sprite" statements that follow each other look at the pending bits once, see collidingRuns.)
+        const body = collidingRuns(Blockly, shared, Blockly.BBasic.statementToCode(block, 'DO')).trim();
+        code = collisionWhenSharedCode(Blockly, block, names.map((name, part) => ({part, collided: collidedOf(name)})), body);
+        // Blocks inside that are all "Colliding sprite" and cannot be made one code have their code for each sprite either way; then the pending bits and
+        // the loop only add to it (colliding_std: 267 bytes more): both ways go in, between marks, and the finished program keeps the one with fewer
+        // bytes (see resolveCollidingMarks in colliding-index.js).
+        const perSprite = eachSprite();
+        const id = Blockly.BBasic.blockNumbers.next('collwhenchoice');
+        code = [`${CHOICE_MARK}${id}`, code, `${CHOICE_OR_MARK}${id}`, perSprite, `${CHOICE_END_MARK}${id}`, ''].join(String.fromCharCode(10));
+      } else {
+        code = eachSprite();
+      }
+    } finally {
+      Blockly.BBasic.collidingSprite = outer.sprite;
+      Blockly.BBasic.collidingShared = outer.shared;
+    }
     return code;
   };
 

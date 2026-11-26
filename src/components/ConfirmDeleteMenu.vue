@@ -14,7 +14,7 @@
     </template>
 
     <v-card>
-      <v-card-title>{{ title }}</v-card-title>
+      <v-card-title>{{ titleText }}</v-card-title>
       <v-list>
         <v-list-item @click="handleConfirm">
           <v-list-item-icon>
@@ -54,10 +54,12 @@ export default {
   // actually meant for instead.
   inheritAttrs: false,
   props: {
-    // The confirmation question, e.g. "Delete this frame?".
-    title: {type: String, required: true},
+    // The confirmation question, e.g. "Delete this frame?". Either may be a function that gives the text: it is then read here, when
+    // this menu is drawn, and not in the tab's template (a frame's question names the frames selected, and a selection read by the tab
+    // re-rendered the whole tab on each click).
+    title: {type: [String, Function], required: true},
     // Tooltip on the trash-can activator button, e.g. "Delete this frame".
-    activatorTitle: {type: String, required: true},
+    activatorTitle: {type: [String, Function], required: true},
     // Extra class(es) for the activator button, matching whatever per-tab
     // icon-size class its other corner buttons already use (e.g.
     // "titlescreen-icon-btn-size").
@@ -78,7 +80,11 @@ export default {
     // The tooltip names the Delete key when a tab hooks this up to it (it passes `selected`, see above).
     activatorTitleWithKey() {
       const hooked = this.$options.propsData && 'selected' in this.$options.propsData;
-      return hooked ? `${this.activatorTitle} (Delete)` : this.activatorTitle;
+      const text = typeof this.activatorTitle === 'function' ? this.activatorTitle() : this.activatorTitle;
+      return hooked ? `${text} (Delete)` : text;
+    },
+    titleText() {
+      return typeof this.title === 'function' ? this.title() : this.title;
     },
   },
   watch: {

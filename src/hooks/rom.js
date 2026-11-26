@@ -1906,6 +1906,7 @@ const buildRomInner = async () => {
   let titleOverBytes = 0;
   BlocklyBB.displayRamExcludedSeed = null;
   BlocklyBB.pfBoxArmOff = false;
+  BlocklyBB.pfTilesArmOff = false;
 
   // Tracks every bank each unit has already been tried in during THIS
   // build (keyed by "kind:name"), so the fallback below (see its
@@ -2033,8 +2034,16 @@ const buildRomInner = async () => {
       const generateStarted = performance.now();
       let generated = regenerateCode();
       appendCompileLog(`Generating took ${Math.round(performance.now() - generateStarted)}ms.`);
-      // A coprocessor program with the playfield box test that is too big for a bank (it is data alone in a bank): the box tests are done by the 6502.
-      const program = await armProgramOf(generated);
+      // A coprocessor program that is too big for a bank (it is data alone in a bank): first the backgrounds are kept as rows, not as runs or tiles
+      // (those only save bytes; Blammo_0-0-1's runs made its program 4032 bytes), then the box tests are done by the 6502.
+      let program = await armProgramOf(generated);
+      if (program && program.size > ARM_PROGRAM_BANK_ROOM && /[rt]/.test(program.key) && !BlocklyBB.pfTilesArmOff) {
+        BlocklyBB.pfTilesArmOff = true;
+        appendCompileLog(`The coprocessor program (${program.size} bytes) is too big for a bank: the backgrounds are loaded as rows, not as ` +
+          `${program.key.includes('r') ? 'runs' : 'tiles'}.`);
+        generated = regenerateCode();
+        program = await armProgramOf(generated);
+      }
       if (program && program.size > ARM_PROGRAM_BANK_ROOM && program.key.includes('b') && !BlocklyBB.pfBoxArmOff) {
         BlocklyBB.pfBoxArmOff = true;
         appendCompileLog(`The coprocessor program (${program.size} bytes) is too big for a bank: the playfield box tests are done by the 6502.`);

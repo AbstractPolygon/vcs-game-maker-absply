@@ -366,6 +366,11 @@ const playerNameFromField = (block) => {
 // above - every combined Missile block's  message0 already has a
 // static "Missile" word right before this dropdown.
 const MISSILE_OPTIONS = [['0', '0'], ['1', '1']];
+// "Colliding sprite" at the end of a block's sprite dropdown (the first choice stays the one a new block has): inside a When ... collide block, the
+// sprite whose collision started (see generators/bbasic/colliding-sprite.js; outside one the block does nothing). The players' and missiles' dropdowns
+// name them by number, the objects' by name.
+const withColliding = (options) => () => [...(typeof options === 'function' ? options() : options), ['colliding sprite', 'colliding']];
+const withCollidingObjects = (options) => () => [...(typeof options === 'function' ? options() : options), [PLAYER_ICON + ' Colliding sprite', 'colliding']];
 // The Fire block covers both missiles and the ball in one dropdown (the field is still called
 // MISSILE, as it was when the block only did missiles, so saved projects keep loading).
 const FIRE_OBJECT_OPTIONS = [['Missile 0', '0'], ['Missile 1', '1'], ['Ball', 'ball']];
@@ -581,7 +586,7 @@ const buildCombinedPlayerVarBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'PLAYER',
-          'options': PLAYER_DROPDOWN_OPTIONS,
+          'options': withColliding(PLAYER_DROPDOWN_OPTIONS),
         },
         {
           'type': 'field_dropdown',
@@ -634,7 +639,7 @@ const buildCombinedPlayerVarBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'PLAYER',
-          'options': PLAYER_DROPDOWN_OPTIONS,
+          'options': withColliding(PLAYER_DROPDOWN_OPTIONS),
         },
         {
           'type': 'field_dropdown',
@@ -705,7 +710,7 @@ const buildCombinedPlayerVarBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'PLAYER',
-          'options': PLAYER_DROPDOWN_OPTIONS,
+          'options': withColliding(PLAYER_DROPDOWN_OPTIONS),
         },
         {
           'type': 'field_dropdown',
@@ -880,7 +885,7 @@ const buildCombinedMissileVarBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'MISSILE',
-          'options': MISSILE_OPTIONS,
+          'options': withColliding(MISSILE_OPTIONS),
         },
         {
           'type': 'field_dropdown',
@@ -901,7 +906,7 @@ const buildCombinedMissileVarBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'MISSILE',
-          'options': MISSILE_OPTIONS,
+          'options': withColliding(MISSILE_OPTIONS),
         },
         {
           'type': 'field_dropdown',
@@ -927,7 +932,7 @@ const buildCombinedMissileVarBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'MISSILE',
-          'options': MISSILE_OPTIONS,
+          'options': withColliding(MISSILE_OPTIONS),
         },
         {
           'type': 'field_dropdown',
@@ -1032,7 +1037,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'PLAYER',
-          'options': PLAYER_DROPDOWN_OPTIONS,
+          'options': withColliding(PLAYER_DROPDOWN_OPTIONS),
         },
         {
           'type': 'field_dropdown',
@@ -1053,7 +1058,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'PLAYER',
-          'options': MASK_PLAYER_OPTIONS,
+          'options': withColliding(MASK_PLAYER_OPTIONS),
         },
         {
           'type': 'field_dropdown',
@@ -1074,7 +1079,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'PLAYER',
-          'options': PLAYER_DROPDOWN_OPTIONS,
+          'options': withColliding(PLAYER_DROPDOWN_OPTIONS),
         },
         {
           'type': 'field_dropdown',
@@ -1116,7 +1121,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'PLAYER',
-          'options': PLAYER_DROPDOWN_OPTIONS,
+          'options': withColliding(PLAYER_DROPDOWN_OPTIONS),
         },
         {
           'type': 'input_value',
@@ -1153,7 +1158,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'PLAYER',
-          'options': PLAYER_DROPDOWN_OPTIONS,
+          'options': withColliding(PLAYER_DROPDOWN_OPTIONS),
         },
       ],
       'previousStatement': null,
@@ -1182,7 +1187,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'PLAYER',
-          'options': RAINBOW_PLAYER_OPTIONS,
+          'options': withColliding(RAINBOW_PLAYER_OPTIONS),
         },
         {
           'type': 'input_value',
@@ -1220,7 +1225,7 @@ const buildPlayerBlocks = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'PLAYER',
-          'options': RAINBOW_PLAYER_OPTIONS,
+          'options': withColliding(RAINBOW_PLAYER_OPTIONS),
         },
       ],
       'previousStatement': null,
@@ -1401,7 +1406,7 @@ Blockly.defineBlocksWithJsonArray([
       {
         'type': 'field_dropdown',
         'name': 'OBJECT',
-        'options': SEEK_OBJECT_DROPDOWN_OPTIONS,
+        'options': withCollidingObjects(SEEK_OBJECT_DROPDOWN_OPTIONS),
       },
       {
         'type': 'input_value',
@@ -1499,7 +1504,7 @@ Blockly.defineBlocksWithJsonArray([
       {
         'type': 'field_dropdown',
         'name': 'OBJECT',
-        'options': SEEK_OBJECT_DROPDOWN_OPTIONS,
+        'options': withCollidingObjects(SEEK_OBJECT_DROPDOWN_OPTIONS),
       },
       {
         'type': 'input_value',
@@ -1523,7 +1528,7 @@ Blockly.defineBlocksWithJsonArray([
       {
         'type': 'field_dropdown',
         'name': 'OBJECT',
-        'options': SEEK_OBJECT_DROPDOWN_OPTIONS,
+        'options': withCollidingObjects(SEEK_OBJECT_DROPDOWN_OPTIONS),
       },
     ],
     'output': 'Boolean',
@@ -1562,7 +1567,7 @@ Blockly.defineBlocksWithJsonArray([
       {
         'type': 'field_dropdown',
         'name': 'OBJECT',
-        'options': SEEK_OBJECT_DROPDOWN_OPTIONS,
+        'options': withCollidingObjects(SEEK_OBJECT_DROPDOWN_OPTIONS),
       },
       // Forces ACTION/OBJECT above onto a separate input instead of being
       // swept into DIRECTION's - Blockly's JSON interpolation attaches any
@@ -1640,7 +1645,7 @@ Blockly.defineBlocksWithJsonArray([
       {
         'type': 'field_dropdown',
         'name': 'OBJECT',
-        'options': SEEK_OBJECT_DROPDOWN_OPTIONS,
+        'options': withCollidingObjects(SEEK_OBJECT_DROPDOWN_OPTIONS),
       },
       {
         'type': 'input_value',
@@ -1678,7 +1683,7 @@ Blockly.defineBlocksWithJsonArray([
       {
         'type': 'field_dropdown',
         'name': 'OBJECT',
-        'options': SEEK_OBJECT_DROPDOWN_OPTIONS,
+        'options': withCollidingObjects(SEEK_OBJECT_DROPDOWN_OPTIONS),
       },
       {'type': 'input_dummy'},
       {
@@ -1761,7 +1766,7 @@ Blockly.defineBlocksWithJsonArray([
       {
         'type': 'field_dropdown',
         'name': 'OBJECT',
-        'options': SEEK_OBJECT_DROPDOWN_OPTIONS,
+        'options': withCollidingObjects(SEEK_OBJECT_DROPDOWN_OPTIONS),
       },
       {
         'type': 'field_label',
@@ -1836,7 +1841,7 @@ Blockly.defineBlocksWithJsonArray([
       {
         'type': 'field_dropdown',
         'name': 'OBJECT',
-        'options': SEEK_OBJECT_DROPDOWN_OPTIONS,
+        'options': withCollidingObjects(SEEK_OBJECT_DROPDOWN_OPTIONS),
       },
     ],
     'previousStatement': null,
@@ -1881,7 +1886,7 @@ const buildMissileSizeBlock = ({icon, colour}) => {
         {
           'type': 'field_dropdown',
           'name': 'MISSILE',
-          'options': MISSILE_OPTIONS,
+          'options': withColliding(MISSILE_OPTIONS),
         },
         {
           'type': 'field_dropdown',

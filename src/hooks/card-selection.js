@@ -13,6 +13,9 @@ export const useCardSelection = (getIds, selectedCardId) => {
   let anchorCardId = null;
 
   const selectCard = (id, event = {}) => {
+    // A click on a frame inside the card (Ctrl or Shift selects frames there, see hooks/frame-selection.js) is a plain click for the card:
+    // with its keys it added the card to the selected cards or took it out, or selected a run of cards.
+    if (event.frameClick) event = {};
     const ids = getIds();
     if (event.shiftKey && ids.includes(anchorCardId)) {
       const from = ids.indexOf(anchorCardId);
@@ -30,7 +33,9 @@ export const useCardSelection = (getIds, selectedCardId) => {
       }
       anchorCardId = id;
     } else {
-      selectedCardIds.value = [id];
+      // (A click on a card already selected alone, as every click inside it is, leaves the list as it is: a new list re-rendered the
+      // whole tab, every card and canvas, on each click.)
+      if (selectedCardIds.value.length !== 1 || selectedCardIds.value[0] !== id) selectedCardIds.value = [id];
       selectedCardId.value = id;
       anchorCardId = id;
     }
@@ -38,7 +43,7 @@ export const useCardSelection = (getIds, selectedCardId) => {
 
   const deselectCard = () => {
     selectedCardId.value = null;
-    selectedCardIds.value = [];
+    if (selectedCardIds.value.length) selectedCardIds.value = [];
     anchorCardId = null;
   };
 

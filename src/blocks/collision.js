@@ -41,7 +41,7 @@ Blockly.defineBlocksWithJsonArray([
       {
         'type': 'field_dropdown',
         'name': 'VAR0',
-        'options': () => [anySpriteOption, ...collisionOptions()],
+        'options': () => [anySpriteOption, playerSpritesOption, ...collisionOptions()],
       },
       {
         'type': 'field_dropdown',
@@ -57,7 +57,7 @@ Blockly.defineBlocksWithJsonArray([
     ],
     'output': 'Boolean',
     'colour': 'purple',
-    'tooltip': `With "use box" ticked, a player and the Playfield are tested with the whole sprite of the player (full width and height, whatever pixels are lit) instead of the hardware flag; the answer is as of the end of the last frame. "8x8", "8x4" and "8x2" test only the lowest 8, 4 or 2 lines of the player (all of its width), for its feet.`,
+    'tooltip': `"Any sprite" stands for the players, the missiles and the ball, "Player sprites" for the players only. With "use box" ticked, a player and the Playfield are tested with the whole sprite of the player (full width and height, whatever pixels are lit) instead of the hardware flag; the answer is as of the end of the last frame. "8x8", "8x4" and "8x2" test only the lowest 8, 4 or 2 lines of the player (all of its width), for its feet.`,
   },
 ]);
 
@@ -65,12 +65,14 @@ Blockly.defineBlocksWithJsonArray([
 const collisionWhenOptions = () => collisionOptions().filter((option) => !/pool/.test(option[1]));
 // The first object of the Collided and When ... collide blocks can be any sprite (see generators/bbasic/collision-names.js).
 const anySpriteOption = [PLAYER_ICON + ' Any sprite', 'any'];
+// And only the players (not the missiles or the ball).
+const playerSpritesOption = [PLAYER_ICON + ' Player sprites', 'anyplayer'];
 Blockly.defineBlocksWithJsonArray([
   {
     'type': 'collision_when',
     'message0': 'When %1 and %2 collide %3 use box %4',
     'args0': [
-      {'type': 'field_dropdown', 'name': 'VAR0', 'options': () => [anySpriteOption, ...collisionWhenOptions()]},
+      {'type': 'field_dropdown', 'name': 'VAR0', 'options': () => [anySpriteOption, playerSpritesOption, ...collisionWhenOptions()]},
       {'type': 'field_dropdown', 'name': 'VAR1', 'options': () => collisionWhenOptions().slice(1).concat(collisionWhenOptions().slice(0, 1))},
       {'type': 'field_checkbox', 'name': 'BOX', 'checked': false},
       {'type': 'field_dropdown', 'name': 'BOXMODE', 'options': BOX_MODE_OPTIONS},
@@ -80,7 +82,7 @@ Blockly.defineBlocksWithJsonArray([
     'previousStatement': null,
     'nextStatement': null,
     'colour': 'purple',
-    'tooltip': 'Runs the blocks inside once, in the frame in which the two objects start to collide (sprites, or a sprite and the Playfield), not while the collision goes on; it runs again when they collide again after they have been apart. The collision is told as the Collided block tells it (the same "use box" setting), as of the end of the last frame. Put it in code that runs every frame, such as Gameplay update or loose in the workspace.',
+    'tooltip': 'Runs the blocks inside once, in the frame in which the two objects start to collide (sprites, or a sprite and the Playfield), not while the collision goes on; it runs again when they collide again after they have been apart. "Any sprite" stands for the players, the missiles and the ball, "Player sprites" for the players only. The collision is told as the Collided block tells it (the same "use box" setting), as of the end of the last frame. Put it in code that runs every frame, such as Gameplay update or loose in the workspace.',
   },
 ]);
 

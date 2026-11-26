@@ -10,6 +10,8 @@ export const useFrameSelection = () => {
   let anchor = null;
 
   const selectFrame = (owner, frames, frame, event = {}) => {
+    // (For the card around the frame, which gets the click next: see hooks/card-selection.js.)
+    event.frameClick = true;
     const modified = event.shiftKey || event.ctrlKey || event.metaKey;
     if (modified && event.target && event.target.closest && event.target.closest('canvas')) return;
     const ids = frames.map(({id}) => id);

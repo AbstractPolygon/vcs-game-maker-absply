@@ -621,17 +621,17 @@
                                 >
                                   <div
                                     class="pixel-editor-container"
-                                    :draggable="armedFrameKey === frameKey(card, frame)"
                                     v-on="frameHandleListeners(screen, card, frameIndex)"
                                     @mousedown="(event) => armFrameDrag(event, card, frame)"
                                     @click="(event) => selectFrame(frameOwner(screen, card), card.frames, frame, event)"
-                                    @mouseup="armedFrameKey = null"
+                                    @mouseup="disarmFrameDrag"
                                     :class="{
-                                      'pixel-editor-container-active': frameHighlightState(screen, card, frame) === 'blue' || isFrameSelected(frameOwner(screen, card), frame),
+                                      'pixel-editor-container-active': frameHighlightState(screen, card, frame) === 'blue',
                                       'pixel-editor-container-active-grey': frameHighlightState(screen, card, frame) === 'grey',
                                     }"
                                     :style="{width: editorWidth(card), maxWidth: editorWidth(card)}"
                                   >
+                                    <frame-select-mark :selected="() => isFrameSelected(frameOwner(screen, card), frame)" />
                                     <v-text-field
                                       v-if="card.frames.length > 1"
                                       label="Duration"
@@ -667,10 +667,11 @@
                                       :hideToolbar="true"
                                       @input="(value) => handleFrameEditorInput(screen, card, frame, value)"
                                       @resize="() => { if (!ballModeOn(screen, card)) handleFramePixelsInput(card, frame); }"
-                                      @clear="() => { if (!ballModeOn(screen, card)) handleClearCardColors(card); }"
-                                      @clear-colors="() => { if (!ballModeOn(screen, card)) handleClearCardColors(card); }"
+                                      @clear="() => { if (!ballModeOn(screen, card)) handleClearFrameColors(card, frame); }"
+                                      @clear-colors="() => { if (!ballModeOn(screen, card)) handleClearFrameColors(card, frame); }"
                                       @move-rows="(move) => { if (!ballModeOn(screen, card)) handleMoveRows(card, frame, move); }"
                                       @move-cells="(move) => { if (!ballModeOn(screen, card)) handleMoveBall(frame, move); }"
+                                      @selection-cells="(cells) => { if (card.type === '48x2' && !ballModeOn(screen, card)) handleBallCells(frame, cells); }"
                                       @flip-rows="() => { if (!ballModeOn(screen, card)) handleFlipRowColors(card, frame); }"
                                       @activate="(editorInstance) => setActiveFrame(editorInstance, card.id, frame.id, screen.id)"
                                     >
@@ -721,15 +722,15 @@
                                             @click="(event) => handleFrameBoxCellClick(event, screen, card, frame, cell)"
                                           />
                                         </div>
-                                        <div v-if="card.type === '48x2' && (ballModeOn(screen, card) || ballCaption(card, frame))" class="titlescreen-ball-caption">
-                                          {{ ballCaption(card, frame) || ((frame.ballPixels || []).some((row) => (row || []).some(Boolean)) ? '' : 'No ball in this frame: paint the cells it shows behind.') }}
+                                        <div v-if="card.type === '48x2' && ballCaption(card, frame)" class="titlescreen-ball-caption">
+                                          {{ ballCaption(card, frame) }}
                                         </div>
                                       </template>
                                       <template v-slot:toolbar-end>
                                         <v-btn
                                           icon
                                           small
-                                          title="Copy this frame's image (and row colors, if any)"
+                                          title="Copy this frame's image (and row colors and ball, if any)"
                                           class="titlescreen-icon-btn-size"
                                           @click="() => handleCopyFrame(frame)"
                                         >
@@ -739,7 +740,7 @@
                                           icon
                                           small
                                           :disabled="!copiedFrameData"
-                                          title="Paste copied image (and row colors, if any) onto this frame"
+                                          title="Paste copied image (and row colors and ball, if any) onto this frame"
                                           class="titlescreen-icon-btn-size"
                                           @click="() => handlePasteFrame(card, frame)"
                                         >
@@ -751,10 +752,10 @@
                                         <div class="frame-corner-toolbar">
                                           <confirm-delete-menu
                                             v-if="card.frames.length > 1"
-                                            :title="deleteFrameQuestion(frameOwner(screen, card), card.frames, frame)"
+                                            :title="() => deleteFrameQuestion(frameOwner(screen, card), card.frames, frame)"
                                             :selected="frameHighlightState(screen, card, frame) === 'blue'"
                                             :select-priority="2"
-                                            :activator-title="deleteFrameQuestion(frameOwner(screen, card), card.frames, frame).replace('?', '') + ' (Ctrl+click or Shift+click frames outside their pixels to select several)'"
+                                            :activator-title="() => deleteFrameQuestion(frameOwner(screen, card), card.frames, frame).replace('?', '') + ' (Ctrl+click or Shift+click frames outside their pixels to select several)'"
                                             icon-btn-class="titlescreen-icon-btn-size"
                                             @confirm="handleDeleteFrame(screen, card, frame)"
                                           />
@@ -895,6 +896,7 @@ import {escapeHtml} from '../utils/build-error';
 
 import ColorSwatchPicker from '../components/ColorSwatchPicker.vue';
 import ConfirmDeleteMenu from '../components/ConfirmDeleteMenu.vue';
+import FrameSelectMark from '../components/FrameSelectMark';
 import EditorZoom from '../components/EditorZoom.vue';
 import GraphicEditorToolbar from '../components/GraphicEditorToolbar.vue';
 import PixelEditor from '../components/PixelEditor.vue';
@@ -947,7 +949,7 @@ const copiedFrameRowColors = ref(null);
 
 export default defineComponent({
   name: 'TitleScreenEditor',
-  components: {ColorSwatchPicker, ConfirmDeleteMenu, EditorZoom, GraphicEditorToolbar, PixelEditor,
+  components: {ColorSwatchPicker, ConfirmDeleteMenu, EditorZoom, FrameSelectMark, GraphicEditorToolbar, PixelEditor,
     PixelGridToggle, PlayfieldColorStrip, QuickColorPalette},
   setup() {
     const instance = getCurrentInstance();
@@ -1408,39 +1410,25 @@ export default defineComponent({
       }, {key: changeKeyOf(card, field), afterChange: saveAndRedraw});
     };
 
-    // Clearing a card's  graphic (PixelEditor.vue's "clear" event,
-    // separate from an ordinary pixel edit) resets its  color field(s)
-    // back to the same default handleAddCard itself starts a new card at,
-    // rather than leaving old picks behind on an otherwise blank card.
-    // rowColors is per-FRAME now (see cardFrameHeight's comment in
-    // blocks/titlescreen.js), so this resets every one of the card's
-    // frames, not just the one whose "clear" button was actually clicked -
-    // matches "clear" resetting the WHOLE card's look, not just one frame's
-    // pixels, which is already what it does for the pixel data itself
-    // (PixelEditor.vue's "clear" event only ever touches that one
-    // v-model, i.e. just that one frame's pixels - this only covers color).
-    const handleClearCardColors = (card) => {
+    // Clearing a frame's graphic (PixelEditor.vue's "clear" event, separate from an ordinary pixel edit, which already cleared that frame's
+    // pixels) resets that frame's colors back to the defaults a new card starts with, rather than leaving old picks behind on a blank frame:
+    // its row colors, its picture background colors and the ball behind it. Only the frame whose Clear was clicked (before, every frame of the
+    // card lost its colors and ball). What the card keeps for all its frames (a single color graphic's color, the card's background colors)
+    // is reset only when the card has this one frame.
+    const handleClearFrameColors = (card, frame) => {
+      const wholeCard = card.frames.length <= 1;
       recordFieldsChange([
-        {owner: card, fields: ['color', 'background']},
-        ...card.frames.map((frame) => ({owner: frame, fields: ['rowColors', 'background', 'ballPixels']})),
+        ...(wholeCard ? [{owner: card, fields: ['color', 'background']}] : []),
+        {owner: frame, fields: ['rowColors', 'background', 'ballPixels']},
       ], () => {
         // The ball behind a 48x2 graphic goes too (its cells all off).
-        card.frames.forEach((frame) => {
-          if (frame.ballPixels) frame.ballPixels = frame.ballPixels.map((row) => (row || []).map(() => 0));
-        });
-        if (cardHasRowColors(card)) {
-          card.frames.forEach((frame) => {
-            frame.rowColors = clearRowColors(frame.rowColors);
-          });
-        } else {
-          card.color = 0x0f;
-        }
+        if (frame.ballPixels) frame.ballPixels = frame.ballPixels.map((row) => (row || []).map(() => 0));
+        if (cardHasRowColors(card)) frame.rowColors = clearRowColors(frame.rowColors);
+        else if (wholeCard) card.color = 0x0f;
         // The picture background colors go back to the page's color (the blocks that are on stay on).
         if (cardWidth(card) === 48) {
-          delete card.background;
-          card.frames.forEach((frame) => {
-            delete frame.background;
-          });
+          if (wholeCard) delete card.background;
+          delete frame.background;
           instance.proxy.$forceUpdate();
         }
         handleChildChange();
@@ -1661,15 +1649,19 @@ export default defineComponent({
     // the cells they land on are painted, the ones they leave cleared; the ball colors of their rows go with them, as the picture's row
     // colors do), and a finished move keeps the ball before and after it, so the picture's Undo and Redo put the ball back and forth with it.
     const ballMoves = new WeakMap();
+    // (A step's ball or colors that are null: the frame had none, so they are taken off again.)
+    const putBall = (frame, ball) => {
+      if (ball.pixels) instance.proxy.$set(frame, 'ballPixels', ball.pixels);
+      else instance.proxy.$delete(frame, 'ballPixels');
+      if (ball.colors) instance.proxy.$set(frame, 'ballColors', ball.colors);
+      else instance.proxy.$delete(frame, 'ballColors');
+      handleChildChange();
+    };
     const handleMoveBall = (frame, move) => {
       if (!frame.ballPixels && !ballMoves.has(frame)) return;
       const state = ballMoves.get(frame) || {base: null, undo: [], redo: []};
       ballMoves.set(frame, state);
-      const put = (ball) => {
-        instance.proxy.$set(frame, 'ballPixels', ball.pixels);
-        if (ball.colors) instance.proxy.$set(frame, 'ballColors', ball.colors);
-        handleChildChange();
-      };
+      const put = (ball) => putBall(frame, ball);
       const copy = (ball) => (ball || []).map((row) => (row || []).slice());
       const current = () => ({pixels: copy(frame.ballPixels), colors: Array.isArray(frame.ballColors) ? frame.ballColors.slice() : null});
       if (move.undo || move.redo) {
@@ -1677,7 +1669,7 @@ export default defineComponent({
         if (!step) return;
         (move.undo ? state.redo : state.undo).push(step);
         const ball = move.undo ? step.before : step.after;
-        put({pixels: copy(ball.pixels), colors: ball.colors && ball.colors.slice()});
+        put({pixels: ball.pixels && copy(ball.pixels), colors: ball.colors && ball.colors.slice()});
         return;
       }
       if (move.cancel) {
@@ -1707,6 +1699,58 @@ export default defineComponent({
       });
       const colors = state.base.colors && rowColorsAfterMove(state.base.colors, moving.map(([, y]) => y), move.dy);
       put({pixels: next, colors});
+    };
+    // Copy, Cut, Paste and Delete of a marquee take the ball along too (PixelEditor.vue's 'selection-cells' event; the user, 2026-11-25):
+    // a copy keeps, for every selected cell, whether the ball is on it, and the ball colors of the rows it is on; a paste puts that back on
+    // the cells the picture went to (a ball cell or none, as the picture's pixels; a frame without a ball gets one) with those colors, and
+    // a Delete (or Cut) clears the ball's cells in the selection. Undo and Redo go with the picture's step (as a Move's, see handleMoveBall).
+    const handleBallCells = (frame, cells) => {
+      const ballOn = (x, y) => !!(frame.ballPixels && frame.ballPixels[y] && frame.ballPixels[y][x]);
+      if (cells.copy) {
+        const colors = {};
+        const on = cells.copy.filter(([x, y]) => ballOn(x, y)).map(([x, y]) => {
+          const color = Array.isArray(frame.ballColors) ? frame.ballColors[y] : null;
+          if (color !== undefined && color !== null) colors[y - cells.top] = color;
+          return `${x - cells.left},${y - cells.top}`;
+        });
+        cells.extra = {ball: {on, colors}};
+        return;
+      }
+      const ball = cells.paste ? cells.extra && cells.extra.ball : null;
+      if (cells.paste && !ball) return;
+      if (cells.clear && !frame.ballPixels) return;
+      const height = (frame.pixels && frame.pixels.length) || 1;
+      const width = Math.max(48, ...(frame.pixels || []).map((row) => (row || []).length));
+      const before = {pixels: frame.ballPixels ? frame.ballPixels.map((row) => (row || []).slice()) : null,
+        colors: Array.isArray(frame.ballColors) ? frame.ballColors.slice() : null};
+      const start = Array.from({length: height}, (_, y) => Array.from({length: width}, (__, x) => (ballOn(x, y) ? 1 : 0)));
+      const next = start.map((row) => row.slice());
+      let colors = before.colors && before.colors.slice();
+      if (cells.clear) {
+        cells.clear.forEach(([x, y]) => {
+          if (next[y]) next[y][x] = 0;
+        });
+      } else {
+        const on = new Set(ball.on);
+        cells.paste.forEach(({x, y, dx, dy}) => {
+          if (!next[y] || x >= next[y].length) return;
+          next[y][x] = on.has(`${dx},${dy}`) ? 1 : 0;
+          const color = ball.colors[dy];
+          if (next[y][x] && color !== undefined) {
+            if (!colors) colors = [];
+            while (colors.length <= y) colors.push(null);
+            colors[y] = color;
+          }
+        });
+      }
+      if (JSON.stringify(next) === JSON.stringify(start) && JSON.stringify(colors) === JSON.stringify(before.colors)) return;
+      const after = {pixels: next, colors};
+      const state = ballMoves.get(frame) || {base: null, undo: [], redo: []};
+      ballMoves.set(frame, state);
+      state.undo.push({before, after});
+      state.redo = [];
+      putBall(frame, {pixels: next.map((row) => row.slice()), colors: colors && colors.slice()});
+      cells.changed = true;
     };
     const handleMoveRows = (card, frame, move) => {
       if (!cardHasRowColors(card)) return;
@@ -1739,6 +1783,10 @@ export default defineComponent({
         ...Object.fromEntries(['pf1', 'pf2', 'background']
             .filter((field) => previousFrame && previousFrame[field] !== undefined)
             .map((field) => [field, previousFrame[field]])),
+        // And the ball behind the picture: its cells and its row colors (see titleFrameBall).
+        ...Object.fromEntries(['ballPixels', 'ballColors']
+            .filter((field) => previousFrame && previousFrame[field] !== undefined && previousFrame[field] !== null)
+            .map((field) => [field, structuredClone(previousFrame[field])])),
       };
       if (selectedIndex >= 0) frames.splice(selectedIndex + 1, 0, newFrame);
       else frames.push(newFrame);
@@ -2004,18 +2052,24 @@ export default defineComponent({
     // The picture background box (its blocks and its color) belongs to the frame too: set on the frame
     // itself when it was changed from the graphic's, so those values go along.
     const FRAME_BOX_FIELDS = ['pf1', 'pf2', 'background'];
+    // The ball behind a 48x2 graphic goes along too: its cells and its row colors (see titleFrameBall).
+    const FRAME_BALL_FIELDS = ['ballPixels', 'ballColors'];
     const handleCopyFrame = (frame) => {
       copiedFrameData.value = {
         pixels: structuredClone(frame.pixels),
         ...(frame.rowColors ? {rowColors: structuredClone(frame.rowColors)} : {}),
         box: Object.fromEntries(FRAME_BOX_FIELDS.filter((field) => frame[field] !== undefined)
             .map((field) => [field, frame[field]])),
+        ball: Object.fromEntries(FRAME_BALL_FIELDS.filter((field) => frame[field] !== undefined && frame[field] !== null)
+            .map((field) => [field, structuredClone(frame[field])])),
       };
     };
     const handlePasteFrame = (card, frame) => {
       if (!copiedFrameData.value) return;
+      // (Only a 48x2 graphic has the ball.)
+      const ballFields = card.type === '48x2' ? FRAME_BALL_FIELDS : [];
       // Can be undone (see recordFieldsChange): the history of the pixel editor does not see a pasted image.
-      recordFieldsChange([{owner: frame, fields: ['pixels', 'rowColors', ...FRAME_BOX_FIELDS]}], () => {
+      recordFieldsChange([{owner: frame, fields: ['pixels', 'rowColors', ...FRAME_BOX_FIELDS, ...ballFields]}], () => {
         frame.pixels = structuredClone(copiedFrameData.value.pixels);
         if (cardHasRowColors(card) && copiedFrameData.value.rowColors) {
           frame.rowColors = structuredClone(copiedFrameData.value.rowColors);
@@ -2025,6 +2079,12 @@ export default defineComponent({
           if (copiedBox[field] !== undefined) frame[field] = copiedBox[field];
           else delete frame[field];
         });
+        const copiedBall = copiedFrameData.value.ball || {};
+        ballFields.forEach((field) => {
+          if (copiedBall[field] !== undefined) frame[field] = structuredClone(copiedBall[field]);
+          else delete frame[field];
+        });
+        instance.proxy.$forceUpdate();
         saveAndRedraw();
       }, {afterChange: saveAndRedraw});
     };
@@ -2149,21 +2209,28 @@ export default defineComponent({
     // Any part of a frame that isn't the drawing, a field or a button starts a drag: the frame only becomes
     // draggable while the mouse is pressed on such a part.
     const FRAME_DRAG_BLOCKED = 'canvas, input, textarea, select, button, a, .v-input, .v-btn, .playfield-color-strip, .editor-sidebar';
-    const armedFrameKey = ref(null);
+    // (Set on the frame's box here, not through the template: a change of a value the template reads re-rendered the whole tab, on the
+    // mouse going down and again on it coming up, with each click on a frame.)
+    let armedFrameKey = null;
     const frameKey = (card, frame) => `${card.id}:${frame.id}`;
     const armFrameDrag = (event, card, frame) => {
-      armedFrameKey.value = event.button === 0 && card.frames.length > 1 && !event.target.closest(FRAME_DRAG_BLOCKED) ?
-        frameKey(card, frame) : null;
+      const armed = event.button === 0 && card.frames.length > 1 && !event.target.closest(FRAME_DRAG_BLOCKED);
+      armedFrameKey = armed ? frameKey(card, frame) : null;
+      event.currentTarget.draggable = armed;
+    };
+    const disarmFrameDrag = (event) => {
+      armedFrameKey = null;
+      if (event && event.currentTarget) event.currentTarget.draggable = false;
     };
     const frameHandleListeners = (screen, card, frameIndex) => {
       const listeners = frameDrag(screen, card).dragHandleListeners(frameIndex);
       return {
         dragend: (event) => {
-          armedFrameKey.value = null;
+          disarmFrameDrag(event);
           listeners.dragend(event);
         },
         dragstart: (event) => {
-          if (!armedFrameKey.value) return;
+          if (!armedFrameKey) return;
           listeners.dragstart(event);
           const frameBox = event.currentTarget;
           if (frameBox && event.dataTransfer.setDragImage) {
@@ -2388,11 +2455,11 @@ export default defineComponent({
       showPictureBackgroundControls, frameBoxColor, frameBoxCells, handleSetFrameBoxColor, handleToggleFrameBoxCell, handleFrameBoxCellDown, handleFrameBoxCellEnter, handleFrameBoxCellClick, cardBackdrop, handleFitBox,
       handleClearBox,
       exportableScreen, handleExportTitleScreen, handleImportTitleScreen,
-      handleSetBackgroundColor, handleSetCardColor, handleSetPlayerColor, handlePlayerStartChange, handleClearCardColors,
+      handleSetBackgroundColor, handleSetCardColor, handleSetPlayerColor, handlePlayerStartChange, handleClearFrameColors,
       TITLE_PLAYER_SIZE_OPTIONS, titlePlayerSizeCode, handlePlayerSizeChange,
-      handleFramePixelsInput, handleRowColorsInput, handleMoveRows, handleMoveBall, handleFlipRowColors, cardFrameHeight,
+      handleFramePixelsInput, handleRowColorsInput, handleMoveRows, handleMoveBall, handleBallCells, handleFlipRowColors, cardFrameHeight,
       handleAddFrame, handleDeleteFrame, selectFrame, isFrameSelected, deleteFrameQuestion, frameOwner,
-      frameDrag, armedFrameKey, frameKey, armFrameDrag, frameHandleListeners,
+      frameDrag, frameKey, armFrameDrag, disarmFrameDrag, frameHandleListeners,
       handleImportCardFrames, replaceFramesOnImport, keepColorsOnImport, importMenuOpenCardRef,
       handleImportAsepriteCardFrames, asepriteImportMenuOpen,
       handleCopyFrame, handlePasteFrame, copiedFrameData,
@@ -2630,7 +2697,9 @@ export default defineComponent({
    shared .titlescreen-card-selected/etc. rule), and the same blue/grey
    split as PlayerEditor.vue's identical rules (see frameHighlightState's
    comment). */
-.pixel-editor-container-active >>> .v-card {
+/* (data-frame-selected: one of several frames selected, set by FrameSelectMark.js.) */
+.pixel-editor-container-active >>> .v-card,
+.pixel-editor-container[data-frame-selected] >>> .v-card {
   border-color: var(--v-primary-base, #1976d2) !important;
   outline: 2px solid var(--v-primary-base, #1976d2) !important;
 }

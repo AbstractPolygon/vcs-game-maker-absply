@@ -368,16 +368,16 @@
                       class="pixel-editor-container"
                       :class="{
                         'pixel-editor-container-wide': zoom >= 1,
-                        'pixel-editor-container-active': frameHighlightState(animation, frame) === 'blue' || isFrameSelected(frameOwner(animation), frame),
+                        'pixel-editor-container-active': frameHighlightState(animation, frame) === 'blue',
                         'pixel-editor-container-active-grey': frameHighlightState(animation, frame) === 'grey',
                       }"
                       :style="{width: frameEditorWidth(animation)}"
-                      :draggable="armedFrameKey === frameKey(animation, frame)"
                       v-on="frameHandleListeners(animation, frameIndex)"
                       @mousedown="(event) => armFrameDrag(event, animation, frame)"
                       @click="(event) => selectFrame(frameOwner(animation), animation.frames, frame, event)"
-                      @mouseup="armedFrameKey = null"
+                      @mouseup="disarmFrameDrag"
                     >
+                      <frame-select-mark :selected="() => isFrameSelected(frameOwner(animation), frame)" />
                       <v-text-field
                         label="Duration"
                         v-model.number="frame.duration"
@@ -442,10 +442,10 @@
                           <div class="frame-corner-toolbar">
                             <confirm-delete-menu
                               v-if="animation.frames.length > 1"
-                              :title="deleteFrameQuestion(frameOwner(animation), animation.frames, frame)"
+                              :title="() => deleteFrameQuestion(frameOwner(animation), animation.frames, frame)"
                               :selected="frameHighlightState(animation, frame) === 'blue'"
                               :select-priority="2"
-                              :activator-title="deleteFrameQuestion(frameOwner(animation), animation.frames, frame).replace('?', '') + ' (Ctrl+click or Shift+click frames outside their pixels to select several)'"
+                              :activator-title="() => deleteFrameQuestion(frameOwner(animation), animation.frames, frame).replace('?', '') + ' (Ctrl+click or Shift+click frames outside their pixels to select several)'"
                               icon-btn-class="player-icon-btn-size"
                               @confirm="handleDeleteFrame(animation, frame)"
                             />
@@ -519,6 +519,7 @@ import {chunk, max} from 'lodash';
 
 import CardFolderBar from '../components/CardFolderBar.vue';
 import ConfirmDeleteMenu from '../components/ConfirmDeleteMenu.vue';
+import FrameSelectMark from '../components/FrameSelectMark';
 import EditorZoom from '../components/EditorZoom.vue';
 import GraphicEditorToolbar from '../components/GraphicEditorToolbar.vue';
 import PixelEditor from '../components/PixelEditor.vue';
@@ -576,7 +577,7 @@ const copiedFrameRowColors = ref(null);
 const copiedFrameData = ref(null);
 
 export default defineComponent({
-  components: {CardFolderBar, ConfirmDeleteMenu, EditorZoom, GraphicEditorToolbar, PixelEditor, PixelGridToggle, PlayfieldColorStrip, QuickColorPalette},
+  components: {CardFolderBar, ConfirmDeleteMenu, EditorZoom, FrameSelectMark, GraphicEditorToolbar, PixelEditor, PixelGridToggle, PlayfieldColorStrip, QuickColorPalette},
   props: ['storageFactory', 'title', 'fgColor', 'name'],
   setup(props) {
     const instance = getCurrentInstance();
@@ -1013,22 +1014,29 @@ export default defineComponent({
     // mouse is pressed on such a part (a draggable frame all the time would turn
     // dragging over its labels into dragging the frame instead of selecting text).
     const FRAME_DRAG_BLOCKED = 'canvas, input, textarea, select, button, a, .v-input, .v-btn, .playfield-color-strip, .editor-sidebar';
-    const armedFrameKey = ref(null);
+    // (Set on the frame's box here, not through the template: a change of a value the template reads re-rendered the whole tab, on the
+    // mouse going down and again on it coming up, with each click on a frame.)
+    let armedFrameKey = null;
     const frameKey = (animation, frame) => `${animation.id}:${frame.id}`;
     const armFrameDrag = (event, animation, frame) => {
-      armedFrameKey.value = event.button === 0 && !event.target.closest(FRAME_DRAG_BLOCKED) ?
-        frameKey(animation, frame) : null;
+      const armed = event.button === 0 && !event.target.closest(FRAME_DRAG_BLOCKED);
+      armedFrameKey = armed ? frameKey(animation, frame) : null;
+      event.currentTarget.draggable = armed;
+    };
+    const disarmFrameDrag = (event) => {
+      armedFrameKey = null;
+      if (event && event.currentTarget) event.currentTarget.draggable = false;
     };
     const frameHandleListeners = (animation, frameIndex) => {
       const listeners = frameDrag(animation).dragHandleListeners(frameIndex);
       return {
         dragend: (event) => {
-          armedFrameKey.value = null;
+          disarmFrameDrag(event);
           listeners.dragend(event);
         },
         dragstart: (event) => {
           // Not a drag that started from a frame's drag area (say, dragged text).
-          if (!armedFrameKey.value) return;
+          if (!armedFrameKey) return;
           listeners.dragstart(event);
           const frameBox = event.currentTarget.closest('.pixel-editor-container');
           if (frameBox && event.dataTransfer.setDragImage) {
@@ -1525,7 +1533,7 @@ export default defineComponent({
       dragAttrs, dragCardClass, dragHandleListeners, dragTargetListeners, frameDrag, frameHandleListeners,
       visibleEntries, foldersOf, openFolderId, openFolder, refresh, handleAddFolder, handleDeleteFolder, handleDropCards, draggingCardIndex, cardHandleListeners,
       folderToolbar, folderToolbarHeight, folderToolbarPinned,
-      armedFrameKey, frameKey, armFrameDrag,
+      frameKey, armFrameDrag, disarmFrameDrag,
       zoom, playerZoomLevels: PLAYER_ZOOM_LEVELS, showPixelGrid, showPixelGridLabels, cardColumns, cardColumnMin, editorWidth, frameEditorWidth,
       activeFrameEditor, setActiveFrame, isFrameActive, frameHighlightState, selectedAnimation,
       effectiveFrameEditor, pixelEditorRefKey,
@@ -1949,7 +1957,9 @@ export default defineComponent({
    nested pixel editors) keeps its real outlined v-card border, since
    nothing here strips it the way .pixel-editor-container >>> .v-card is
    stripped on those other tabs. */
-.pixel-editor-container-active >>> .v-card {
+/* (data-frame-selected: one of several frames selected, set by FrameSelectMark.js.) */
+.pixel-editor-container-active >>> .v-card,
+.pixel-editor-container[data-frame-selected] >>> .v-card {
   border-color: var(--v-primary-base, #1976d2) !important;
   outline: 2px solid var(--v-primary-base, #1976d2) !important;
 }
